@@ -1,0 +1,41 @@
+name: Build & Deploy (OVH)
+
+on:
+  push:
+    branches: [main]
+  repository_dispatch:
+    types: [sanity-publish]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Lit la version depuis le champ "packageManager" de package.json
+      # (aligné sur l'environnement de dev : pas de divergence de lockfile).
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build (export statique)
+        run: pnpm --filter web build
+        env:
+          NEXT_PUBLIC_SANITY_PROJECT_ID: ${{ secrets.SANITY_PROJECT_ID }}
+          NEXT_PUBLIC_SANITY_DATASET: ${{ secrets.SANITY_DATASET }}
+          NEXT_PUBLIC_SANITY_API_VERSION: '2024-10-01'
+
+      - name: Déploiement FTP vers OVH
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./apps/web/out/
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
