@@ -12,8 +12,10 @@
   },
   "dependencies": {
     "@hgwf/shared": "workspace:*",
+    "@sanity/image-url": "^2.1.1",
     "next": "16.2.4",
     "next-intl": "^4.13.0",
+    "next-sanity": "^13.1.1",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
