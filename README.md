@@ -56,7 +56,7 @@ manage.sanity.io → API → Webhooks → créer un webhook **on publish** :
 
 - URL : `https://api.github.com/repos/<owner>/<repo>/dispatches`
 - Méthode : `POST`
-- Headers : `Authorization: Bearer <GITHUB_PAT>`, `Accept: application/vnd.github+json`
+- Headers : `Authorization: Bearer <GITHUB_PAT>` *(PAT classique avec scope `repo`, ou fine-grained avec `contents: write`)*, `Accept: application/vnd.github+json`, `Content-Type: application/json`
 - Body : `{ "event_type": "sanity-publish" }`
 
 Chaque publication relance le build + déploiement.

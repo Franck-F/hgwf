@@ -17,5 +17,5 @@ export const destination = defineType({
     defineField({ name: 'description', title: 'Description', type: 'array', of: [{ type: 'block' }] }),
     defineField({ name: 'language', type: 'string', readOnly: true, hidden: true }),
   ],
-  preview: { select: { title: 'nom', subtitle: 'zone' } },
+  preview: { select: { title: 'nom', subtitle: 'language' } },
 });
