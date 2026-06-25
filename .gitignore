@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js
+.next/
+out/
+
+# Sanity
+apps/studio/dist/
+
+# Env
+.env
+.env.local
+*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
