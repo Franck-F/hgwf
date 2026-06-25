@@ -1,0 +1,26 @@
+{
+  "name": "studio",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "sanity dev",
+    "build": "sanity build",
+    "deploy": "sanity deploy",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'studio lint via sanity'",
+    "test": "echo 'no studio tests'"
+  },
+  "dependencies": {
+    "@sanity/document-internationalization": "^3.3.0",
+    "@sanity/vision": "^3",
+    "react": "^19",
+    "react-dom": "^19",
+    "sanity": "^3",
+    "styled-components": "^6"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}
