@@ -67,3 +67,15 @@ Le contenu Sanity est lu **au build**. OVH ne sert que des fichiers statiques (p
 Toute interactivité backend (formulaire de devis…) passera par un service externe — voir la spec
 `docs/superpowers/specs/2026-06-25-hgwf-cargo-foundations-design.md` et le plan
 `docs/superpowers/plans/2026-06-25-hgwf-cargo-foundations.md`.
+
+## Prochaines étapes (pour activer le déploiement)
+
+1. Dépôt GitHub distant : créer le repo, git remote add origin … && git push -u origin main.
+
+2. Secrets GitHub (Settings → Secrets → Actions) : SANITY_PROJECT_ID=b5xsqdjy, SANITY_DATASET=production, et FTP_SERVER / FTP_USERNAME / FTP_PASSWORD / FTP_SERVER_DIR (depuis ton espace OVH).
+
+3. Webhook Sanity (manage.sanity.io → API → Webhooks) — instructions exactes dans le README.md.
+
+4. Studio en ligne : pnpm --filter studio deploy (URL *.sanity.studio), et ajouter les origines CORS dans manage.sanity.io.
+
+5. Contenu : remplacer le service de démo transport-maritime par du vrai contenu (garde-en ≥1 pour que le build passe).
