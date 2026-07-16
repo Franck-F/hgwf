@@ -16,7 +16,15 @@ apps/studio/.sanity/
 .env
 .env.local
 *.local
+.env.development
+
+# Build / deploy artifacts
+.netlify/
+
+# Dossier dupliqué parasite (mauvaise copie sous apps/web)
+/apps/web/apps/
 
 # OS / editor
 .DS_Store
 Thumbs.db
+.vercel

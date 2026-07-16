@@ -28,7 +28,7 @@ export default async function ServicePage({
   const service = await getService(locale, slug);
   if (!service) notFound();
   return (
-    <main>
+    <main className="mx-auto max-w-[1200px] px-8 pt-32 pb-16">
       <h1>{service.titre}</h1>
       {service.resume ? <p>{service.resume}</p> : null}
     </main>

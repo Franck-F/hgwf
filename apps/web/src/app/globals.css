@@ -1,1 +1,219 @@
 @import 'tailwindcss';
+
+/* Palette fermée HGWF — voir tokens/colors.css à la racine du monorepo */
+@theme {
+  --color-marine: #12395b;
+  --color-marine-abysse: #0c2a44;
+  --color-marine-fonce: #0e2e4a;
+  --color-ciel: #4ea8de;
+  --color-corail: #ff6f5e;
+  --color-corail-fonce: #e5604f;
+  --color-or: #ffb23e;
+  --color-creme: #fbf4e6;
+  --color-ivoire: #fffdf8;
+  --color-encre-douce: #29638d;
+
+  --font-sans: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: var(--font-space-mono), 'Space Mono', monospace;
+}
+
+/* ── Mouvement — tokens ─────────────────────────────────────────────────── */
+:root {
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Garde-fous mobile ──────────────────────────────────────────────────── */
+/* Aucun média ne déborde horizontalement (évite le scroll latéral). */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+/* Équilibre les titres sur plusieurs lignes (mobile surtout). */
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+@keyframes route-dash {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+
+@keyframes marker-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+@keyframes leve-rideau {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes zoom-arrivee {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes reponse-ouvre {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Micro-interactions (toujours actives, transform uniquement) ────────── */
+.presse {
+  transition:
+    transform 150ms var(--ease-out-quart),
+    background-color 200ms var(--ease-out-quart),
+    color 200ms var(--ease-out-quart),
+    box-shadow 200ms var(--ease-out-quart);
+}
+.presse:active {
+  transform: scale(0.97);
+}
+
+/* Zoom doux de l'image d'une carte au survol (l'élément parent porte .carte-zoom) */
+.carte-zoom img {
+  transition: transform 600ms var(--ease-out-quint);
+}
+.carte-zoom:hover img {
+  transform: scale(1.045);
+}
+
+/* Nudge de la flèche d'une carte au survol */
+.carte-zoom .fleche-carte {
+  transition: transform 300ms var(--ease-out-quart);
+}
+.carte-zoom:hover .fleche-carte {
+  transform: translate(2px, -2px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* ── Chorégraphie d'entrée du hero (au chargement) ─────────────────────
+     Les enfants directs se lèvent en cascade. Pur CSS : fonctionne sans JS. */
+  .hero-entree > * {
+    animation: leve-rideau 650ms var(--ease-out-quint) both;
+  }
+  .hero-entree > *:nth-child(2) {
+    animation-delay: 80ms;
+  }
+  .hero-entree > *:nth-child(3) {
+    animation-delay: 160ms;
+  }
+  .hero-entree > *:nth-child(4) {
+    animation-delay: 240ms;
+  }
+  .hero-entree > *:nth-child(5) {
+    animation-delay: 320ms;
+  }
+
+  /* Arrivée lente de la photo de fond du hero */
+  .hero-photo img {
+    animation: zoom-arrivee 1400ms var(--ease-out-expo) both;
+  }
+
+  /* Contenu d'un accordéon à l'ouverture */
+  details[open] > :not(summary) {
+    animation: reponse-ouvre 260ms var(--ease-out-quart) both;
+  }
+
+  /* ── Révélations au scroll — pilotées par IntersectionObserver ──────────
+     La classe `reveal-js` n'est ajoutée sur <html> que si JS s'exécute et
+     que le mouvement n'est pas réduit (voir components/RevealScroll.tsx).
+     Sans elle, aucun état masqué n'est appliqué : le contenu reste visible.
+     Compatible Safari / Firefox / Chrome, contrairement à animation-timeline. */
+
+  /* Blocs de texte : montée douce + fondu. */
+  html.reveal-js .revele,
+  html.reveal-js .revele-cascade > * {
+    opacity: 0;
+    transform: translateY(28px);
+    transition:
+      opacity 720ms var(--ease-out-expo),
+      transform 720ms var(--ease-out-expo);
+  }
+  html.reveal-js .revele.revele-visible,
+  html.reveal-js .revele-cascade.revele-visible > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Cascade : les enfants s'échelonnent une fois le conteneur visible. */
+  html.reveal-js .revele-cascade.revele-visible > *:nth-child(2) {
+    transition-delay: 70ms;
+  }
+  html.reveal-js .revele-cascade.revele-visible > *:nth-child(3) {
+    transition-delay: 140ms;
+  }
+  html.reveal-js .revele-cascade.revele-visible > *:nth-child(4) {
+    transition-delay: 210ms;
+  }
+  html.reveal-js .revele-cascade.revele-visible > *:nth-child(5) {
+    transition-delay: 280ms;
+  }
+  html.reveal-js .revele-cascade.revele-visible > *:nth-child(6) {
+    transition-delay: 350ms;
+  }
+
+  /* Panneaux d'image : léger zoom qui se pose (distinct de la montée du texte). */
+  html.reveal-js .revele-image {
+    opacity: 0;
+    transform: scale(1.045);
+    transition:
+      opacity 820ms var(--ease-out-expo),
+      transform 920ms var(--ease-out-expo);
+  }
+  html.reveal-js .revele-image.revele-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Barres de délais : le remplissage se dessine quand le bloc devient visible. */
+  html.reveal-js .barre-delai {
+    transform-origin: left center;
+    transform: scaleX(0);
+  }
+  html.reveal-js .revele-visible .barre-delai {
+    transform: scaleX(1);
+    transition: transform 900ms var(--ease-out-expo) 200ms;
+  }
+}
+
+/* ── Mouvement réduit : tout est instantané, rien n'est masqué ──────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
