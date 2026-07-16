@@ -112,7 +112,7 @@ const DEFAUT = {
     chips: ['20 PIEDS', '40 PIEDS', 'PRIX COMPÉTITIFS'],
     bouton: 'Demander un prix',
     boutonLien: '/contact',
-    imageUrl: null as string | null,
+    imageUrl: '/photos/conteneurs.jpg' as string | null,
   },
   faqCourte: {
     titre: 'Vos questions, nos',
@@ -245,7 +245,9 @@ async function getContenu(locale: Locale) {
       chips: d?.conteneurs?.chips?.length ? d.conteneurs.chips : DEFAUT.conteneurs.chips,
       bouton: d?.conteneurs?.bouton ?? DEFAUT.conteneurs.bouton,
       boutonLien: d?.conteneurs?.boutonLien ?? DEFAUT.conteneurs.boutonLien,
-      imageUrl: d?.conteneurs?.imageUrl ?? DEFAUT.conteneurs.imageUrl,
+      // Image locale forcée (prioritaire sur Sanity) — voir DEFAUT.conteneurs.imageUrl.
+      // À rebasculer sur Sanity (`d?.conteneurs?.imageUrl ?? …`) lors de la passe finale.
+      imageUrl: DEFAUT.conteneurs.imageUrl,
     },
     faqCourte: {
       titre: d?.faqCourte?.titre ?? DEFAUT.faqCourte.titre,
@@ -500,7 +502,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         <div className="grid items-stretch overflow-hidden rounded-[36px] border border-marine/12 bg-creme lg:grid-cols-[1.1fr_1fr]">
           <div className="revele-image relative min-h-[280px] min-w-0 bg-marine lg:min-h-[440px]">
             {conteneurs.imageUrl && (
-              <Image src={conteneurs.imageUrl} alt="" fill sizes="(min-width: 1024px) 55vw, 100vw" className="object-cover" />
+              <Image src={conteneurs.imageUrl} alt="Conteneurs maritimes 20 et 40 pieds empilés sur un terminal portuaire" fill sizes="(min-width: 1024px) 55vw, 100vw" className="object-cover" />
             )}
           </div>
           <div className="revele flex flex-col gap-4 p-8 md:p-14">
