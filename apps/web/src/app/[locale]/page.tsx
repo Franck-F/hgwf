@@ -319,7 +319,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             className="pointer-events-none absolute inset-0 bg-linear-92 from-marine/88 from-0% via-marine/58 via-46% to-marine/30 to-100%"
             aria-hidden="true"
           />
-          <div className="hero-entree relative z-[2] flex max-w-[660px] flex-1 flex-col justify-center gap-5 px-5 py-28 sm:gap-6 sm:px-8 sm:py-[120px] md:px-[72px]">
+          <div className="hero-entree relative z-[2] flex max-w-[800px] flex-1 flex-col justify-center gap-5 px-5 py-28 sm:gap-6 sm:px-8 sm:py-[120px] md:px-[72px]">
             <h1 className="m-0 text-[clamp(2.1rem,8.5vw,3.375rem)] leading-[1.06] font-bold tracking-[-0.03em] text-creme">
               {hero.titre} <span className="text-or">{hero.titreAccent}</span>
               <span className="text-corail">.</span>
