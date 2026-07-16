@@ -38,7 +38,7 @@ export async function Header({ locale }: { locale: string }) {
 
   return (
     <header
-      className="fixed inset-x-0 top-0 z-60 bg-marine/80 backdrop-blur-md"
+      className="entete fixed inset-x-0 top-0 z-60"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <nav

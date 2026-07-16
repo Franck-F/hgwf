@@ -8,6 +8,7 @@ import { routing } from '@/i18n/routing';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { RevealScroll } from '@/components/RevealScroll';
+import { HeaderScroll } from '@/components/HeaderScroll';
 import { previewDynamique } from '@/sanity/preview-dynamic';
 
 const spaceGrotesk = Space_Grotesk({
@@ -46,6 +47,7 @@ export default async function LocaleLayout({
       >
         <NextIntlClientProvider>
           <RevealScroll />
+          <HeaderScroll />
           <Header locale={locale} />
           {children}
           <Footer locale={locale} />

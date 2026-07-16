@@ -20,9 +20,26 @@ export function MobileNav({
 }) {
   const [open, setOpen] = useState(false);
   const [monte, setMonte] = useState(false);
+  // Présence animée : `rendu` garde le panneau dans le DOM le temps de la
+  // sortie ; `visible` pilote la transition (fondu d'entrée/sortie).
+  const [rendu, setRendu] = useState(false);
+  const [visible, setVisible] = useState(false);
 
   // Le portail nécessite document.body (client uniquement).
   useEffect(() => setMonte(true), []);
+
+  // Entrée/sortie : on monte masqué, puis on révèle à la frame suivante ;
+  // à la fermeture, on laisse le fondu se jouer avant de démonter.
+  useEffect(() => {
+    if (open) {
+      setRendu(true);
+      const id = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(id);
+    }
+    setVisible(false);
+    const t = setTimeout(() => setRendu(false), 340);
+    return () => clearTimeout(t);
+  }, [open]);
 
   // Verrouille le défilement du corps quand le menu est ouvert.
   useEffect(() => {
@@ -55,11 +72,11 @@ export function MobileNav({
 
       {/* Portail vers document.body : échappe au bloc conteneur du header
           (backdrop-filter) pour couvrir tout l'écran. */}
-      {open &&
+      {rendu &&
         monte &&
         createPortal(
           <div
-            className="fixed inset-0 z-[80] flex flex-col bg-marine md:hidden"
+            className={`fixed inset-0 z-[80] flex flex-col bg-marine md:hidden transition-opacity duration-[320ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${visible ? 'opacity-100' : 'opacity-0'}`}
             style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
             role="dialog"
             aria-modal="true"

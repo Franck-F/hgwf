@@ -322,7 +322,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             aria-hidden="true"
           />
           <div className="hero-entree relative z-[2] flex max-w-[800px] flex-1 flex-col justify-center gap-5 px-5 py-28 sm:gap-6 sm:px-8 sm:py-[120px] md:px-[72px]">
-            <h1 className="m-0 text-[clamp(2.1rem,8.5vw,3.375rem)] leading-[1.06] font-bold tracking-[-0.03em] text-creme">
+            <h1 className="m-0 text-[clamp(2.1rem,8.5vw,3.375rem)] leading-[1.06] font-bold tracking-[-0.035em] text-creme">
               {hero.titre} <span className="text-or">{hero.titreAccent}</span>
               <span className="text-corail">.</span>
             </h1>
@@ -339,7 +339,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               </Link>
               <Link
                 href={hero.boutonSecondaireLien}
-                className="w-full rounded-full border-[1.5px] border-creme/50 px-[30px] py-3.5 text-center text-[15px] font-medium text-creme transition hover:bg-creme/12 sm:w-auto"
+                className="presse w-full rounded-full border-[1.5px] border-creme/50 px-[30px] py-3.5 text-center text-[15px] font-medium text-creme hover:bg-creme/12 sm:w-auto"
               >
                 {hero.boutonSecondaire}
               </Link>
@@ -417,7 +417,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             <div className="revele flex justify-center">
               <Link
                 href={zones.boutonLien}
-                className="rounded-full bg-corail px-[30px] py-[13px] text-[15px] font-medium text-creme transition hover:bg-corail-fonce"
+                className="presse rounded-full bg-corail px-[30px] py-[13px] text-[15px] font-medium text-creme hover:bg-corail-fonce"
               >
                 {zones.bouton}
               </Link>
@@ -448,7 +448,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             </ul>
             <Link
               href={demenagement.boutonLien}
-              className="self-start rounded-full bg-corail px-[30px] py-3.5 text-[15px] font-medium text-creme transition hover:bg-corail-fonce"
+              className="presse self-start rounded-full bg-corail px-[30px] py-3.5 text-[15px] font-medium text-creme hover:bg-corail-fonce"
             >
               {demenagement.bouton}
             </Link>
@@ -509,7 +509,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             <span className="text-xs font-medium tracking-[0.32em] text-corail uppercase">
               {conteneurs.eyebrow}
             </span>
-            <h2 className="m-0 text-[30px] leading-[1.1] font-bold tracking-[-0.03em] md:text-4xl">
+            <h2 className="m-0 text-[30px] leading-[1.1] font-bold tracking-[-0.02em] md:text-4xl">
               {conteneurs.titre} <span className="text-corail">{conteneurs.titreAccent}</span>.
             </h2>
             <p className="m-0 text-[15px] leading-[1.6] text-encre-douce">{conteneurs.texte}</p>
@@ -522,7 +522,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             </div>
             <Link
               href={conteneurs.boutonLien}
-              className="self-start rounded-full border-[1.5px] border-marine px-7 py-[13px] text-[15px] font-medium text-marine transition hover:bg-marine hover:text-creme"
+              className="presse self-start rounded-full border-[1.5px] border-marine px-7 py-[13px] text-[15px] font-medium text-marine hover:bg-marine hover:text-creme"
             >
               {conteneurs.bouton}
             </Link>
@@ -558,7 +558,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         <div className="revele mt-7 flex justify-center">
           <Link
             href="/faq"
-            className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-marine px-[26px] py-3 text-sm font-medium text-marine transition hover:bg-marine hover:text-creme"
+            className="presse inline-flex items-center gap-2 rounded-full border-[1.5px] border-marine px-[26px] py-3 text-sm font-medium text-marine hover:bg-marine hover:text-creme"
           >
             {faqCourte.bouton}
             <FlecheDroite taille={15} />
@@ -585,13 +585,13 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             <div className="flex flex-wrap justify-center gap-3.5">
               <Link
                 href="/suivi"
-                className="rounded-full bg-corail px-[30px] py-3.5 text-[15px] font-medium text-creme transition hover:bg-corail-fonce"
+                className="presse rounded-full bg-corail px-[30px] py-3.5 text-[15px] font-medium text-creme hover:bg-corail-fonce"
               >
                 {ctaSuivi.boutonPrincipal}
               </Link>
               <Link
                 href="/contact"
-                className="rounded-full border-[1.5px] border-creme/50 px-[30px] py-3.5 text-[15px] font-medium text-creme transition hover:bg-creme/12"
+                className="presse rounded-full border-[1.5px] border-creme/50 px-[30px] py-3.5 text-[15px] font-medium text-creme hover:bg-creme/12"
               >
                 {ctaSuivi.boutonSecondaire}
               </Link>

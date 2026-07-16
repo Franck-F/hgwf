@@ -116,6 +116,25 @@ h3 {
   transform: translate(2px, -2px);
 }
 
+/* ── Header : matérialisation au scroll (piloté par HeaderScroll) ─────────
+   Transparent au sommet (fondu sur le hero marine), se teinte + ombre de bord
+   dès qu'on défile. Le flou est constant (imperceptible sur le sommet du hero)
+   pour éviter une transition de `backdrop-filter` depuis `none`. */
+.entete {
+  background-color: transparent;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  transition:
+    background-color 320ms var(--ease-out-quart),
+    box-shadow 320ms var(--ease-out-quart);
+}
+:root[data-defilee='true'] .entete {
+  background-color: rgba(18, 57, 91, 0.8); /* marine à 80 % */
+  box-shadow:
+    inset 0 -1px 0 rgba(251, 244, 230, 0.1),
+    0 10px 30px -18px rgba(12, 42, 68, 0.65);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   /* ── Chorégraphie d'entrée du hero (au chargement) ─────────────────────
      Les enfants directs se lèvent en cascade. Pur CSS : fonctionne sans JS. */
@@ -207,13 +226,23 @@ h3 {
   }
 }
 
-/* ── Mouvement réduit : tout est instantané, rien n'est masqué ──────────── */
+/* ── Mouvement réduit (façon Apple §14) ─────────────────────────────────────
+   On ne supprime pas tout : on garde les fondus (opacité, couleur, ombre) qui
+   aident la compréhension, et on retire le mouvement spatial (translations,
+   échelles) ainsi que les animations en boucle. Rien n'est jamais masqué. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-property: opacity, color, background-color, border-color, box-shadow, fill, stroke !important;
+    transition-duration: 220ms !important;
+  }
+  /* Retours tactiles / survols : on garde la couleur, on retire le déplacement. */
+  .presse:active,
+  .carte-zoom:hover img,
+  .carte-zoom:hover .fleche-carte {
+    transform: none !important;
   }
 }
