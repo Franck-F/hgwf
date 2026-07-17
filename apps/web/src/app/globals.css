@@ -1,20 +1,23 @@
 @import 'tailwindcss';
 
-/* Palette fermée HGWF — voir tokens/colors.css à la racine du monorepo */
+/* Palette fermée HGWF — charte définitive (livraison logo & charte graphique) */
 @theme {
-  --color-marine: #12395b;
-  --color-marine-abysse: #0c2a44;
-  --color-marine-fonce: #0e2e4a;
-  --color-ciel: #4ea8de;
-  --color-corail: #ff6f5e;
-  --color-corail-fonce: #e5604f;
-  --color-or: #ffb23e;
-  --color-creme: #fbf4e6;
-  --color-ivoire: #fffdf8;
-  --color-encre-douce: #29638d;
+  --color-marine: #063565; /* PMS 289 C */
+  --color-marine-abysse: #04203c; /* nuance sombre dérivée (dégradés) */
+  --color-marine-fonce: #052c54; /* nuance dérivée (survols) */
+  --color-ciel: #51a5dd; /* PMS 284 C */
+  --color-corail: #fd7f5a; /* PMS 170 C */
+  --color-corail-fonce: #ec6a44; /* nuance dérivée (survols) */
+  --color-or: #fdb53d; /* PMS 1225 C */
+  --color-creme: #fbf4e6; /* clair chaud (texte sur marine, panneaux) */
+  --color-ivoire: #fcf7ed; /* fond papier */
+  --color-ardoise: #45566a; /* texte secondaire */
+  --color-encre-douce: #45566a; /* alias → ardoise (compat. usages existants) */
 
-  --font-sans: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif;
-  --font-mono: var(--font-space-mono), 'Space Mono', monospace;
+  /* Charte : titrage Saira Condensed, texte courant Barlow. */
+  --font-sans: var(--font-barlow), 'Barlow', system-ui, sans-serif;
+  --font-display: var(--font-saira), 'Saira Condensed', system-ui, sans-serif;
+  --font-mono: var(--font-saira), 'Saira Condensed', system-ui, sans-serif;
 }
 
 /* ── Mouvement — tokens ─────────────────────────────────────────────────── */
@@ -32,7 +35,13 @@ video,
 canvas {
   max-width: 100%;
 }
-/* Équilibre les titres sur plusieurs lignes (mobile surtout). */
+/* Titres en Saira Condensed (charte), équilibrés sur plusieurs lignes. */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+}
 h1,
 h2,
 h3 {

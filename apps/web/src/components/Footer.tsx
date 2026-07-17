@@ -88,7 +88,7 @@ export async function Footer({ locale }: { locale: string }) {
   const email = settings?.email ?? 'contact@hgwf-cargo.fr';
   const telephone = settings?.telephones?.[0]?.numero ?? '+33 6 27 05 69 34';
   const reseaux = settings?.reseaux;
-  const logoUrl = settings?.logoFooterUrl ?? '/logos/marque-sur-marine.svg';
+  const logoUrl = '/logos/hgwf-horizontal-sombre.png';
 
   const sociaux = [
     { nom: 'Facebook', href: reseaux?.facebook ?? '#', icone: <IconeFacebook /> },
@@ -100,13 +100,14 @@ export async function Footer({ locale }: { locale: string }) {
     <footer className="bg-marine text-creme">
       <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-9 px-5 sm:px-8 pt-14 pb-10 md:grid-cols-[1.3fr_1fr_0.9fr_1fr]">
         <div className="flex flex-col gap-3.5">
-          <div className="flex items-center gap-3">
-            <Image src={logoUrl} alt="" width={44} height={44} unoptimized />
-            <span className="text-lg font-bold">
-              HGWF{' '}
-              <span className="text-[10px] font-medium tracking-[0.3em] text-or">CARGO</span>
-            </span>
-          </div>
+          <Image
+            src={logoUrl}
+            alt="HGWF Cargo"
+            width={520}
+            height={186}
+            unoptimized
+            className="h-11 w-auto self-start"
+          />
           <p className="m-0 max-w-[38ch] text-[13px] text-creme/75">{baseline}</p>
           <span className="font-mono text-[11px] leading-7 text-creme/55">{ligneLegale}</span>
         </div>

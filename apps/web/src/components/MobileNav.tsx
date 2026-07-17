@@ -83,19 +83,8 @@ export function MobileNav({
             aria-label="Menu"
           >
           <div className="flex items-center justify-between px-5 py-3">
-            <Link href="/" onClick={() => setOpen(false)} className="flex items-center gap-3">
-              <Image
-                src={logoUrl}
-                alt={nom}
-                width={40}
-                height={40}
-                unoptimized
-                className="rounded-full shadow-[0_0_0_2px_rgba(251,244,230,0.35)]"
-              />
-              <span className="flex flex-col">
-                <span className="text-lg leading-none font-bold text-creme">HGWF</span>
-                <span className="text-[8px] font-medium tracking-[0.42em] text-or uppercase">Cargo</span>
-              </span>
+            <Link href="/" onClick={() => setOpen(false)} className="flex items-center" aria-label={nom}>
+              <Image src={logoUrl} alt={nom} width={520} height={186} unoptimized className="h-10 w-auto" />
             </Link>
             <button
               type="button"

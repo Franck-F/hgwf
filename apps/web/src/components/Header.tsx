@@ -33,7 +33,8 @@ export async function Header({ locale }: { locale: string }) {
     href: nav?.cta?.href ?? CTA_DEFAUT.href,
   };
 
-  const logoUrl = settings?.logoEmblemeUrl ?? '/logos/embleme.svg';
+  // Lockup horizontal de la charte (version fond sombre) — sur le header marine.
+  const logoUrl = '/logos/hgwf-horizontal-sombre.png';
   const nom = settings?.nomCommercial ?? 'HGWF Cargo';
 
   return (
@@ -45,21 +46,16 @@ export async function Header({ locale }: { locale: string }) {
         aria-label="Navigation principale"
         className="mx-auto flex max-w-[1200px] items-center justify-between gap-3 px-5 py-2.5 sm:gap-6 sm:px-8 sm:py-3"
       >
-        <Link href="/" className="flex shrink-0 items-center gap-2.5 sm:gap-3">
+        <Link href="/" className="flex shrink-0 items-center" aria-label={nom}>
           <Image
             src={logoUrl}
             alt={nom}
-            width={42}
-            height={42}
+            width={520}
+            height={186}
+            priority
             unoptimized
-            className="h-9 w-9 rounded-full shadow-[0_0_0_2px_rgba(251,244,230,0.35)] sm:h-[42px] sm:w-[42px]"
+            className="h-9 w-auto sm:h-11"
           />
-          <span className="flex flex-col">
-            <span className="text-base leading-none font-bold text-creme sm:text-lg">HGWF</span>
-            <span className="text-[7px] font-medium tracking-[0.42em] text-or uppercase sm:text-[8px]">
-              Cargo
-            </span>
-          </span>
         </Link>
 
         <div className="hidden items-center gap-6 text-sm font-medium md:flex">
