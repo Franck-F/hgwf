@@ -88,7 +88,7 @@ export async function Footer({ locale }: { locale: string }) {
   const email = settings?.email ?? 'contact@hgwf-cargo.fr';
   const telephone = settings?.telephones?.[0]?.numero ?? '+33 6 27 05 69 34';
   const reseaux = settings?.reseaux;
-  const logoUrl = '/logos/hgwf-horizontal-sombre.png';
+  const logoUrl = '/logos/hgwf-monochrome-blanc.png';
 
   const sociaux = [
     { nom: 'Facebook', href: reseaux?.facebook ?? '#', icone: <IconeFacebook /> },
@@ -104,9 +104,9 @@ export async function Footer({ locale }: { locale: string }) {
             src={logoUrl}
             alt="HGWF Cargo"
             width={520}
-            height={186}
+            height={293}
             unoptimized
-            className="h-11 w-auto self-start"
+            className="h-14 w-auto self-start"
           />
           <p className="m-0 max-w-[38ch] text-[13px] text-creme/75">{baseline}</p>
           <span className="font-mono text-[11px] leading-7 text-creme/55">{ligneLegale}</span>
