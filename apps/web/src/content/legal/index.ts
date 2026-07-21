@@ -1,14 +1,16 @@
 import type { Locale } from '@hgwf/shared';
 import type { ContenuLegal } from '@/components/legal/PageLegale';
 import { MENTIONS_FR } from './mentions';
+import { MENTIONS_EN } from './mentions.en';
 import { CONFIDENTIALITE_FR } from './confidentialite';
+import { CONFIDENTIALITE_EN } from './confidentialite.en';
 import { CGV_FR } from './cgv';
 
 export type SlugLegal = 'mentions-legales' | 'confidentialite' | 'cgv';
 
 const CONTENUS: Record<SlugLegal, Partial<Record<Locale, ContenuLegal>> & { fr: ContenuLegal }> = {
-  'mentions-legales': { fr: MENTIONS_FR },
-  confidentialite: { fr: CONFIDENTIALITE_FR },
+  'mentions-legales': { fr: MENTIONS_FR, en: MENTIONS_EN },
+  confidentialite: { fr: CONFIDENTIALITE_FR, en: CONFIDENTIALITE_EN },
   cgv: { fr: CGV_FR },
 };
 

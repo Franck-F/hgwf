@@ -147,6 +147,9 @@ export const CGV_FR: ContenuLegal = {
           'Les présentes conditions sont soumises au droit français. Seule la version française fait foi, toute traduction étant fournie à titre d’information.',
         ),
         p(
+          'Seule la version française de ces conditions fait foi. Only the French version of these terms is legally binding.',
+        ),
+        p(
           'À défaut de résolution amiable, les litiges relèvent de la compétence du tribunal de commerce de Bobigny pour les clients professionnels. Pour les clients consommateurs, les règles légales de compétence s’appliquent.',
         ),
       ],
