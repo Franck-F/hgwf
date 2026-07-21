@@ -1,8 +1,9 @@
 /**
  * Corrige pageLegale-mentions-fr en production.
  *
- * Ce document vient de la migration de l'ancien pageMentions-fr (voir
- * migrer-pages-legales.ts) et n'a conservé que quatre sections, dont deux
+ * Ce document vient de la migration de l'ancien pageMentions-fr (script
+ * migrer-pages-legales.ts, depuis supprimé — voir l'historique git, sa cible
+ * pageMentions-fr n'existe plus) et n'a conservé que quatre sections, dont deux
  * sont fautives et une n'a pas d'équivalent dans la référence :
  *   - « Éditeur du site » a pour ancre editeur-du-site au lieu de editeur,
  *     ce qui désaligne ses ancres — des liens permanents — de celles de la
