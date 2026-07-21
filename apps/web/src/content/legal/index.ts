@@ -1,12 +1,13 @@
 import type { Locale } from '@hgwf/shared';
 import type { ContenuLegal } from '@/components/legal/PageLegale';
 import { MENTIONS_FR } from './mentions';
+import { CONFIDENTIALITE_FR } from './confidentialite';
 
 export type SlugLegal = 'mentions-legales' | 'confidentialite' | 'cgv';
 
 const CONTENUS: Record<SlugLegal, Partial<Record<Locale, ContenuLegal>> & { fr: ContenuLegal }> = {
   'mentions-legales': { fr: MENTIONS_FR },
-  confidentialite: { fr: MENTIONS_FR }, // remplacé en tâche 6
+  confidentialite: { fr: CONFIDENTIALITE_FR },
   cgv: { fr: MENTIONS_FR }, // remplacé en tâche 7
 };
 
