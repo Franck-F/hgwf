@@ -133,8 +133,8 @@ export const CGV_FR: ContenuLegal = {
           'Les présentes conditions ne privent le client consommateur d’aucun des droits que lui reconnaît le code de la consommation, notamment en matière de garanties légales.',
         ),
         p(
-          'En cas de litige, vous pouvez recourir gratuitement à un médiateur de la consommation, après nous avoir adressé une réclamation écrite. Les coordonnées du médiateur figurent dans nos ',
-          lien('mentions légales', '/mentions-legales'),
+          'En cas de litige, vous pouvez recourir gratuitement à un médiateur de la consommation, après nous avoir adressé une réclamation écrite. Les coordonnées du médiateur retenu vous seront communiquées sur demande, à ',
+          lien('contact@hgwf-cargo.fr', 'mailto:contact@hgwf-cargo.fr'),
           '.',
         ),
       ],
