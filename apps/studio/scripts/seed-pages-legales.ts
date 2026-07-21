@@ -6,7 +6,7 @@
  * une modification faite par le client dans le Studio.
  *
  * Les textes ci-dessous sont recopiés mot pour mot depuis
- * apps/web/src/content/legal/{confidentialite,cgv,mentions.en,confidentialite.en}.ts.
+ * apps/web/src/content/legal/{confidentialite,cgv,mentions,mentions.en,confidentialite.en}.ts.
  * Conversion en texte brut : les liens sont réduits à leur texte visible et les
  * puces des listes deviennent des lignes séparées — les liens et listes se
  * ressaisissent dans le Studio si le client le souhaite, la version du code
@@ -173,6 +173,44 @@ const DOCUMENTS = [
         'Les présentes conditions sont soumises au droit français. Seule la version française fait foi, toute traduction étant fournie à titre d’information.',
         'Seule la version française de ces conditions fait foi. Only the French version of these terms is legally binding.',
         'À défaut de résolution amiable, les litiges relèvent de la compétence du tribunal de commerce de Bobigny pour les clients professionnels. Pour les clients consommateurs, les règles légales de compétence s’appliquent.',
+      ]),
+    ],
+  },
+  {
+    _id: 'pageLegale-mentions-fr',
+    language: 'fr',
+    slug: 'mentions-legales',
+    titre: 'Mentions légales',
+    eyebrow: 'Informations légales',
+    titrePage: 'Mentions légales.',
+    // Six sections, identiques à MENTIONS_FR (apps/web/src/content/legal/mentions.ts) et à
+    // l'entrée pageLegale-mentions-en ci-dessous : éditeur, immatriculation, direction,
+    // hébergement (mention LCEN obligatoire), propriété intellectuelle, données personnelles.
+    sections: [
+      section('Éditeur du site', 'editeur', [
+        'HGWF CARGO, société par actions simplifiée.',
+        'Siège social : avenue Faidherbe, 93110 Rosny-sous-Bois, France.',
+        'Adresse logistique : 10 rue Diderot, 93110 Rosny-sous-Bois.',
+        'Courriel : contact@hgwf-cargo.fr — Téléphone : +33 6 27 05 69 34.',
+      ]),
+      section('Immatriculation', 'immatriculation', [
+        'Registre du commerce et des sociétés de Bobigny, sous le numéro 940 048 051.',
+        'Numéro de TVA intracommunautaire : FR18940048051.',
+        'Code d’activité : 49.41B — transport routier de fret.',
+      ]),
+      section('Direction de la publication', 'direction', [
+        'Directrice de la publication : Marie Rioltha Bagassien, présidente.',
+      ]),
+      section('Hébergement', 'hebergement', [
+        'Le site est hébergé par OVH SAS.',
+        '2 rue Kellermann, 59100 Roubaix, France.',
+        'Téléphone : +33 9 72 10 10 07.',
+      ]),
+      section('Propriété intellectuelle', 'propriete-intellectuelle', [
+        'L’ensemble des contenus de ce site — textes, images, identité visuelle, logos — est protégé par le droit de la propriété intellectuelle. Toute reproduction ou représentation, totale ou partielle, sans autorisation écrite préalable est interdite.',
+      ]),
+      section('Données personnelles', 'donnees-personnelles', [
+        'Le traitement des données collectées sur ce site est décrit dans notre politique de confidentialité.',
       ]),
     ],
   },
