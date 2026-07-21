@@ -72,12 +72,3 @@ export const MENTIONS_FR: ContenuLegal = {
     },
   ],
 };
-
-// Sections dont les données manquent. À réintégrer dans MENTIONS_FR.sections dès
-// que le client fournit les valeurs — voir la spec, « Données à compléter ».
-export const MENTIONS_A_COMPLETER = [
-  'Capital social de la SAS',
-  'Numéro d’inscription au registre électronique national des entreprises de transport par route, et licence',
-  'Assureur en responsabilité civile professionnelle, numéro de police et étendue géographique',
-  'Médiateur de la consommation retenu et ses coordonnées (obligatoire, art. L.612-1 du code de la consommation)',
-];

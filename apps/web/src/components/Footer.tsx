@@ -125,7 +125,7 @@ export async function Footer({ locale }: { locale: string }) {
             className="h-14 w-auto self-start"
           />
           <p className="m-0 max-w-[38ch] text-[13px] text-creme/75">{baseline}</p>
-          <span className="font-mono text-[11px] leading-7 text-creme/55">{ligneLegale}</span>
+          <span className="whitespace-pre-line font-mono text-[11px] leading-7 text-creme/55">{ligneLegale}</span>
         </div>
         {colonnes.map((c) => (
           <div key={c.titre} className="flex flex-col gap-2.5 text-sm">

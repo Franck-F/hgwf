@@ -39,7 +39,7 @@ export function PageLegale({ contenu, locale }: { contenu: ContenuLegal; locale:
           {chapo && <p className="m-0 max-w-[62ch] text-[15px] leading-[1.6] text-creme/85">{chapo}</p>}
           {dateLisible && (
             <span className="font-mono text-xs text-creme/60">
-              {locale === 'en' ? 'Last updated' : 'Dernière mise à jour'} : {dateLisible}
+              {locale === 'en' ? `Last updated: ${dateLisible}` : `Dernière mise à jour : ${dateLisible}`}
             </span>
           )}
         </div>

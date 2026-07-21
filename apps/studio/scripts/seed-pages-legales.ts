@@ -423,8 +423,8 @@ const DOCUMENTS = [
         p('You have the following rights over the data concerning you:'),
         ...liste(
           'right of access: to obtain a copy of the data we hold about you',
-          'right of rectification: to have inaccurate information corrected',
-          'right of erasure, where retention is no longer justified',
+          'right to rectification: to have inaccurate information corrected',
+          'right to erasure, where retention is no longer justified',
           'right to restriction of processing',
           'right to object, in particular to processing based on our legitimate interest',
           'right to data portability for the data you have provided to us',
