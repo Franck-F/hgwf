@@ -282,10 +282,6 @@ export default defineConfig([
             { route: '/:locale/devis/', filter: `_type == "pageDevis" && language == $locale` },
             {
               route: '/:locale/mentions-legales/',
-              filter: `_type == "pageMentions" && language == $locale`,
-            },
-            {
-              route: '/:locale/mentions-legales/',
               filter: `_type == "pageLegale" && slug.current == "mentions-legales" && language == $locale`,
             },
             {
