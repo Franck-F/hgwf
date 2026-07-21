@@ -44,6 +44,22 @@ const FORMULAIRE_DEFAUT = {
   boutonReinitialiser: 'Envoyer un autre message',
 };
 
+// Mention RGPD : ni Sanity ni FORMULAIRE_DEFAUT ne sont localisés par langue
+// (le CMS ne connaît pas ce champ), donc on choisit la traduction ici même,
+// à partir de la locale de la page — même principe que contenuLegal() pour
+// les pages légales.
+const MENTION_RGPD_FR = {
+  texte:
+    'Les informations recueillies servent uniquement à traiter votre demande. Elles sont conservées trois ans et ne sont jamais cédées. Vous disposez d’un droit d’accès, de rectification et d’effacement — voir notre',
+  lienLibelle: 'politique de confidentialité',
+};
+
+const MENTION_RGPD_EN = {
+  texte:
+    'The information collected is used only to process your request. It is kept for three years and is never shared with third parties. You have a right of access, rectification and erasure — see our',
+  lienLibelle: 'privacy policy',
+};
+
 const CENTRE_DEFAUT = {
   eyebrow: 'Sur RDV uniquement',
   titre: 'Nous rendre visite, ou faire livrer vos colis.',
@@ -95,6 +111,7 @@ async function getContenu(locale: Locale) {
     confirmationTexte: data?.formulaire?.confirmationTexte ?? FORMULAIRE_DEFAUT.confirmationTexte,
     boutonReinitialiser: data?.formulaire?.boutonReinitialiser ?? FORMULAIRE_DEFAUT.boutonReinitialiser,
     emailDestinataire: settings?.email ?? 'contact@hgwf-cargo.fr',
+    mentionRgpd: locale === 'en' ? MENTION_RGPD_EN : MENTION_RGPD_FR,
   };
 
   const centre = {

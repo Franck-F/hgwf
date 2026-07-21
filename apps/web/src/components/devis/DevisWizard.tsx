@@ -36,6 +36,10 @@ export type DevisWizardContent = {
   imagesEtapes: (string | null)[];
   emailDestinataire: string;
   sujetEmail: string;
+  // Mention RGPD affichée sous le bouton d'envoi de la dernière étape ;
+  // scindée en deux pour pouvoir insérer le lien vers la politique de
+  // confidentialité au milieu.
+  mentionRgpd: { texte: string; lienLibelle: string };
 };
 
 type Colis = { L: string; l: string; h: string; q: string };
@@ -312,32 +316,44 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
 
         {/* Navigation étapes */}
         {!envoye && (
-          <div className="mt-auto flex justify-between gap-4 border-t border-marine/12 pt-[22px]">
-            {step > 1 ? (
-              <button
-                onClick={() => setStep((s) => Math.max(1, s - 1))}
-                className="cursor-pointer rounded-full border-[1.5px] border-marine bg-transparent px-6 py-3 font-sans text-[15px] font-medium text-marine transition hover:bg-creme"
-              >
-                {c.boutons.precedent}
-              </button>
-            ) : (
-              <span />
-            )}
-            {step < 4 ? (
-              <button
-                onClick={() => setStep((s) => Math.min(4, s + 1))}
-                className="presse cursor-pointer rounded-full border-none bg-corail px-7 py-3 font-sans text-[15px] font-medium text-creme hover:bg-corail-fonce"
-              >
-                {c.boutons.suivant}
-              </button>
-            ) : (
-              <button
-                onClick={envoyer}
-                disabled={envoiEnCours}
-                className="presse cursor-pointer rounded-full border-none bg-corail px-7 py-3 font-sans text-[15px] font-medium text-creme hover:bg-corail-fonce disabled:opacity-60"
-              >
-                {envoiEnCours ? '…' : c.boutons.envoyer}
-              </button>
+          <div className="mt-auto flex flex-col gap-4">
+            <div className="flex justify-between gap-4 border-t border-marine/12 pt-[22px]">
+              {step > 1 ? (
+                <button
+                  onClick={() => setStep((s) => Math.max(1, s - 1))}
+                  className="cursor-pointer rounded-full border-[1.5px] border-marine bg-transparent px-6 py-3 font-sans text-[15px] font-medium text-marine transition hover:bg-creme"
+                >
+                  {c.boutons.precedent}
+                </button>
+              ) : (
+                <span />
+              )}
+              {step < 4 ? (
+                <button
+                  onClick={() => setStep((s) => Math.min(4, s + 1))}
+                  className="presse cursor-pointer rounded-full border-none bg-corail px-7 py-3 font-sans text-[15px] font-medium text-creme hover:bg-corail-fonce"
+                >
+                  {c.boutons.suivant}
+                </button>
+              ) : (
+                <button
+                  onClick={envoyer}
+                  disabled={envoiEnCours}
+                  className="presse cursor-pointer rounded-full border-none bg-corail px-7 py-3 font-sans text-[15px] font-medium text-creme hover:bg-corail-fonce disabled:opacity-60"
+                >
+                  {envoiEnCours ? '…' : c.boutons.envoyer}
+                </button>
+              )}
+            </div>
+            {/* Mention RGPD : sous le bouton d'envoi de la dernière étape, celle qui déclenche réellement l'envoi. */}
+            {step === 4 && (
+              <p className="m-0 text-xs leading-[1.5] text-encre-douce">
+                {c.mentionRgpd.texte}{' '}
+                <Link href="/confidentialite" className="underline">
+                  {c.mentionRgpd.lienLibelle}
+                </Link>
+                .
+              </p>
             )}
           </div>
         )}
