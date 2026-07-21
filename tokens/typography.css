@@ -1,0 +1,19 @@
+/* HGWF Cargo — typographie. Space Grotesk partout ; Space Mono pour la donnée. */
+:root {
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
+
+  --fs-display: 56px;  /* Bold 700, uppercase, point final, tracking -0.03em, lh 1.0 */
+  --fs-h1: 40px;       /* Bold 700, uppercase, point final */
+  --fs-h2: 28px;       /* Bold 700 */
+  --fs-h3: 20px;       /* Medium 500 */
+  --fs-body: 16px;     /* Regular 400, lh 1.5 */
+  --fs-small: 14px;
+  --fs-caption: 12px;  /* eyebrow : uppercase, tracking 0.32em, Medium — le « C A R G O » */
+
+  --tracking-tight: -0.03em;
+  --tracking-eyebrow: 0.32em;
+
+  --measure: 62ch;
+}

@@ -1,0 +1,31 @@
+/* HGWF Cargo — couleurs. Palette fermée, extraite du logo 1D « Balise ». */
+:root {
+  /* — base (extraites du PDF, valeurs exactes) — */
+  --hgwf-marine:  #12395B; /* le badge. Fond premium, texte par défaut */
+  --hgwf-ciel:    #4EA8DE; /* la houle haute */
+  --hgwf-corail:  #FF6F5E; /* la houle basse. Accent d'action */
+  --hgwf-or:      #FFB23E; /* la flèche. Highlight, jamais surface pleine */
+  --hgwf-creme:   #FBF4E6; /* texte sur marine, surface chaude */
+  --hgwf-ivoire:  #FFFDF8; /* le papier. Fond par défaut */
+
+  /* — dérivées (mélanges, pas de nouvelles teintes) — */
+  --hgwf-marine-abysse: #0C2A44;                                        /* hover sur marine */
+  --hgwf-encre-douce: color-mix(in srgb, var(--hgwf-marine) 62%, var(--hgwf-ciel)); /* texte secondaire */
+  --hgwf-ciel-lagune:  color-mix(in srgb, var(--hgwf-ciel) 14%, var(--hgwf-ivoire));
+  --hgwf-corail-nacre: color-mix(in srgb, var(--hgwf-corail) 12%, var(--hgwf-ivoire));
+  --hgwf-or-sable:     color-mix(in srgb, var(--hgwf-or) 16%, var(--hgwf-ivoire));
+
+  /* — sémantiques — */
+  --bg: var(--hgwf-ivoire);
+  --bg-soft: var(--hgwf-creme);
+  --bg-premium: var(--hgwf-marine);
+  --fg: var(--hgwf-marine);
+  --fg-muted: var(--hgwf-encre-douce);
+  --fg-on-dark: var(--hgwf-creme);
+  --accent: var(--hgwf-corail);
+  --accent-hover: color-mix(in srgb, var(--hgwf-corail) 88%, black);
+  --accent-2: var(--hgwf-ciel);
+  --highlight: var(--hgwf-or);
+  --hairline: color-mix(in srgb, var(--hgwf-marine) 18%, transparent);
+  --hairline-dark: color-mix(in srgb, var(--hgwf-creme) 22%, transparent);
+}

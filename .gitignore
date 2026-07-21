@@ -24,6 +24,16 @@ apps/studio/.sanity/
 # Dossier dupliqué parasite (mauvaise copie sous apps/web)
 /apps/web/apps/
 
+# Doublon strict de la charte versionnée à la racine (tokens/, components/,
+# preview/, ui_kits/, fonts/, styles.css, SKILL.md) — extraction d'origine du zip.
+/Design system du logo 1D/
+
+# Outillage agents local (packs de skills tiers, liens symboliques)
+.agents/
+.claude/
+.superpowers/
+skills-lock.json
+
 # OS / editor
 .DS_Store
 Thumbs.db
