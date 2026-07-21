@@ -208,6 +208,29 @@ export async function getPageMentions(locale: Locale): Promise<PageMentionsData 
   return sanityClient.fetch<PageMentionsData | null>(PAGE_MENTIONS, { locale });
 }
 
+// ── Pages légales ────────────────────────────────────────────────────────────────
+
+export type PageLegaleData = {
+  eyebrow?: string | null;
+  titrePage?: string | null;
+  chapo?: string | null;
+  dateMaj?: string | null;
+  sections?: { titre?: string | null; ancre?: string | null; corps?: unknown[] | null }[] | null;
+  seoTitre?: string | null;
+  seoDescription?: string | null;
+};
+
+const PAGE_LEGALE = groq`*[_type == "pageLegale" && slug.current == $slug && language == $locale][0]{
+  eyebrow, titrePage, chapo, dateMaj,
+  sections[]{titre, "ancre": ancre.current, corps},
+  seoTitre, seoDescription
+}`;
+
+export async function getPageLegale(locale: Locale, slug: string): Promise<PageLegaleData | null> {
+  if (!sanityClient) return null;
+  return sanityClient.fetch<PageLegaleData | null>(PAGE_LEGALE, { locale, slug });
+}
+
 // ── Page Devis ───────────────────────────────────────────────────────────────
 
 export type PageDevisData = {
