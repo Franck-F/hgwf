@@ -400,28 +400,12 @@ async function main() {
   });
   console.log('  ✓ pageDevis-fr');
 
-  // ── Page Mentions légales ──
-  await client.createOrReplace({
-    _id: 'pageMentions-fr',
-    _type: 'pageMentions',
-    language: 'fr',
-    titre: 'Mentions légales',
-    eyebrow: 'Informations légales',
-    titrePage: 'Mentions légales.',
-    sections: [
-      {
-        _key: k('sec'),
-        titre: 'Éditeur du site',
-        corps: 'HGWF SOLUTIONS TRANSPORTS LOGISTIQUES\n29 avenue Nollet, 93420 Villepinte',
-      },
-      { _key: k('sec'), titre: 'Immatriculation', corps: '940 048 051 R.C.S. Bobigny\nNuméro de TVA : FR18940048051' },
-      { _key: k('sec'), titre: 'Direction', corps: 'Dirigeante : Marie Bagassien' },
-      { _key: k('sec'), titre: 'Contact', corps: 'contact@hgwf-cargo.fr\n+33 6 27 05 69 34' },
-    ],
-    seoTitre: 'Mentions légales — HGWF Cargo',
-    seoDescription: 'Mentions légales du site HGWF Cargo — HGWF Solutions Transports Logistiques.',
-  });
-  console.log('  ✓ pageMentions-fr');
+  // Page Mentions légales : retirée de ce seed (tâche 11). Elle semait
+  // pageMentions-fr avec createOrReplace et une dénomination et une adresse
+  // absentes du registre du commerce (voir historique git), sur un type
+  // devenu obsolète (remplacé par pageLegale). Le contenu correct est semé par
+  // scripts/seed-pages-legales.ts (pageLegale-mentions-fr, déjà migré en
+  // production avec l'identité du registre du commerce).
 
   // ── Page Accueil ──
   await client.createOrReplace({
