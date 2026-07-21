@@ -23,7 +23,10 @@ const composants = {
       </ol>
     ),
   },
-  listItem: { bullet: ({ children }: { children?: React.ReactNode }) => <li>{children}</li> },
+  listItem: {
+    bullet: ({ children }: { children?: React.ReactNode }) => <li>{children}</li>,
+    number: ({ children }: { children?: React.ReactNode }) => <li>{children}</li>,
+  },
   marks: {
     strong: ({ children }: { children?: React.ReactNode }) => (
       <strong className="font-semibold text-marine">{children}</strong>

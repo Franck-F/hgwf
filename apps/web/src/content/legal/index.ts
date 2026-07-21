@@ -2,13 +2,14 @@ import type { Locale } from '@hgwf/shared';
 import type { ContenuLegal } from '@/components/legal/PageLegale';
 import { MENTIONS_FR } from './mentions';
 import { CONFIDENTIALITE_FR } from './confidentialite';
+import { CGV_FR } from './cgv';
 
 export type SlugLegal = 'mentions-legales' | 'confidentialite' | 'cgv';
 
 const CONTENUS: Record<SlugLegal, Partial<Record<Locale, ContenuLegal>> & { fr: ContenuLegal }> = {
   'mentions-legales': { fr: MENTIONS_FR },
   confidentialite: { fr: CONFIDENTIALITE_FR },
-  cgv: { fr: MENTIONS_FR }, // remplacé en tâche 7
+  cgv: { fr: CGV_FR },
 };
 
 // Repli sur le français quand une traduction n'existe pas : c'est le cas voulu
