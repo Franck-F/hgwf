@@ -22,19 +22,39 @@ const client = getCliClient({ apiVersion: '2024-10-01' });
 let compteur = 0;
 const cle = (p: string) => `${p}-${(compteur += 1).toString(36)}`;
 
-const p = (texte: string) => ({
-  _type: 'block',
-  _key: cle('b'),
-  style: 'normal',
-  children: [{ _type: 'span', _key: cle('s'), text: texte, marks: [] }],
-  markDefs: [],
-});
+type Bloc = {
+  _type: 'block';
+  _key: string;
+  style: 'normal' | 'h3';
+  children: { _type: 'span'; _key: string; text: string; marks: string[] }[];
+  markDefs: never[];
+};
 
-const section = (titre: string, ancre: string, lignes: string[]) => ({
+// Fabrique commune à p() et titre3() : seul le style change. Reprend la même distinction
+// normal/h3 que apps/web/src/components/legal/portable.ts, la source de vérité des contenus
+// par défaut copiés ci-dessous.
+const blocTexte =
+  (style: Bloc['style']) =>
+  (texte: string): Bloc => ({
+    _type: 'block',
+    _key: cle('b'),
+    style,
+    children: [{ _type: 'span', _key: cle('s'), text: texte, marks: [] }],
+    markDefs: [],
+  });
+
+const p = blocTexte('normal');
+// Sous-titres de niveau 3 (ex. « Demande de devis ») : mêmes blocs que titre3() dans
+// portable.ts, pour que le Studio produise la même hiérarchie sémantique que le code.
+const titre3 = blocTexte('h3');
+
+// lignes accepte soit du texte brut (→ paragraphe normal), soit un bloc déjà construit
+// (via titre3()) pour les sous-titres qui doivent rester des h3.
+const section = (titre: string, ancre: string, lignes: (string | Bloc)[]) => ({
   _key: cle('sec'),
   titre,
   ancre: { _type: 'slug', current: ancre },
-  corps: lignes.map(p),
+  corps: lignes.map((ligne) => (typeof ligne === 'string' ? p(ligne) : ligne)),
 });
 
 const DOCUMENTS = [
@@ -52,13 +72,13 @@ const DOCUMENTS = [
       ]),
       section('Données collectées et finalités', 'finalites', [
         'Nous ne collectons que les données que vous nous transmettez volontairement.',
-        'Demande de devis',
+        titre3('Demande de devis'),
         'Nom, courriel, téléphone, destination, port de départ, dimensions et nombre de colis, message libre. Ces données servent à établir votre devis et à vous répondre. Base légale : l’exécution de mesures précontractuelles prises à votre demande. Conservation : trois ans à compter du dernier contact.',
-        'Formulaire de contact',
+        titre3('Formulaire de contact'),
         'Nom, courriel, téléphone, objet et message. Ces données servent à traiter votre demande. Base légale : notre intérêt légitime à répondre aux sollicitations qui nous sont adressées. Conservation : trois ans à compter du dernier contact.',
-        'Suivi d’expédition',
+        titre3('Suivi d’expédition'),
         'Référence de dossier ou numéro de conteneur, statut, position et coordonnées liées au dossier. Base légale : l’exécution du contrat de transport. Conservation : durée du contrat, puis cinq ans au titre de la prescription commerciale, et dix ans pour les pièces comptables.',
-        'Sécurité du service',
+        titre3('Sécurité du service'),
         'Votre adresse IP est utilisée pour limiter le nombre de requêtes envoyées à nos formulaires et prévenir les abus. Base légale : notre intérêt légitime à protéger le service. Cette donnée reste en mémoire vive et n’est pas enregistrée.',
       ]),
       section('Destinataires', 'destinataires', [
@@ -205,13 +225,13 @@ const DOCUMENTS = [
       ]),
       section('Data collected and purposes', 'finalites', [
         'We only collect data that you provide to us voluntarily.',
-        'Quote request',
+        titre3('Quote request'),
         'Name, email address, phone number, destination, port of departure, package dimensions and quantity, free-text message. This data is used to prepare your quote and to respond to you. Legal basis: the performance of pre-contractual measures taken at your request. Retention period: three years from the last contact.',
-        'Contact form',
+        titre3('Contact form'),
         'Name, email address, phone number, subject and message. This data is used to handle your enquiry. Legal basis: our legitimate interest in responding to enquiries addressed to us. Retention period: three years from the last contact.',
-        'Shipment tracking',
+        titre3('Shipment tracking'),
         'File reference or container number, status, location and contact details linked to the file. Legal basis: the performance of the transport contract. Retention period: for the duration of the contract, then five years under the French commercial limitation period, and ten years for accounting records.',
-        'Service security',
+        titre3('Service security'),
         'Your IP address is used to limit the number of requests sent to our forms and to prevent abuse. Legal basis: our legitimate interest in protecting the service. This data remains in volatile memory and is not stored.',
       ]),
       section('Recipients', 'destinataires', [
