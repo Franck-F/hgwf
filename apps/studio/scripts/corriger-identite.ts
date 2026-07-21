@@ -9,6 +9,17 @@
  * défaut du code) sur le seul lien « Mentions légales ». Les pages
  * confidentialité et CGV resteraient sinon inaccessibles depuis le footer.
  *
+ * Corrige aussi, si pageLegale-mentions-fr existe déjà, ses champs
+ * seoTitre/seoDescription — migrer-pages-legales.ts impose désormais ces
+ * mêmes valeurs à la création du document, mais si ce script est rejoué sur
+ * une base déjà migrée (où le document existe et ne sera donc pas recréé),
+ * il faut aussi les réappliquer ici pour que l'état final soit identique
+ * qu'on parte d'une base vierge ou d'une base déjà migrée.
+ *
+ * Garde-fou : siteSettings et footer doivent déjà exister (le script ne les
+ * crée pas) ; le script s'arrête avant toute écriture si l'un des deux est
+ * introuvable.
+ *
  * Exécution (depuis apps/studio) :
  *   npx sanity exec scripts/corriger-identite.ts --with-user-token
  */
@@ -33,9 +44,32 @@ const LIENS_LEGAUX = [
   { _key: 'legal-cgv', libelleFr: 'CGV', libelleEn: 'Terms of sale', href: '/cgv' },
 ];
 
+// Mêmes valeurs que celles imposées par migrer-pages-legales.ts (SEO_DESCRIPTION_CORRIGEE) —
+// l'ancien seoDescription portait la dénomination erronée « HGWF Solutions Transports
+// Logistiques », absente du registre du commerce.
+const SEO_TITRE_MENTIONS = 'Mentions légales — HGWF Cargo';
+const SEO_DESCRIPTION_MENTIONS = 'Mentions légales du site HGWF Cargo — éditeur, immatriculation et hébergeur.';
+
 async function main() {
-  const avant = await client.fetch<{ ligneLegale?: string } | null>('*[_id == "footer"][0]{ligneLegale}');
-  const invisibles = (avant?.ligneLegale ?? '').match(INVISIBLES)?.length ?? 0;
+  // Garde-fou : siteSettings et footer sont patchés ci-dessous sans être créés par ce script.
+  // On vérifie donc leur existence avant toute écriture, comme le fait déjà
+  // migrer-pages-legales.ts pour sa propre cible.
+  const requis = ['siteSettings', 'footer'] as const;
+  const trouves = await client.fetch<{ _id: string; ligneLegale?: string }[]>(
+    '*[_id in $ids]{_id, ligneLegale}',
+    { ids: requis },
+  );
+  const parId = new Map(trouves.map((d) => [d._id, d]));
+  const manquants = requis.filter((id) => !parId.has(id));
+  if (manquants.length > 0) {
+    console.error(
+      `Document(s) introuvable(s) : ${manquants.join(', ')}. Ce script corrige des documents ` +
+        `existants, il ne les crée pas. Correction interrompue avant toute écriture.`,
+    );
+    process.exit(1);
+  }
+
+  const invisibles = (parId.get('footer')?.ligneLegale ?? '').match(INVISIBLES)?.length ?? 0;
   console.log(`ligneLegale : ${invisibles} caractères invisibles à retirer`);
 
   await client.patch('siteSettings').set({ raisonSociale: RAISON_SOCIALE, adresseSiege: ADRESSE_SIEGE }).commit();
@@ -43,6 +77,19 @@ async function main() {
 
   await client.patch('footer').set({ ligneLegale: LIGNE_LEGALE, liensLegaux: LIENS_LEGAUX }).commit();
   console.log('  ✓ footer (ligneLegale, liensLegaux : mentions légales, confidentialité, CGV)');
+
+  // pageLegale-mentions-fr n'existe pas forcément (base vierge pas encore migrée) : on ne le
+  // corrige que s'il existe déjà, sans en faire une condition d'échec du script.
+  const pageMentions = await client.fetch<{ _id: string } | null>('*[_id == "pageLegale-mentions-fr"][0]{_id}');
+  if (pageMentions) {
+    await client
+      .patch('pageLegale-mentions-fr')
+      .set({ seoTitre: SEO_TITRE_MENTIONS, seoDescription: SEO_DESCRIPTION_MENTIONS })
+      .commit();
+    console.log('  ✓ pageLegale-mentions-fr (seoTitre, seoDescription)');
+  } else {
+    console.log('  · pageLegale-mentions-fr introuvable — pas encore migré, rien à corriger ici.');
+  }
 
   console.log('Correction terminée.');
 }

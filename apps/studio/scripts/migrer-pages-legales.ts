@@ -50,6 +50,14 @@ const EDITEUR_CORRIGE = enBlocs(
   ].join('\n'),
 );
 
+// Imposé, pas repris de la source : l'ancien seoDescription de pageMentions-fr contenait lui
+// aussi la dénomination erronée « HGWF Solutions Transports Logistiques », absente du
+// registre du commerce. Cette valeur avait été corrigée à la main directement en production,
+// hors de tout script — ce qui la rendait invisible ici. On l'impose donc en dur pour que ce
+// script redevienne la source de vérité et reste rejouable sans dépendre d'une correction
+// manuelle non tracée.
+const SEO_DESCRIPTION_CORRIGEE = 'Mentions légales du site HGWF Cargo — éditeur, immatriculation et hébergeur.';
+
 const ancrer = (t: string) =>
   t
     .normalize('NFD')
@@ -96,6 +104,21 @@ async function main() {
     console.log(`  · ${s.titre} — ${marque}, ${s.corps.length} paragraphe(s)`);
   });
 
+  // Garde-fou : toute la correction d'identité repose sur la détection de la section
+  // « Éditeur du site » par son titre. Si aucun titre ne correspond (source restructurée,
+  // renommée, etc.), le document serait créé sans cette correction — silencieusement, alors
+  // que c'est le cœur de la migration. On arrête donc avant toute écriture, y compris en
+  // simulation, pour que l'absence de correction ne passe jamais inaperçue.
+  const remplacements = sections.filter((s) => s._remplace).length;
+  if (remplacements === 0) {
+    console.error(
+      `\nAucune section « Éditeur » trouvée dans ${SOURCE} (titre attendu commençant par ` +
+        `« éditeur »). La correction d'identité ne serait pas appliquée. Migration interrompue ` +
+        `avant toute écriture, y compris en simulation.`,
+    );
+    process.exit(1);
+  }
+
   if (process.env.CONFIRMER !== '1') {
     console.log('\nSimulation uniquement. Relancer avec CONFIRMER=1 pour écrire.');
     return;
@@ -110,9 +133,12 @@ async function main() {
     eyebrow: source.eyebrow ?? 'Informations légales',
     titrePage: source.titrePage ?? 'Mentions légales.',
     dateMaj: new Date().toISOString().slice(0, 10),
+    // seoTitre : valeur de la source vérifiée — « Mentions légales — HGWF Cargo » ne porte pas
+    // la dénomination erronée, donc pas le même risque que seoDescription. Repris sans danger.
     seoTitre: source.seoTitre ?? 'Mentions légales — HGWF Cargo',
-    seoDescription:
-      source.seoDescription ?? 'Mentions légales du site HGWF Cargo — éditeur, immatriculation et hébergeur.',
+    // seoDescription : imposé, PAS repris de la source (voir SEO_DESCRIPTION_CORRIGEE
+    // ci-dessus) — l'ancienne valeur portait la dénomination absente du registre du commerce.
+    seoDescription: SEO_DESCRIPTION_CORRIGEE,
     sections: sections.map(({ _remplace, ...s }) => s),
   });
 
