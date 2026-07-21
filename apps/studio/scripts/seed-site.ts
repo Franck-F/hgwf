@@ -610,7 +610,7 @@ async function main() {
     texteFr: 'Transport de marchandises dans le monde entier.',
     texteEn: 'Freight transport all over the world.',
     ligneLegale:
-      'HGWF SOLUTIONS TRANSPORTS LOGISTIQUES · 29 AVENUE NOLLET, 93420 VILLEPINTE · 940 048 051 R.C.S. BOBIGNY · TVA FR18940048051',
+      'HGWF CARGO · AVENUE FAIDHERBE\n93110 ROSNY-SOUS-BOIS · 940 048 051 R.C.S. BOBIGNY · TVA FR18940048051',
     colonnes: [
       {
         _key: k('col'),
@@ -635,15 +635,22 @@ async function main() {
     ],
     copyrightFr: '© 2026 HGWF Cargo — Tous droits réservés.',
     copyrightEn: '© 2026 HGWF Cargo — All rights reserved.',
-    mentionsLibelleFr: 'Mentions légales',
-    mentionsLibelleEn: 'Legal notice',
-    mentionsHref: '/mentions-legales',
+    liensLegaux: [
+      { _key: k('legal'), libelleFr: 'Mentions légales', libelleEn: 'Legal notice', href: '/mentions-legales' },
+      {
+        _key: k('legal'),
+        libelleFr: 'Politique de confidentialité',
+        libelleEn: 'Privacy policy',
+        href: '/confidentialite',
+      },
+      { _key: k('legal'), libelleFr: 'CGV', libelleEn: 'Terms of sale', href: '/cgv' },
+    ],
   });
 
   await client.createIfNotExists({
     _id: 'siteSettings',
     _type: 'siteSettings',
-    raisonSociale: 'HGWF SOLUTIONS TRANSPORTS LOGISTIQUES',
+    raisonSociale: 'HGWF CARGO',
     nomCommercial: 'HGWF Cargo',
     baseline: 'Transport de marchandises dans le monde entier.',
     email: 'contact@hgwf-cargo.fr',
@@ -652,7 +659,7 @@ async function main() {
       { _key: k('tel'), contact: 'Fabrice', numero: '+33 7 64 16 90 82' },
       { _key: k('tel'), contact: 'Malia / Fuka', numero: '+33 6 13 37 71 14' },
     ],
-    adresseSiege: '29 avenue Nollet, 93420 Villepinte',
+    adresseSiege: 'Avenue Faidherbe, 93110 Rosny-sous-Bois',
     adresseLogistique: '10 rue Diderot, 93110 Rosny-sous-Bois',
   });
   console.log('  ✓ singletons (navigation, footer, siteSettings)');
