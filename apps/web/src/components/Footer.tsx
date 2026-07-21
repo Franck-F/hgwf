@@ -92,7 +92,14 @@ export async function Footer({ locale }: { locale: string }) {
         libelle: (en ? l.libelleEn : l.libelleFr) ?? l.libelleFr ?? '',
         href: l.href ?? '/',
       }))
-    : LIENS_LEGAUX_DEFAUT.map((l) => ({ libelle: en ? l.en : l.fr, href: l.href }));
+    : footer?.mentionsHref
+      ? [
+          {
+            libelle: (en ? footer.mentionsLibelleEn : footer.mentionsLibelleFr) ?? footer.mentionsLibelleFr ?? '',
+            href: footer.mentionsHref,
+          },
+        ]
+      : LIENS_LEGAUX_DEFAUT.map((l) => ({ libelle: en ? l.en : l.fr, href: l.href }));
 
   const email = settings?.email ?? 'contact@hgwf-cargo.fr';
   const telephone = settings?.telephones?.[0]?.numero ?? '+33 6 27 05 69 34';
@@ -159,15 +166,17 @@ export async function Footer({ locale }: { locale: string }) {
       <div className="border-t border-creme/15">
         <div className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-4 px-5 sm:px-8 py-4.5 text-xs text-creme/55">
           <span>{copyright}</span>
-          <ul className="m-0 flex list-none flex-wrap items-center gap-x-4 gap-y-1 p-0">
-            {liensLegaux.map((l) => (
-              <li key={l.href}>
-                <Link href={l.href} className="text-creme/55 transition hover:text-or">
-                  {l.libelle}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <nav aria-label={en ? 'Legal links' : 'Liens légaux'}>
+            <ul className="m-0 flex list-none flex-wrap items-center gap-x-4 gap-y-1 p-0">
+              {liensLegaux.map((l) => (
+                <li key={l.href + l.libelle}>
+                  <Link href={l.href} className="text-creme/55 transition hover:text-or">
+                    {l.libelle}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
       </div>
     </footer>
