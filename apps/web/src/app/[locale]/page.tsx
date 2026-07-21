@@ -24,19 +24,19 @@ const DEFAUT = {
       titre: 'Groupage (LCL)',
       texte: 'Facturé au mètre cube, idéal particuliers & PME',
       lien: '/devis',
-      imageUrl: null as string | null,
+      imageUrl: '/photos/groupage.jpg' as string | null,
     },
     {
       titre: 'Conteneur complet (FCL)',
       texte: "20' ou 40', dry ou reefer, réservé à votre envoi",
       lien: '/devis',
-      imageUrl: null as string | null,
+      imageUrl: '/photos/conteneur-complet.jpg' as string | null,
     },
     {
       titre: 'Véhicules & bateaux',
       texte: 'Roulants ou non, en conteneur ou ro-ro',
       lien: '/devis',
-      imageUrl: null as string | null,
+      imageUrl: '/photos/vehicules-bateaux.jpg' as string | null,
     },
     {
       titre: 'Déménagement',
@@ -154,7 +154,8 @@ const DEFAUT = {
     imageUrl: null as string | null,
   },
   seo: {
-    titre: 'HGWF Cargo — Transport de marchandises dans le monde entier',
+    // Titre d'onglet volontairement court : la description porte les mots-clés.
+    titre: 'HGWF Cargo',
     description:
       'Transport maritime, aérien et terrestre vers le Pacifique, les Caraïbes et l’Afrique : groupage, conteneur complet, véhicules et déménagement Outre-mer.',
   },
@@ -191,7 +192,9 @@ async function getContenu(locale: Locale) {
           titre: s.titre ?? DEFAUT.services[i]?.titre ?? '',
           texte: s.texte ?? DEFAUT.services[i]?.texte ?? '',
           lien: s.lien ?? DEFAUT.services[i]?.lien ?? '/devis',
-          imageUrl: s.imageUrl ?? null,
+          // Images locales forcées (prioritaires sur Sanity) — voir DEFAUT.services.
+          // À rebasculer sur Sanity (`s.imageUrl ?? …`) lors de la passe finale.
+          imageUrl: DEFAUT.services[i]?.imageUrl ?? s.imageUrl ?? null,
         }))
       : DEFAUT.services,
     promesse: {
@@ -269,7 +272,8 @@ async function getContenu(locale: Locale) {
       imageUrl: d?.ctaSuivi?.imageUrl ?? DEFAUT.ctaSuivi.imageUrl,
     },
     seo: {
-      titre: d?.seoTitre ?? DEFAUT.seo.titre,
+      // Titre local forcé (prioritaire sur Sanity) — voir DEFAUT.seo.titre.
+      titre: DEFAUT.seo.titre,
       description: d?.seoDescription ?? DEFAUT.seo.description,
     },
   };
