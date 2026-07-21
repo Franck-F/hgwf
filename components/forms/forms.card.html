@@ -1,0 +1,27 @@
+<!-- @dsCard group="Components" viewport="700x330" subtitle="Button · Input · Select · Checkbox · Radio · Switch" name="Formulaires" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<style>body{margin:0;background:var(--bg);font-family:var(--font-body);color:var(--fg);padding:24px 32px;display:flex;flex-direction:column;gap:20px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+button{font-family:inherit;cursor:pointer}
+.inp{font-family:inherit;font-size:15px;color:var(--fg);background:var(--bg);padding:10px 14px;border-radius:var(--radius-md);border:1.5px solid var(--hairline);outline:none}</style></head>
+<body>
+<div class="row">
+  <button style="background:var(--accent);color:var(--hgwf-creme);border:none;border-radius:var(--radius-md);padding:10px 20px;font-weight:500;font-size:15px">Demander un devis</button>
+  <button style="background:transparent;color:var(--fg);border:1.5px solid var(--fg);border-radius:var(--radius-md);padding:10px 20px;font-weight:500;font-size:15px">Suivre un conteneur</button>
+  <button style="background:transparent;color:var(--accent);border:none;padding:10px 12px;font-weight:500;font-size:15px">Ghost</button>
+  <button disabled style="background:var(--accent);color:var(--hgwf-creme);border:none;border-radius:var(--radius-md);padding:10px 20px;font-weight:500;font-size:15px;opacity:.4">Désactivé</button>
+</div>
+<div class="row">
+  <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500">N° de conteneur
+    <input class="inp" style="font-family:var(--font-mono);letter-spacing:0.06em" value="MSKU 907 214 3">
+  </label>
+  <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500">Port de départ
+    <select class="inp" style="min-width:180px"><option>Le Havre</option><option>Marseille-Fos</option></select>
+  </label>
+</div>
+<div class="row" style="gap:24px;font-size:15px">
+  <label style="display:inline-flex;align-items:center;gap:10px"><span style="width:20px;height:20px;border-radius:var(--radius-sm);background:var(--hgwf-marine);display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#FBF4E6" stroke-width="3"><path d="M4 12l5 5L20 6"/></svg></span>Assurance</label>
+  <label style="display:inline-flex;align-items:center;gap:10px"><span style="width:20px;height:20px;border-radius:50%;border:6px solid var(--hgwf-marine);box-sizing:border-box"></span>Fret maritime</label>
+  <label style="display:inline-flex;align-items:center;gap:10px"><span style="width:40px;height:24px;border-radius:999px;background:var(--hgwf-marine);padding:3px;box-sizing:border-box;display:inline-flex"><span style="width:18px;height:18px;border-radius:50%;background:var(--hgwf-creme);transform:translateX(16px)"></span></span>Alertes ETA</label>
+</div>
+</body></html>

@@ -1,0 +1,20 @@
+/* HGWF Cargo — espace, rayons, traits, mouvement. */
+:root {
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --space-12: 48px; --space-16: 64px; --space-20: 80px; --space-24: 96px;
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 24px;   /* le rayon du badge « Balise » */
+  --radius-pill: 999px;
+
+  --shadow-none: none;
+  --shadow-quai: 0 1px 0 rgba(18, 57, 91, 0.08); /* seule élévation permise */
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-in: 240ms;
+  --dur-out: 180ms;
+
+  --max-w: 1120px;
+}

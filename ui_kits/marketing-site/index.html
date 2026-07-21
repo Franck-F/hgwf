@@ -1,0 +1,154 @@
+<!-- @dsCard group="Marketing site" viewport="1280x820" subtitle="Site vitrine — hero badge, suivi conteneur, lignes régulières" name="Site vitrine" -->
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HGWF Cargo — De quai à quai.</title>
+<link rel="icon" href="../../assets/logos/embleme.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-body)}
+  a{color:var(--fg);text-decoration:none}
+  a:hover{color:var(--accent)}
+  .wrap{max-width:var(--max-w);margin:0 auto;padding:0 var(--space-8)}
+  .eyebrow{font-weight:500;font-size:12px;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase}
+  .btn{font-family:inherit;font-weight:500;font-size:15px;border:none;border-radius:var(--radius-md);padding:12px 24px;cursor:pointer;transition:background var(--dur-out) var(--ease-out)}
+  .btn-primary{background:var(--accent);color:var(--hgwf-creme)}
+  .btn-primary:hover{background:var(--accent-hover)}
+  .btn-ghost-dark{background:transparent;color:var(--fg-on-dark);border:1.5px solid var(--hairline-dark)}
+  .btn-ghost-dark:hover{background:rgba(251,244,230,.08)}
+  h1,h2{font-family:var(--font-display);font-weight:700;letter-spacing:var(--tracking-tight);text-transform:uppercase;margin:0}
+</style></head>
+<body>
+
+<nav class="wrap" style="display:flex;align-items:center;justify-content:space-between;padding-top:20px;padding-bottom:20px">
+  <div style="display:flex;align-items:center;gap:12px">
+    <img src="../../assets/logos/embleme.svg" width="44" height="44" alt="HGWF Cargo">
+    <div style="display:flex;flex-direction:column">
+      <span style="font-family:var(--font-display);font-weight:700;font-size:18px;line-height:1">HGWF</span>
+      <span class="eyebrow" style="font-size:8px;color:var(--hgwf-or)">Cargo</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:28px;font-size:14px;font-weight:500">
+    <a href="#lignes">Lignes</a><a href="#services">Services</a><a href="#suivi">Suivi</a><a href="#contact">Contact</a>
+  </div>
+  <button class="btn btn-primary" style="padding:9px 18px;font-size:14px">Demander un devis</button>
+</nav>
+
+<header class="wrap" style="padding-top:24px">
+  <div style="background:var(--bg-premium);border-radius:var(--radius-lg);padding:72px 64px;color:var(--fg-on-dark);position:relative;overflow:hidden">
+    <div style="max-width:560px;display:flex;flex-direction:column;gap:24px">
+      <span class="eyebrow" style="color:var(--hgwf-or)">Fusion Grand Large × Trajectoire</span>
+      <h1 style="font-size:var(--fs-display);line-height:1.02">De quai à quai.<br>Sans détour.</h1>
+      <p style="margin:0;font-size:17px;line-height:1.5;opacity:.85;max-width:46ch">Fret maritime régulier entre l'Europe et les Antilles. Un départ chaque jeudi, un suivi public, un cap tenu.</p>
+      <div style="display:flex;gap:14px">
+        <button class="btn btn-primary">Réserver un conteneur</button>
+        <button class="btn btn-ghost-dark">Voir les lignes</button>
+      </div>
+    </div>
+    <img src="../../assets/logos/marque-sur-marine.svg" alt="" width="360" height="360"
+      style="position:absolute;right:-30px;bottom:-60px;opacity:.9">
+  </div>
+</header>
+
+<section id="suivi" class="wrap" style="padding-top:72px">
+  <span class="eyebrow" style="color:var(--fg-muted)">Suivi conteneur</span>
+  <h2 style="font-size:var(--fs-h1);margin-top:12px">Où est votre boîte.</h2>
+  <div style="display:flex;gap:12px;margin-top:24px;max-width:560px">
+    <input id="numero" value="MSKU 907 214 3" spellcheck="false" style="flex:1;font-family:var(--font-mono);font-size:16px;letter-spacing:.06em;color:var(--fg);background:var(--bg);padding:12px 16px;border-radius:var(--radius-md);border:1.5px solid var(--hairline);outline:none">
+    <button class="btn btn-primary" onclick="chercher()">Suivre</button>
+  </div>
+  <div id="resultat" hidden style="margin-top:24px;border:1px solid var(--hairline);border-radius:var(--radius-md);padding:24px;max-width:720px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <span id="res-num" style="font-family:var(--font-mono);font-size:20px;letter-spacing:.06em"></span>
+      <span style="font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:var(--radius-sm);background:var(--hgwf-ciel-lagune);color:var(--hgwf-marine)">En mer</span>
+    </div>
+    <svg viewBox="0 0 400 34" style="width:100%;height:34px;display:block;margin:20px 0 8px">
+      <circle cx="12" cy="24" r="4" fill="var(--hgwf-marine)"/>
+      <circle cx="110" cy="21" r="5" fill="var(--hgwf-marine)"/>
+      <circle cx="208" cy="18" r="6" fill="var(--hgwf-ciel)"/>
+      <circle cx="306" cy="15" r="7" fill="color-mix(in srgb, var(--hgwf-marine) 18%, var(--hgwf-ivoire))"/>
+      <path d="M396 6 L372 20 L384 25 Z" fill="var(--hgwf-or)"/>
+    </svg>
+    <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:12px;color:var(--fg-muted)">
+      <span>LE HAVRE 02/07</span><span>DOUVRES 03/07</span><span>ATLANTIQUE — 49°29'N</span><span>POINTE-À-PITRE ETA 16/07</span>
+    </div>
+  </div>
+</section>
+
+<div class="wrap" style="padding-top:72px">
+  <svg viewBox="0 0 400 60" preserveAspectRatio="none" style="width:100%;height:36px;display:block">
+    <path d="M8 30 C 40 6, 80 6, 112 30 C 144 54, 184 54, 216 30 C 248 6, 288 6, 320 30 C 352 54, 376 50, 392 36" fill="none" stroke="var(--hgwf-ciel)" stroke-width="7" stroke-linecap="round"/>
+    <path d="M8 48 C 40 24, 80 24, 112 48 C 144 72, 184 72, 216 48 C 248 24, 288 24, 320 48 C 352 72, 376 68, 392 54" fill="none" stroke="var(--hgwf-corail)" stroke-width="7" stroke-linecap="round"/>
+  </svg>
+</div>
+
+<section id="lignes" class="wrap" style="padding-top:64px">
+  <span class="eyebrow" style="color:var(--fg-muted)">Lignes régulières</span>
+  <h2 style="font-size:var(--fs-h1);margin-top:12px">Trois lignes. Chaque semaine.</h2>
+  <div style="margin-top:28px;border:1px solid var(--hairline);border-radius:var(--radius-md);overflow:hidden">
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:0;padding:12px 24px;background:var(--bg-soft);font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--fg-muted)">
+      <span>Rotation</span><span>Départ</span><span>Transit</span><span>Prochain</span>
+    </div>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:16px 24px;border-top:1px solid var(--hairline);font-size:15px;align-items:center">
+      <span style="font-weight:700">Le Havre — Pointe-à-Pitre</span><span>Jeudi</span><span style="font-family:var(--font-mono);font-size:14px">11 j</span><span style="font-family:var(--font-mono);font-size:14px;color:var(--accent)">17/07</span>
+    </div>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:16px 24px;border-top:1px solid var(--hairline);font-size:15px;align-items:center">
+      <span style="font-weight:700">Marseille-Fos — Fort-de-France</span><span>Samedi</span><span style="font-family:var(--font-mono);font-size:14px">12 j</span><span style="font-family:var(--font-mono);font-size:14px;color:var(--accent)">19/07</span>
+    </div>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:16px 24px;border-top:1px solid var(--hairline);font-size:15px;align-items:center">
+      <span style="font-weight:700">Dunkerque — Dégrad des Cannes</span><span>Mardi</span><span style="font-family:var(--font-mono);font-size:14px">14 j</span><span style="font-family:var(--font-mono);font-size:14px;color:var(--accent)">15/07</span>
+    </div>
+  </div>
+</section>
+
+<section id="services" class="wrap" style="padding-top:72px">
+  <span class="eyebrow" style="color:var(--fg-muted)">Services</span>
+  <h2 style="font-size:var(--fs-h1);margin-top:12px">Ce que l'on porte.</h2>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:28px">
+    <div style="border:1px solid var(--hairline);border-radius:var(--radius-md);padding:24px;display:flex;flex-direction:column;gap:12px">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--hgwf-ciel)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="8" width="20" height="10" rx="1"/><path d="M6 8v10M10 8v10M14 8v10M18 8v10"/></svg>
+      <div style="font-weight:700;font-size:18px">Conteneur complet</div>
+      <p style="margin:0;font-size:14px;line-height:1.5;color:var(--fg-muted)">20' et 40', dry ou reefer, de quai à quai.</p>
+    </div>
+    <div style="border:1px solid var(--hairline);border-radius:var(--radius-md);padding:24px;display:flex;flex-direction:column;gap:12px">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--hgwf-corail)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.29 7 12 12l8.71-5M12 22V12"/></svg>
+      <div style="font-weight:700;font-size:18px">Groupage</div>
+      <p style="margin:0;font-size:14px;line-height:1.5;color:var(--fg-muted)">À partir d'un mètre cube, consolidé au Havre.</p>
+    </div>
+    <div style="border:1px solid var(--hairline);border-radius:var(--radius-md);padding:24px;display:flex;flex-direction:column;gap:12px">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--hgwf-or)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+      <div style="font-weight:700;font-size:18px">Douane & documents</div>
+      <p style="margin:0;font-size:14px;line-height:1.5;color:var(--fg-muted)">Déclarations, connaissements, le papier suit la boîte.</p>
+    </div>
+  </div>
+</section>
+
+<section id="contact" class="wrap" style="padding-top:72px;padding-bottom:72px">
+  <div style="background:var(--bg-premium);border-radius:var(--radius-lg);padding:56px 64px;color:var(--fg-on-dark);display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap">
+    <div>
+      <span class="eyebrow" style="color:var(--hgwf-or)">Devis sous 24 h</span>
+      <h2 style="font-size:var(--fs-h2);margin-top:10px">Le cap est tenu. Embarquez.</h2>
+    </div>
+    <button class="btn btn-primary" style="padding:14px 28px;font-size:16px">Demander un devis</button>
+  </div>
+</section>
+
+<footer style="border-top:1px solid var(--hairline)">
+  <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;padding-top:28px;padding-bottom:28px;font-size:13px;color:var(--fg-muted)">
+    <div style="display:flex;align-items:center;gap:10px">
+      <img src="../../assets/logos/marque-mono.svg" width="32" height="32" alt="" style="opacity:.8">
+      <span style="font-family:var(--font-display);font-weight:700;color:var(--fg)">HGWF <span style="letter-spacing:.3em;font-size:10px;font-weight:500">CARGO</span></span>
+    </div>
+    <span style="font-family:var(--font-mono);font-size:12px">QUAI DE L'EURE · LE HAVRE · 49°29'N 000°06'E</span>
+  </div>
+</footer>
+
+<script>
+function chercher(){
+  var n = document.getElementById('numero').value.trim().toUpperCase() || 'MSKU 907 214 3';
+  document.getElementById('res-num').textContent = n;
+  document.getElementById('resultat').hidden = false;
+}
+document.getElementById('numero').addEventListener('keydown', function(e){ if(e.key==='Enter') chercher(); });
+</script>
+</body></html>

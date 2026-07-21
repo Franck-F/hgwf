@@ -1,0 +1,5 @@
+# Exports/builds locaux et sorties statiques inutiles à la préversion SSR
+apps/web/out
+graphify-out
+textes_site
+**/.next
