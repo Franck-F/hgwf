@@ -189,27 +189,6 @@ export async function getPageAccueil(locale: Locale): Promise<PageAccueilData | 
   return sanityClient.fetch<PageAccueilData | null>(PAGE_ACCUEIL, { locale });
 }
 
-// ── Page Mentions légales ────────────────────────────────────────────────────
-
-export type PageMentionsData = {
-  eyebrow?: string | null;
-  titrePage?: string | null;
-  sections?: { titre?: string | null; corps?: string | null }[] | null;
-  seoTitre?: string | null;
-  seoDescription?: string | null;
-};
-
-const PAGE_MENTIONS = groq`*[_type == "pageMentions" && language == $locale][0]{
-  eyebrow, titrePage,
-  sections[]{titre, corps},
-  seoTitre, seoDescription
-}`;
-
-export async function getPageMentions(locale: Locale): Promise<PageMentionsData | null> {
-  if (!sanityClient) return null;
-  return sanityClient.fetch<PageMentionsData | null>(PAGE_MENTIONS, { locale });
-}
-
 // ── Pages légales ────────────────────────────────────────────────────────────────
 
 export type PageLegaleData = {

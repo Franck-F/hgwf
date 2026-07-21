@@ -71,7 +71,6 @@ const translatedTypes = [
   'pageContact',
   'pageFaq',
   'pageDevis',
-  'pageMentions',
   'pageLegale',
   'pageAccueil',
   'service',
