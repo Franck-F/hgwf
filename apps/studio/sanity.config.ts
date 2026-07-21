@@ -72,6 +72,7 @@ const translatedTypes = [
   'pageFaq',
   'pageDevis',
   'pageMentions',
+  'pageLegale',
   'pageAccueil',
   'service',
   'destination',
@@ -98,7 +99,13 @@ const pagesFixes = [
   { titre: 'Nous contacter', type: 'pageContact', id: 'pageContact-fr', icon: EnvelopeIcon },
   { titre: 'Demande de devis', type: 'pageDevis', id: 'pageDevis-fr', icon: ClipboardIcon },
   { titre: 'FAQ — en-tête de page', type: 'pageFaq', id: 'pageFaq-fr', icon: HelpCircleIcon },
-  { titre: 'Mentions légales', type: 'pageMentions', id: 'pageMentions-fr', icon: BookIcon },
+];
+
+// Pages légales, épinglées sur leur document FR.
+const pagesLegales = [
+  { titre: 'Mentions légales', id: 'pageLegale-mentions-fr', icon: BookIcon },
+  { titre: 'Politique de confidentialité', id: 'pageLegale-confidentialite-fr', icon: BookIcon },
+  { titre: 'CGV', id: 'pageLegale-cgv-fr', icon: BookIcon },
 ];
 
 function structureContenu(S: StructureBuilder) {
@@ -160,6 +167,23 @@ function structureContenu(S: StructureBuilder) {
                     ]),
                 ),
             ]),
+        ),
+      S.listItem()
+        .title('Pages légales')
+        .id('pagesLegales')
+        .icon(BookIcon)
+        .child(
+          S.list()
+            .title('Pages légales')
+            .items(
+              pagesLegales.map((p) =>
+                S.listItem()
+                  .title(p.titre)
+                  .id(p.id)
+                  .icon(p.icon)
+                  .child(S.document().schemaType('pageLegale').documentId(p.id).title(p.titre)),
+              ),
+            ),
         ),
       S.divider(),
       S.listItem()
@@ -259,6 +283,18 @@ export default defineConfig([
             {
               route: '/:locale/mentions-legales/',
               filter: `_type == "pageMentions" && language == $locale`,
+            },
+            {
+              route: '/:locale/mentions-legales/',
+              filter: `_type == "pageLegale" && slug.current == "mentions-legales" && language == $locale`,
+            },
+            {
+              route: '/:locale/confidentialite/',
+              filter: `_type == "pageLegale" && slug.current == "confidentialite" && language == $locale`,
+            },
+            {
+              route: '/:locale/cgv/',
+              filter: `_type == "pageLegale" && slug.current == "cgv" && language == $locale`,
             },
           ]),
         },
