@@ -544,12 +544,16 @@ git commit -m "feat(web): ossature de rendu des pages légales"
 - Créer : `apps/web/src/content/legal/mentions.ts`
 - Créer : `apps/web/src/content/legal/fusion.ts`
 - Créer : `apps/web/src/content/legal/fusion.test.ts`
+- Créer : `apps/web/src/content/legal/index.ts`
+- Créer : `apps/web/src/components/legal/creerPageLegale.tsx`
 - Modifier : `apps/web/src/app/[locale]/mentions-legales/page.tsx` (remplacement complet)
 
 **Interfaces**
 - Consomme : `p`, `titre3`, `liste`, `lien` (tâche 1) ; `ContenuLegal` (tâche 4) ; `getPageLegale` (tâche 3).
-- Produit : `MENTIONS_FR: ContenuLegal`, et `fusionner(defaut: ContenuLegal, data: PageLegaleData | null): ContenuLegal`.
+- Produit : `MENTIONS_FR: ContenuLegal` ; `fusionner(defaut, data): ContenuLegal` ; `contenuLegal(slug, locale): ContenuLegal` ; `creerPageLegale(slug, seo)` qui renvoie `{ generateMetadata, Page }`.
 - Consommé par : les tâches 6, 7, 8.
+
+**Décision d'architecture.** Les trois routes légales ne dupliquent pas leur logique : elles délèguent à une fabrique commune. Chaque fichier de route se réduit à un slug, un bloc SEO et deux ré-exports.
 
 - [ ] **Étape 1 : écrire le test de fusion qui échoue**
 
@@ -751,53 +755,95 @@ export const MENTIONS_A_COMPLETER = [
 ];
 ```
 
-- [ ] **Étape 6 : remplacer la route**
+- [ ] **Étape 6 : écrire le registre des contenus**
 
-`apps/web/src/app/[locale]/mentions-legales/page.tsx`, contenu intégral :
+`apps/web/src/content/legal/index.ts` — les tâches 6, 7 et 8 y ajouteront leurs entrées :
+
+```ts
+import type { Locale } from '@hgwf/shared';
+import type { ContenuLegal } from '@/components/legal/PageLegale';
+import { MENTIONS_FR } from './mentions';
+
+export type SlugLegal = 'mentions-legales' | 'confidentialite' | 'cgv';
+
+const CONTENUS: Record<SlugLegal, Partial<Record<Locale, ContenuLegal>> & { fr: ContenuLegal }> = {
+  'mentions-legales': { fr: MENTIONS_FR },
+  confidentialite: { fr: MENTIONS_FR }, // remplacé en tâche 6
+  cgv: { fr: MENTIONS_FR }, // remplacé en tâche 7
+};
+
+// Repli sur le français quand une traduction n'existe pas : c'est le cas voulu
+// pour les CGV, dont seule la version française fait foi.
+export function contenuLegal(slug: SlugLegal, locale: Locale): ContenuLegal {
+  const entree = CONTENUS[slug];
+  return entree[locale] ?? entree.fr;
+}
+```
+
+- [ ] **Étape 7 : écrire la fabrique de routes**
+
+`apps/web/src/components/legal/creerPageLegale.tsx` :
 
 ```tsx
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
 import { defaultLocale, isLocale, type Locale } from '@hgwf/shared';
 import { getPageLegale } from '@/sanity/queries';
-import { PageLegale } from '@/components/legal/PageLegale';
+import { PageLegale } from './PageLegale';
 import { fusionner } from '@/content/legal/fusion';
-import { MENTIONS_FR } from '@/content/legal/mentions';
-
-export { generateStaticParams } from '@/i18n/staticParams';
-
-const SLUG = 'mentions-legales';
-const SEO = {
-  titre: 'Mentions légales — HGWF Cargo',
-  description: 'Mentions légales du site HGWF Cargo — éditeur, immatriculation et hébergeur.',
-};
+import { contenuLegal, type SlugLegal } from '@/content/legal';
 
 function resolveLocale(locale: string): Locale {
   return isLocale(locale) ? locale : defaultLocale;
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}): Promise<Metadata> {
-  const { locale } = await params;
-  const data = await getPageLegale(resolveLocale(locale), SLUG);
-  return {
-    title: data?.seoTitre || SEO.titre,
-    description: data?.seoDescription || SEO.description,
-  };
-}
+// Les trois pages légales ne diffèrent que par leur slug et leur SEO : la
+// mécanique de chargement, de repli et de rendu est écrite une seule fois.
+export function creerPageLegale(slug: SlugLegal, seo: { titre: string; description: string }) {
+  async function generateMetadata({
+    params,
+  }: {
+    params: Promise<{ locale: string }>;
+  }): Promise<Metadata> {
+    const { locale } = await params;
+    const data = await getPageLegale(resolveLocale(locale), slug);
+    return {
+      title: data?.seoTitre || seo.titre,
+      description: data?.seoDescription || seo.description,
+    };
+  }
 
-export default async function MentionsPage({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = await params;
-  setRequestLocale(locale);
-  const data = await getPageLegale(resolveLocale(locale), SLUG);
-  return <PageLegale contenu={fusionner(MENTIONS_FR, data)} locale={locale} />;
+  async function Page({ params }: { params: Promise<{ locale: string }> }) {
+    const { locale } = await params;
+    setRequestLocale(locale);
+    const data = await getPageLegale(resolveLocale(locale), slug);
+    const defaut = contenuLegal(slug, resolveLocale(locale));
+    return <PageLegale contenu={fusionner(defaut, data)} locale={locale} />;
+  }
+
+  return { generateMetadata, Page };
 }
 ```
 
-- [ ] **Étape 7 : vérifier**
+- [ ] **Étape 8 : remplacer la route**
+
+`apps/web/src/app/[locale]/mentions-legales/page.tsx`, contenu intégral :
+
+```tsx
+import { creerPageLegale } from '@/components/legal/creerPageLegale';
+
+export { generateStaticParams } from '@/i18n/staticParams';
+
+const { generateMetadata, Page } = creerPageLegale('mentions-legales', {
+  titre: 'Mentions légales — HGWF Cargo',
+  description: 'Mentions légales du site HGWF Cargo — éditeur, immatriculation et hébergeur.',
+});
+
+export { generateMetadata };
+export default Page;
+```
+
+- [ ] **Étape 9 : vérifier**
 
 ```bash
 cd apps/web && pnpm typecheck && pnpm vitest run && pnpm build
@@ -805,7 +851,7 @@ cd apps/web && pnpm typecheck && pnpm vitest run && pnpm build
 
 Attendu : typecheck muet, tests passés, build réussi.
 
-- [ ] **Étape 8 : vérifier le rendu réel**
+- [ ] **Étape 10 : vérifier le rendu réel**
 
 ```bash
 grep -o 'avenue Faidherbe' apps/web/out/fr/mentions-legales/index.html
@@ -814,10 +860,10 @@ grep -c 'Villepinte' apps/web/out/fr/mentions-legales/index.html
 
 Attendu : la première commande affiche `avenue Faidherbe` ; la seconde affiche `0`.
 
-- [ ] **Étape 9 : commit**
+- [ ] **Étape 11 : commit**
 
 ```bash
-git add apps/web/src/content/legal/ "apps/web/src/app/[locale]/mentions-legales/page.tsx"
+git add apps/web/src/content/legal/ apps/web/src/components/legal/ "apps/web/src/app/[locale]/mentions-legales/page.tsx"
 git commit -m "feat(web): mentions légales conformes, identité alignée sur le registre"
 ```
 
@@ -962,51 +1008,29 @@ export const CONFIDENTIALITE_FR: ContenuLegal = {
 };
 ```
 
-- [ ] **Étape 2 : créer la route**
+- [ ] **Étape 2 : enregistrer le contenu et créer la route**
 
-`apps/web/src/app/[locale]/confidentialite/page.tsx` :
+Dans `apps/web/src/content/legal/index.ts`, importer `CONFIDENTIALITE_FR` et remplacer la ligne provisoire :
+
+```ts
+  confidentialite: { fr: CONFIDENTIALITE_FR },
+```
+
+`apps/web/src/app/[locale]/confidentialite/page.tsx`, contenu intégral :
 
 ```tsx
-import type { Metadata } from 'next';
-import { setRequestLocale } from 'next-intl/server';
-import { defaultLocale, isLocale, type Locale } from '@hgwf/shared';
-import { getPageLegale } from '@/sanity/queries';
-import { PageLegale } from '@/components/legal/PageLegale';
-import { fusionner } from '@/content/legal/fusion';
-import { CONFIDENTIALITE_FR } from '@/content/legal/confidentialite';
+import { creerPageLegale } from '@/components/legal/creerPageLegale';
 
 export { generateStaticParams } from '@/i18n/staticParams';
 
-const SLUG = 'confidentialite';
-const SEO = {
+const { generateMetadata, Page } = creerPageLegale('confidentialite', {
   titre: 'Politique de confidentialité — HGWF Cargo',
   description:
     'Données personnelles collectées sur le site HGWF Cargo : finalités, bases légales, durées de conservation et exercice de vos droits.',
-};
+});
 
-function resolveLocale(locale: string): Locale {
-  return isLocale(locale) ? locale : defaultLocale;
-}
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}): Promise<Metadata> {
-  const { locale } = await params;
-  const data = await getPageLegale(resolveLocale(locale), SLUG);
-  return {
-    title: data?.seoTitre || SEO.titre,
-    description: data?.seoDescription || SEO.description,
-  };
-}
-
-export default async function ConfidentialitePage({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = await params;
-  setRequestLocale(locale);
-  const data = await getPageLegale(resolveLocale(locale), SLUG);
-  return <PageLegale contenu={fusionner(CONFIDENTIALITE_FR, data)} locale={locale} />;
-}
+export { generateMetadata };
+export default Page;
 ```
 
 - [ ] **Étape 3 : vérifier**
@@ -1198,51 +1222,29 @@ export const CGV_FR: ContenuLegal = {
 };
 ```
 
-- [ ] **Étape 2 : créer la route**
+- [ ] **Étape 2 : enregistrer le contenu et créer la route**
+
+Dans `apps/web/src/content/legal/index.ts`, importer `CGV_FR` et remplacer la ligne provisoire :
+
+```ts
+  cgv: { fr: CGV_FR },
+```
 
 `apps/web/src/app/[locale]/cgv/page.tsx`, contenu intégral :
 
 ```tsx
-import type { Metadata } from 'next';
-import { setRequestLocale } from 'next-intl/server';
-import { defaultLocale, isLocale, type Locale } from '@hgwf/shared';
-import { getPageLegale } from '@/sanity/queries';
-import { PageLegale } from '@/components/legal/PageLegale';
-import { fusionner } from '@/content/legal/fusion';
-import { CGV_FR } from '@/content/legal/cgv';
+import { creerPageLegale } from '@/components/legal/creerPageLegale';
 
 export { generateStaticParams } from '@/i18n/staticParams';
 
-const SLUG = 'cgv';
-const SEO = {
+const { generateMetadata, Page } = creerPageLegale('cgv', {
   titre: 'Conditions générales de vente — HGWF Cargo',
   description:
     'Conditions générales de vente et d’organisation de transport de HGWF Cargo : devis, délais, responsabilité, assurance et paiement.',
-};
+});
 
-function resolveLocale(locale: string): Locale {
-  return isLocale(locale) ? locale : defaultLocale;
-}
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}): Promise<Metadata> {
-  const { locale } = await params;
-  const data = await getPageLegale(resolveLocale(locale), SLUG);
-  return {
-    title: data?.seoTitre || SEO.titre,
-    description: data?.seoDescription || SEO.description,
-  };
-}
-
-export default async function CgvPage({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = await params;
-  setRequestLocale(locale);
-  const data = await getPageLegale(resolveLocale(locale), SLUG);
-  return <PageLegale contenu={fusionner(CGV_FR, data)} locale={locale} />;
-}
+export { generateMetadata };
+export default Page;
 ```
 
 - [ ] **Étape 3 : vérifier**
@@ -1268,13 +1270,12 @@ git commit -m "feat(web): conditions générales de vente"
 **Fichiers**
 - Créer : `apps/web/src/content/legal/mentions.en.ts`
 - Créer : `apps/web/src/content/legal/confidentialite.en.ts`
-- Créer : `apps/web/src/content/legal/index.ts`
-- Modifier : `apps/web/src/app/[locale]/mentions-legales/page.tsx`
-- Modifier : `apps/web/src/app/[locale]/confidentialite/page.tsx`
-- Modifier : `apps/web/src/app/[locale]/cgv/page.tsx`
+- Modifier : `apps/web/src/content/legal/index.ts`
+- Modifier : `apps/web/src/content/legal/cgv.ts`
 
 **Interfaces**
-- Produit : `contenuLegal(slug: 'mentions-legales' | 'confidentialite' | 'cgv', locale: Locale): ContenuLegal`.
+- Consomme : `contenuLegal` et son registre, créés en tâche 5.
+- Produit : `MENTIONS_EN`, `CONFIDENTIALITE_EN`. Les routes ne changent pas.
 
 - [ ] **Étape 1 : traduire les deux documents**
 
@@ -1305,45 +1306,27 @@ Reprendre `MENTIONS_FR` et `CONFIDENTIALITE_FR` paragraphe par paragraphe en ang
 
 Dans la version anglaise, les sous-titres de la section `finalites` deviennent : Quote request, Contact form, Shipment tracking, Service security. Les durées de conservation et bases légales sont identiques — ce sont les mêmes traitements.
 
-- [ ] **Étape 2 : écrire le sélecteur**
+- [ ] **Étape 2 : enregistrer les traductions**
 
-`apps/web/src/content/legal/index.ts` :
+Dans `apps/web/src/content/legal/index.ts`, ajouter les imports `MENTIONS_EN` et `CONFIDENTIALITE_EN`, puis compléter les deux entrées :
 
 ```ts
-import type { Locale } from '@hgwf/shared';
-import type { ContenuLegal } from '@/components/legal/PageLegale';
-import { MENTIONS_FR } from './mentions';
-import { MENTIONS_EN } from './mentions.en';
-import { CONFIDENTIALITE_FR } from './confidentialite';
-import { CONFIDENTIALITE_EN } from './confidentialite.en';
-import { CGV_FR } from './cgv';
-
-export type SlugLegal = 'mentions-legales' | 'confidentialite' | 'cgv';
-
-// Les CGV ne sont pas traduites : seule la version française engage. Servir une
-// traduction créerait une seconde version susceptible de diverger.
-const CONTENUS: Record<SlugLegal, { fr: ContenuLegal; en: ContenuLegal }> = {
   'mentions-legales': { fr: MENTIONS_FR, en: MENTIONS_EN },
   confidentialite: { fr: CONFIDENTIALITE_FR, en: CONFIDENTIALITE_EN },
-  cgv: { fr: CGV_FR, en: CGV_FR },
-};
-
-export function contenuLegal(slug: SlugLegal, locale: Locale): ContenuLegal {
-  return CONTENUS[slug][locale === 'en' ? 'en' : 'fr'];
-}
+  cgv: { fr: CGV_FR },
 ```
 
-- [ ] **Étape 3 : brancher les trois routes**
+`cgv` reste volontairement sans entrée `en` : `contenuLegal` replie sur le français, seule version qui engage. Aucune modification des routes n'est nécessaire — la fabrique appelle déjà `contenuLegal(slug, locale)`.
 
-Dans chacune des trois pages, remplacer l'import du contenu par `import { contenuLegal } from '@/content/legal';` et l'appel de rendu par :
+- [ ] **Étape 3 : signaler la non-traduction des CGV**
 
-```tsx
-return <PageLegale contenu={fusionner(contenuLegal(SLUG, resolveLocale(locale)), data)} locale={locale} />;
+Dans `CGV_FR`, ajouter en tête de la section `champ-application` un paragraphe qui ne s'affiche qu'en anglais est impossible : le contenu est unique. Ajouter donc, dans la section `droit-applicable` de `CGV_FR`, une phrase déjà bilingue :
+
+```ts
+        p(
+          'Seule la version française de ces conditions fait foi. Only the French version of these terms is legally binding.',
+        ),
 ```
-
-en typant `const SLUG = 'mentions-legales' as const;` (respectivement `'confidentialite'`, `'cgv'`).
-
-Ajouter dans la page CGV, en tête de la première section, un paragraphe visible en anglais uniquement : « Only the French version of these terms is legally binding. »
 
 - [ ] **Étape 4 : vérifier**
 
