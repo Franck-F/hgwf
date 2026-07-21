@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { Link } from '@/i18n/navigation';
 import { getFooter, getSiteSettings } from '@/sanity/queries';
+import { nettoyerInvisibles } from './nettoyerInvisibles';
 
 const COLONNES_DEFAUT = [
   {
@@ -24,6 +25,12 @@ const COLONNES_DEFAUT = [
 
 const LIGNE_LEGALE_DEFAUT =
   'HGWF SOLUTIONS TRANSPORTS LOGISTIQUES · 29 AVENUE NOLLET, 93420 VILLEPINTE · 940 048 051 R.C.S. BOBIGNY · TVA FR18940048051';
+
+const LIENS_LEGAUX_DEFAUT = [
+  { fr: 'Mentions légales', en: 'Legal notice', href: '/mentions-legales' },
+  { fr: 'Politique de confidentialité', en: 'Privacy policy', href: '/confidentialite' },
+  { fr: 'CGV', en: 'Terms of sale', href: '/cgv' },
+];
 
 function IconeFacebook() {
   return (
@@ -74,16 +81,18 @@ export async function Footer({ locale }: { locale: string }) {
         liens: c.liens.map((l) => ({ libelle: en ? l.en : l.fr, href: l.href })),
       }));
 
-  const ligneLegale = footer?.ligneLegale ?? LIGNE_LEGALE_DEFAUT;
+  const ligneLegale = nettoyerInvisibles(footer?.ligneLegale ?? LIGNE_LEGALE_DEFAUT);
   const copyright =
     (en ? footer?.copyrightEn : footer?.copyrightFr) ??
     footer?.copyrightFr ??
     (en ? '© 2026 HGWF Cargo — All rights reserved.' : '© 2026 HGWF Cargo — Tous droits réservés.');
-  const mentionsLibelle =
-    (en ? footer?.mentionsLibelleEn : footer?.mentionsLibelleFr) ??
-    footer?.mentionsLibelleFr ??
-    (en ? 'Legal notice' : 'Mentions légales');
-  const mentionsHref = footer?.mentionsHref ?? '/mentions-legales';
+
+  const liensLegaux = footer?.liensLegaux?.length
+    ? footer.liensLegaux.map((l) => ({
+        libelle: (en ? l.libelleEn : l.libelleFr) ?? l.libelleFr ?? '',
+        href: l.href ?? '/',
+      }))
+    : LIENS_LEGAUX_DEFAUT.map((l) => ({ libelle: en ? l.en : l.fr, href: l.href }));
 
   const email = settings?.email ?? 'contact@hgwf-cargo.fr';
   const telephone = settings?.telephones?.[0]?.numero ?? '+33 6 27 05 69 34';
@@ -150,9 +159,15 @@ export async function Footer({ locale }: { locale: string }) {
       <div className="border-t border-creme/15">
         <div className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-4 px-5 sm:px-8 py-4.5 text-xs text-creme/55">
           <span>{copyright}</span>
-          <Link href={mentionsHref} className="text-creme/55 transition hover:text-or">
-            {mentionsLibelle}
-          </Link>
+          <ul className="m-0 flex list-none flex-wrap items-center gap-x-4 gap-y-1 p-0">
+            {liensLegaux.map((l) => (
+              <li key={l.href}>
+                <Link href={l.href} className="text-creme/55 transition hover:text-or">
+                  {l.libelle}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </footer>

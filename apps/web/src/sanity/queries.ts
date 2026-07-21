@@ -39,6 +39,7 @@ export type FooterData = {
   texteEn?: string | null;
   ligneLegale?: string | null;
   colonnes?: FooterColonne[] | null;
+  liensLegaux?: LienNav[] | null;
   copyrightFr?: string | null;
   copyrightEn?: string | null;
   mentionsLibelleFr?: string | null;
@@ -66,6 +67,7 @@ const NAVIGATION = groq`*[_type == "navigation"][0]{
 const FOOTER = groq`*[_type == "footer"][0]{
   texteFr, texteEn, ligneLegale,
   colonnes[]{titreFr, titreEn, liens[]{libelleFr, libelleEn, href}},
+  liensLegaux[]{libelleFr, libelleEn, href},
   copyrightFr, copyrightEn, mentionsLibelleFr, mentionsLibelleEn, mentionsHref
 }`;
 

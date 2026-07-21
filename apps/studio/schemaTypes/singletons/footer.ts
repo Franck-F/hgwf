@@ -45,9 +45,41 @@ export const footer = defineType({
     }),
     defineField({ name: 'copyrightFr', title: 'Copyright FR', type: 'string' }),
     defineField({ name: 'copyrightEn', title: 'Copyright EN', type: 'string' }),
-    defineField({ name: 'mentionsLibelleFr', title: 'Lien mentions légales — libellé FR', type: 'string' }),
-    defineField({ name: 'mentionsLibelleEn', title: 'Lien mentions légales — libellé EN', type: 'string' }),
-    defineField({ name: 'mentionsHref', title: 'Lien mentions légales — URL', type: 'string' }),
+    defineField({
+      name: 'liensLegaux',
+      title: 'Liens légaux (bas de page)',
+      type: 'array',
+      description: 'Remplace le lien unique « Mentions légales » dès qu’au moins une entrée est renseignée.',
+      of: [
+        {
+          type: 'object',
+          fields: [
+            { name: 'libelleFr', title: 'Libellé FR', type: 'string' },
+            { name: 'libelleEn', title: 'Libellé EN', type: 'string' },
+            { name: 'href', title: 'Lien', type: 'string' },
+          ],
+          preview: { select: { title: 'libelleFr', subtitle: 'href' } },
+        },
+      ],
+    }),
+    defineField({
+      name: 'mentionsLibelleFr',
+      title: 'Lien mentions légales — libellé FR',
+      type: 'string',
+      description: 'Ancien champ, conservé comme repli. Utiliser « Liens légaux ».',
+    }),
+    defineField({
+      name: 'mentionsLibelleEn',
+      title: 'Lien mentions légales — libellé EN',
+      type: 'string',
+      description: 'Ancien champ, conservé comme repli. Utiliser « Liens légaux ».',
+    }),
+    defineField({
+      name: 'mentionsHref',
+      title: 'Lien mentions légales — URL',
+      type: 'string',
+      description: 'Ancien champ, conservé comme repli. Utiliser « Liens légaux ».',
+    }),
   ],
   preview: { prepare: () => ({ title: 'Pied de page' }) },
 });
