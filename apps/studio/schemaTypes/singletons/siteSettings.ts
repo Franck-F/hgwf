@@ -6,6 +6,18 @@ export const siteSettings = defineType({
   type: 'document',
   fields: [
     defineField({ name: 'raisonSociale', title: 'Raison sociale', type: 'string' }),
+    defineField({
+      name: 'logoEmbleme',
+      title: 'Logo — emblème (nav)',
+      description: 'Vide = emblème par défaut du site.',
+      type: 'image',
+    }),
+    defineField({
+      name: 'logoFooter',
+      title: 'Logo — pied de page (sur fond marine)',
+      description: 'Vide = logo par défaut du site.',
+      type: 'image',
+    }),
     defineField({ name: 'nomCommercial', title: 'Nom commercial', type: 'string' }),
     defineField({ name: 'baseline', title: 'Baseline', type: 'string' }),
     defineField({ name: 'email', title: 'Email', type: 'string' }),
