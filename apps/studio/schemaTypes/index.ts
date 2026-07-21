@@ -13,7 +13,20 @@ import { faqSection } from './objects/faqSection';
 import { temoignages } from './objects/temoignages';
 import { texteRiche } from './objects/texteRiche';
 
+import { demandeDevis } from './backoffice/demandeDevis';
+import { expedition } from './backoffice/expedition';
+import { clientFiche } from './backoffice/clientFiche';
+import { conteneurOccasion } from './backoffice/conteneurOccasion';
+import { rotation } from './backoffice/rotation';
+import { statsMensuelles } from './backoffice/statsMensuelles';
+
 import { page } from './documents/page';
+import { pageSuivi } from './documents/pageSuivi';
+import { pageContact } from './documents/pageContact';
+import { pageFaq } from './documents/pageFaq';
+import { pageDevis } from './documents/pageDevis';
+import { pageMentions } from './documents/pageMentions';
+import { pageAccueil } from './documents/pageAccueil';
 import { service } from './documents/service';
 import { destination } from './documents/destination';
 import { profil } from './documents/profil';
@@ -36,9 +49,25 @@ export const schemaTypes: SchemaTypeDefinition[] = [
   texteRiche,
   // documents
   page,
+  pageSuivi,
+  pageContact,
+  pageFaq,
+  pageDevis,
+  pageMentions,
+  pageAccueil,
   service,
   destination,
   profil,
   faqItem,
   temoignage,
+];
+
+// Types du back-office — dataset privé « operations » (workspace dédié)
+export const backofficeTypes: SchemaTypeDefinition[] = [
+  demandeDevis,
+  expedition,
+  clientFiche,
+  conteneurOccasion,
+  rotation,
+  statsMensuelles,
 ];
