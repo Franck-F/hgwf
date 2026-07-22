@@ -59,14 +59,14 @@ export const CONFIDENTIALITE_FR: ContenuLegal = {
       ],
     },
     {
-      titre: 'Transfert hors Union européenne',
+      titre: 'Hébergement et transferts de données',
       ancre: 'transferts',
       corps: [
         p(
-          'Les demandes que vous nous adressez sont enregistrées dans notre outil de gestion de contenu Sanity, dont les serveurs sont situés aux États-Unis. Ce transfert est encadré par les garanties prévues au chapitre V du RGPD, décrites dans l’accord de sous-traitance conclu avec ce prestataire.',
+          'Les demandes que vous nous adressez sont enregistrées dans notre outil de gestion de contenu Sanity. Les serveurs qui hébergent nos données sont situés dans l’Union européenne (Belgique).',
         ),
         p(
-          'Vous pouvez obtenir communication de ces garanties en nous écrivant à ',
+          'Sanity est une société américaine : si un accès à des données depuis un pays tiers s’avérait nécessaire — par exemple pour une opération d’assistance technique —, il serait encadré par les garanties prévues au chapitre V du RGPD, décrites dans l’accord de sous-traitance conclu avec ce prestataire. Vous pouvez en obtenir communication en nous écrivant à ',
           lien('contact@hgwf-cargo.fr', 'mailto:contact@hgwf-cargo.fr'),
           '.',
         ),
