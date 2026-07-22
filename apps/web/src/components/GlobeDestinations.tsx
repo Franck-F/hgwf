@@ -6,8 +6,8 @@ import { Globe, type GlobeMarker, type GlobeArc } from './suivi/Globe';
 // page suivi. Les ports de départ en or, le réseau desservi en ciel, et trois
 // routes maritimes dessinées en arc : le voyage du conteneur, du quai du Havre
 // jusqu'au lagon. Interactif (glisser pour tourner), rotation lente sinon.
-const OR: [number, number, number] = [1, 178 / 255, 62 / 255];
-const CIEL: [number, number, number] = [78 / 255, 168 / 255, 222 / 255];
+const OR: [number, number, number] = [253 / 255, 181 / 255, 61 / 255];
+const CIEL: [number, number, number] = [81 / 255, 165 / 255, 221 / 255];
 
 const LE_HAVRE: [number, number] = [49.49, 0.11];
 const FOS: [number, number] = [43.43, 4.94];
@@ -42,6 +42,6 @@ const ROUTES: GlobeArc[] = [
   { from: FOS, to: PAPEETE },
 ];
 
-export function GlobeDestinations({ className }: { className?: string }) {
-  return <Globe markers={MARQUEURS} arcs={ROUTES} className={className} />;
+export function GlobeDestinations({ className, label }: { className?: string; label?: string }) {
+  return <Globe markers={MARQUEURS} arcs={ROUTES} className={className} label={label} />;
 }
