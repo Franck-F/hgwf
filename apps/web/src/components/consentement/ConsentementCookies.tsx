@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { CLE_STOCKAGE, doitAfficher, type Choix } from './decision';
 
-// Dispositif dormant : sans NEXT_PUBLIC_CONSENTEMENT_COOKIES=1, ce composant ne
-// rend rien. Le site ne dépose aujourd'hui aucun cookie — demander un
-// consentement sans objet nuirait à l'expérience sans rien apporter.
+// Sans NEXT_PUBLIC_CONSENTEMENT_COOKIES=1, ce composant ne rend rien. Le site
+// ne dépose aujourd'hui aucun cookie : le texte affiché le dit, et enregistre
+// la préférence du visiteur pour le cas où une mesure d'audience serait
+// ajoutée. Le jour où un traceur arrive, adapter le texte ET ne charger le
+// traceur qu'après un choix « accepte ».
 const ACTIF = process.env.NEXT_PUBLIC_CONSENTEMENT_COOKIES === '1';
 
 // Les deux choix doivent avoir le même poids visuel (recommandation CNIL) :
@@ -65,8 +67,8 @@ export function ConsentementCookies({ locale }: { locale: string }) {
     >
       <p className="m-0 text-sm leading-[1.55] text-encre-douce">
         {en
-          ? 'We use measurement cookies to understand how the site is used. You can refuse them without affecting your browsing.'
-          : 'Nous utilisons des cookies de mesure d’audience pour comprendre l’usage du site. Vous pouvez les refuser sans que cela change votre navigation.'}{' '}
+          ? 'This site currently sets no tracking cookies. You can record your preference now in case audience measurement is added later.'
+          : 'Ce site ne dépose actuellement aucun cookie de suivi. Vous pouvez enregistrer dès maintenant votre préférence pour le cas où une mesure d’audience serait ajoutée.'}{' '}
         <Link href="/confidentialite/#cookies" className="font-medium text-corail underline">
           {en ? 'Learn more' : 'En savoir plus'}
         </Link>
