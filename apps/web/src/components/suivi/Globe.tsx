@@ -15,9 +15,9 @@ const BASE_CONFIG: Omit<COBEOptions, 'width' | 'height' | 'markers' | 'arcs'> = 
   mapSamples: 16000,
   mapBrightness: 5.2,
   baseColor: [0.23, 0.42, 0.58], // ciel-marine : les points de terre restent lisibles
-  markerColor: [255 / 255, 111 / 255, 94 / 255], // corail (défaut, surchargé par marqueur)
+  markerColor: [253 / 255, 127 / 255, 90 / 255], // corail (défaut, surchargé par marqueur)
   glowColor: [0.18, 0.36, 0.53], // halo marine-ciel discret
-  arcColor: [255 / 255, 178 / 255, 62 / 255], // or : la route maritime
+  arcColor: [253 / 255, 181 / 255, 61 / 255], // or : la route maritime
   arcWidth: 0.4,
   arcHeight: 0.4,
 };
@@ -26,10 +26,13 @@ export function Globe({
   className,
   markers,
   arcs = [],
+  label = 'Globe interactif des destinations desservies',
 }: {
   className?: string;
   markers: Marker[];
   arcs?: Arc[];
+  /** Nom accessible du globe — la donnée reste portée par le texte voisin. */
+  label?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointerInteracting = useRef<number | null>(null);
@@ -63,18 +66,48 @@ export function Globe({
       arcs,
     });
 
+    // Dernier état réellement dessiné : en mouvement réduit, phi n'avance pas,
+    // et redessiner à l'identique 60 fois par seconde serait du travail GPU
+    // pour rien. On ne pousse un update que si quelque chose a changé
+    // (rotation automatique, glisser, ou redimensionnement).
+    let dernierPhi = Number.NaN;
+    let derniereLargeur = 0;
+
     // Boucle de rendu (cobe v2 se pilote via update). Rotation lente, sauf
     // pendant un glisser ou en mouvement réduit.
     const rendre = () => {
       if (!pointerInteracting.current && !reduit) phi.current += 0.0035;
-      globe.update({
-        phi: phi.current + rotationDrag.current,
-        width: width.current * 2,
-        height: width.current * 2,
-      });
+      const phiTotal = phi.current + rotationDrag.current;
+      if (phiTotal !== dernierPhi || width.current !== derniereLargeur) {
+        dernierPhi = phiTotal;
+        derniereLargeur = width.current;
+        globe.update({
+          phi: phiTotal,
+          width: width.current * 2,
+          height: width.current * 2,
+        });
+      }
       frame = requestAnimationFrame(rendre);
     };
-    frame = requestAnimationFrame(rendre);
+
+    const demarrer = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(rendre);
+    };
+    const arreter = () => cancelAnimationFrame(frame);
+
+    // Hors du viewport, la boucle s'arrête complètement : un globe qu'on ne
+    // voit pas ne doit coûter ni batterie ni GPU. La marge de 100 px relance
+    // le rendu juste avant qu'il ne redevienne visible.
+    const observer = new IntersectionObserver(
+      ([entree]) => {
+        if (entree?.isIntersecting) demarrer();
+        else arreter();
+      },
+      { rootMargin: '100px' },
+    );
+    observer.observe(canvas);
+    demarrer();
 
     // Apparition en fondu une fois le premier rendu prêt.
     const t = window.setTimeout(() => {
@@ -82,7 +115,8 @@ export function Globe({
     }, 0);
 
     return () => {
-      cancelAnimationFrame(frame);
+      arreter();
+      observer.disconnect();
       clearTimeout(t);
       window.removeEventListener('resize', onResize);
       globe.destroy();
@@ -105,8 +139,13 @@ export function Globe({
   };
 
   return (
-    <div className={`relative mx-auto aspect-square w-full ${className ?? ''}`}>
+    // role="img" + aria-label : un lecteur d'écran annonce ce qu'est le globe
+    // au lieu de rencontrer un canvas muet. Le canvas lui-même est masqué —
+    // l'interaction (glisser pour tourner) est un bonus visuel, jamais le seul
+    // chemin vers l'information.
+    <div role="img" aria-label={label} className={`relative mx-auto aspect-square w-full ${className ?? ''}`}>
       <canvas
+        aria-hidden="true"
         ref={canvasRef}
         className="size-full cursor-grab opacity-0 transition-opacity duration-700 [contain:layout_paint_size]"
         onPointerDown={(e) => majInteraction(e.clientX - pointerMovement.current)}
