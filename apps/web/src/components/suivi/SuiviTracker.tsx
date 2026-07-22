@@ -127,7 +127,7 @@ function VisuelEtape({
       <div className="relative z-[1] flex flex-col items-center gap-3 px-4 text-center">
         <span
           className={`relative inline-flex h-[68px] w-[68px] items-center justify-center rounded-full ${
-            livre ? 'bg-ciel text-ivoire' : 'bg-corail text-creme'
+            livre ? 'bg-ciel text-marine-abysse' : 'bg-corail text-marine'
           }`}
         >
           <span
@@ -257,9 +257,9 @@ export function SuiviTracker({ content }: { content: SuiviTrackerContent }) {
   // Marqueurs du globe : Le Havre (hub de départ, or) + toutes les destinations
   // (réseau en ciel), la destination suivie ressortant en corail plus gros.
   // Recalculé seulement quand la destination change (pas à chaque frappe).
-  const OR: [number, number, number] = [1, 178 / 255, 62 / 255];
-  const CORAIL: [number, number, number] = [1, 111 / 255, 94 / 255];
-  const CIEL: [number, number, number] = [78 / 255, 168 / 255, 222 / 255];
+  const OR: [number, number, number] = [253 / 255, 181 / 255, 61 / 255];
+  const CORAIL: [number, number, number] = [253 / 255, 127 / 255, 90 / 255];
+  const CIEL: [number, number, number] = [81 / 255, 165 / 255, 221 / 255];
   const LE_HAVRE: [number, number] = [49.49, 0.11];
 
   const globeMarkers: GlobeMarker[] = useMemo(() => {
@@ -324,7 +324,7 @@ export function SuiviTracker({ content }: { content: SuiviTrackerContent }) {
               />
               <button
                 onClick={chercher}
-                className="presse inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full border-none bg-corail px-5 py-3 font-sans text-[14px] font-medium text-creme hover:bg-corail-fonce sm:px-7 sm:py-3.5 sm:text-[15px]"
+                className="presse inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full border-none bg-corail px-5 py-3 font-sans text-[14px] font-medium text-marine hover:bg-or sm:px-7 sm:py-3.5 sm:text-[15px]"
               >
                 {hero.boutonRecherche}
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
@@ -446,9 +446,9 @@ export function SuiviTracker({ content }: { content: SuiviTrackerContent }) {
                   <span
                     className={`inline-flex h-11 w-11 items-center justify-center rounded-full ${
                       actif
-                        ? 'bg-corail text-creme'
+                        ? 'bg-corail text-marine'
                         : fait
-                          ? 'bg-ciel text-ivoire'
+                          ? 'bg-ciel text-marine-abysse'
                           : 'border-[1.5px] border-marine/25 text-encre-douce'
                     }`}
                   >
@@ -489,7 +489,7 @@ export function SuiviTracker({ content }: { content: SuiviTrackerContent }) {
               <span className="text-[10px] font-medium tracking-[0.32em] text-encre-douce uppercase">
                 {resultat.carteProgression}
               </span>
-              <span className="font-mono text-[22px] text-corail">{progression}</span>
+              <span className="font-mono text-[22px] text-corail-texte">{progression}</span>
             </div>
             <div className="flex flex-col gap-1.5 rounded-2xl bg-marine px-5 py-[18px] text-creme">
               <span className="text-[10px] font-medium tracking-[0.32em] text-or uppercase">{resultat.carteEta}</span>

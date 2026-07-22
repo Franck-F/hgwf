@@ -150,7 +150,7 @@ export async function Footer({ locale }: { locale: string }) {
                 href={s.href}
                 aria-label={s.nom}
                 title={s.nom}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-creme/30 text-creme transition hover:bg-corail"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-creme/30 text-creme transition hover:bg-corail hover:text-marine"
               >
                 {s.icone}
               </a>

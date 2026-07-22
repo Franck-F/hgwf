@@ -302,7 +302,7 @@ function FlecheDroite({ taille = 14 }: { taille?: number }) {
 function Coche() {
   return (
     <span className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-corail/14">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#FF6F5E" strokeWidth="3" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#b44224" strokeWidth="3" aria-hidden="true">
         <path d="M4 12l5 5L20 6" />
       </svg>
     </span>
@@ -337,7 +337,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3.5">
               <Link
                 href={hero.boutonPrincipalLien}
-                className="presse inline-flex w-full items-center justify-center gap-2.5 rounded-full bg-corail px-[30px] py-3.5 text-[15px] font-medium text-creme hover:bg-corail-fonce sm:w-auto"
+                className="presse inline-flex w-full items-center justify-center gap-2.5 rounded-full bg-corail px-[30px] py-3.5 text-[15px] font-medium text-marine hover:bg-or sm:w-auto"
               >
                 {hero.boutonPrincipal}
                 <span className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-full bg-creme/25">
@@ -374,7 +374,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                 <span className="text-[17px] font-bold">{s.titre}</span>
                 <span className="text-xs opacity-85">{s.texte}</span>
               </span>
-              <span className="fleche-carte absolute top-3.5 right-3.5 inline-flex h-[34px] w-[34px] items-center justify-center rounded-full bg-corail text-creme">
+              <span className="fleche-carte absolute top-3.5 right-3.5 inline-flex h-[34px] w-[34px] items-center justify-center rounded-full bg-corail text-marine">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
                   <path d="M7 17 17 7M9 7h8v8" />
                 </svg>
@@ -387,7 +387,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       {/* Promesse */}
       <section className="revele mx-auto max-w-[820px] px-5 sm:px-8 pt-16 sm:pt-24 text-center">
         <h2 className="m-0 text-[32px] leading-[1.1] font-bold tracking-[-0.03em] md:text-[42px]">
-          {promesse.titre} <span className="text-corail">{promesse.titreAccent}</span>.
+          {promesse.titre} <span className="text-corail-texte">{promesse.titreAccent}</span>.
         </h2>
         <p className="mx-auto mt-[18px] mb-0 max-w-[58ch] text-base leading-[1.55] text-encre-douce">
           {promesse.texte}
@@ -424,7 +424,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             <div className="revele flex justify-center">
               <Link
                 href={zones.boutonLien}
-                className="presse rounded-full bg-corail px-[30px] py-[13px] text-[15px] font-medium text-creme hover:bg-corail-fonce"
+                className="presse rounded-full bg-corail px-[30px] py-[13px] text-[15px] font-medium text-marine hover:bg-or"
               >
                 {zones.bouton}
               </Link>
@@ -437,11 +437,11 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <section id="demenagement" className="mx-auto max-w-[1200px] px-5 sm:px-8 pt-16 sm:pt-24">
         <div className="grid grid-cols-1 items-center gap-14 lg:grid-cols-2">
           <div className="revele flex flex-col gap-[18px]">
-            <span className="text-xs font-medium tracking-[0.32em] text-corail uppercase">
+            <span className="text-xs font-medium tracking-[0.32em] text-corail-texte uppercase">
               {demenagement.eyebrow}
             </span>
             <h2 className="m-0 text-[32px] leading-[1.08] font-bold tracking-[-0.03em] md:text-[40px]">
-              {demenagement.titre} <span className="text-corail">{demenagement.titreAccent}</span>
+              {demenagement.titre} <span className="text-corail-texte">{demenagement.titreAccent}</span>
               {demenagement.titreFin}
             </h2>
             <p className="m-0 text-[15px] leading-[1.6] text-encre-douce">{demenagement.texte}</p>
@@ -455,7 +455,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             </ul>
             <Link
               href={demenagement.boutonLien}
-              className="presse self-start rounded-full bg-corail px-[30px] py-3.5 text-[15px] font-medium text-creme hover:bg-corail-fonce"
+              className="presse self-start rounded-full bg-corail px-[30px] py-3.5 text-[15px] font-medium text-marine hover:bg-or"
             >
               {demenagement.bouton}
             </Link>
@@ -477,16 +477,23 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         <div className="grid grid-cols-1 items-center gap-14 lg:grid-cols-[1fr_1.3fr]">
           <div className="revele flex flex-col gap-4">
             <h2 className="m-0 text-[32px] leading-[1.08] font-bold tracking-[-0.03em] md:text-[40px]">
-              {delais.titre} <span className="text-corail">{delais.titreAccent}</span>.
+              {delais.titre} <span className="text-corail-texte">{delais.titreAccent}</span>.
             </h2>
             <p className="m-0 text-[15px] leading-[1.6] text-encre-douce">{delais.texte}</p>
-            <Link href="/faq" className="inline-flex items-center gap-2 text-sm font-medium text-corail transition hover:text-corail-fonce">
+            <Link href="/faq" className="inline-flex items-center gap-2 text-sm font-medium text-corail-texte transition hover:text-marine">
               {delais.lienFaq}
               <FlecheDroite />
             </Link>
             {/* Le réseau en vrai : globe interactif (glisser pour tourner), ports
                 de départ en or, destinations en ciel, routes maritimes en arc. */}
-            <GlobeDestinations className="mt-2 max-w-[340px] self-center lg:self-start" />
+            <GlobeDestinations
+              className="mt-2 max-w-[340px] self-center lg:self-start"
+              label={
+                locale === 'en'
+                  ? 'Interactive globe of served destinations — departure ports in gold, destinations in blue, maritime routes drawn as arcs'
+                  : 'Globe interactif des destinations desservies — ports de départ en or, destinations en bleu, routes maritimes en arc'
+              }
+            />
           </div>
           <div className="revele flex flex-col gap-4">
             {delais.barres.map((b) => (
@@ -516,11 +523,11 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             )}
           </div>
           <div className="revele flex flex-col gap-4 p-8 md:p-14">
-            <span className="text-xs font-medium tracking-[0.32em] text-corail uppercase">
+            <span className="text-xs font-medium tracking-[0.32em] text-corail-texte uppercase">
               {conteneurs.eyebrow}
             </span>
             <h2 className="m-0 text-[30px] leading-[1.1] font-bold tracking-[-0.02em] md:text-4xl">
-              {conteneurs.titre} <span className="text-corail">{conteneurs.titreAccent}</span>.
+              {conteneurs.titre} <span className="text-corail-texte">{conteneurs.titreAccent}</span>.
             </h2>
             <p className="m-0 text-[15px] leading-[1.6] text-encre-douce">{conteneurs.texte}</p>
             <div className="flex flex-wrap gap-2.5">
@@ -544,7 +551,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <section id="faq" className="mx-auto max-w-[860px] px-5 sm:px-8 pt-16 sm:pt-24">
         <div className="revele flex flex-col gap-3 text-center">
           <h2 className="m-0 text-3xl font-bold tracking-[-0.03em] md:text-[38px]">
-            {faqCourte.titre} <span className="text-corail">{faqCourte.titreAccent}</span>.
+            {faqCourte.titre} <span className="text-corail-texte">{faqCourte.titreAccent}</span>.
           </h2>
           <p className="m-0 text-[15px] text-encre-douce">
             {faqCourte.texte}{' '}
@@ -557,9 +564,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         <div className="revele-cascade mt-8 flex flex-col">
           {faqCourte.items.map((item) => (
             <details key={item.question} className="group border-t border-marine/14 px-1 py-[18px] last:border-b">
-              <summary className="flex cursor-pointer list-none justify-between gap-4 text-base font-bold transition-colors duration-200 hover:text-corail-fonce [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none justify-between gap-4 text-base font-bold transition-colors duration-200 hover:text-corail-texte [&::-webkit-details-marker]:hidden">
                 {item.question}
-                <span className="font-normal text-corail transition group-open:rotate-45">+</span>
+                <span className="font-normal text-corail-texte transition group-open:rotate-45">+</span>
               </summary>
               <p className="mt-3 mb-0 text-sm leading-[1.6] text-encre-douce">{item.reponse}</p>
             </details>
@@ -595,7 +602,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             <div className="flex flex-wrap justify-center gap-3.5">
               <Link
                 href="/suivi"
-                className="presse rounded-full bg-corail px-[30px] py-3.5 text-[15px] font-medium text-creme hover:bg-corail-fonce"
+                className="presse rounded-full bg-corail px-[30px] py-3.5 text-[15px] font-medium text-marine hover:bg-or"
               >
                 {ctaSuivi.boutonPrincipal}
               </Link>

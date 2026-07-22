@@ -181,7 +181,7 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
                 >
                   <summary className="flex cursor-pointer list-none justify-between gap-4 text-base font-bold [&::-webkit-details-marker]:hidden">
                     {q.question}
-                    <span className="font-normal text-corail transition group-open:rotate-45">+</span>
+                    <span className="font-normal text-corail-texte transition group-open:rotate-45">+</span>
                   </summary>
                   <ReponseFaq blocs={q.reponse ?? []} />
                 </details>
@@ -200,7 +200,7 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
           </div>
           <Link
             href={cta.lien}
-            className="rounded-full bg-corail px-6 py-3 text-[15px] font-medium text-creme transition hover:bg-corail-fonce"
+            className="rounded-full bg-corail px-6 py-3 text-[15px] font-medium text-marine transition hover:bg-or"
           >
             {cta.bouton}
           </Link>
