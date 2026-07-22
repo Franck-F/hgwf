@@ -4,6 +4,8 @@ import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { defaultLocale, isLocale, type Locale } from '@hgwf/shared';
 import { getPageAccueil } from '@/sanity/queries';
+import { HouleAnimee } from '@/components/HouleAnimee';
+import { GlobeDestinations } from '@/components/GlobeDestinations';
 
 // Contenu par défaut : copie de la maquette Site HGWF Cargo.dc.html (Claude Design).
 const DEFAUT = {
@@ -317,7 +319,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     <main>
       {/* Hero plein écran */}
       <header>
-        <div className="hero-photo relative flex min-h-[560px] flex-col overflow-hidden bg-marine sm:min-h-[680px]">
+        <div className="hero-photo hero-photo-vivant relative flex min-h-[560px] flex-col overflow-hidden bg-marine sm:min-h-[680px]">
           {hero.imageUrl && (
             <Image src={hero.imageUrl} alt="" fill priority sizes="100vw" className="object-cover" />
           )}
@@ -325,6 +327,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             className="pointer-events-none absolute inset-0 bg-linear-92 from-marine/88 from-0% via-marine/58 via-46% to-marine/30 to-100%"
             aria-hidden="true"
           />
+          <HouleAnimee />
           <div className="hero-entree relative z-[2] flex max-w-[800px] flex-1 flex-col justify-center gap-5 px-5 py-28 sm:gap-6 sm:px-8 sm:py-[120px] md:px-[72px]">
             <h1 className="m-0 text-[clamp(2.1rem,8.5vw,3.375rem)] leading-[1.06] font-bold tracking-[-0.035em] text-creme">
               {hero.titre} <span className="text-or">{hero.titreAccent}</span>
@@ -411,7 +414,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               {zones.cartes.map((z) => (
                 <div
                   key={z.titre}
-                  className="flex flex-col gap-2 rounded-[18px] border border-creme/30 bg-creme/14 p-[22px] text-creme backdrop-blur-lg"
+                  className="carte-zone flex flex-col gap-2 rounded-[18px] border border-creme/30 bg-creme/14 p-[22px] text-creme backdrop-blur-lg"
                 >
                   <span className="text-[17px] font-bold">{z.titre}</span>
                   <span className="text-[13px] leading-normal opacity-90">{z.texte}</span>
@@ -481,6 +484,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               {delais.lienFaq}
               <FlecheDroite />
             </Link>
+            {/* Le réseau en vrai : globe interactif (glisser pour tourner), ports
+                de départ en or, destinations en ciel, routes maritimes en arc. */}
+            <GlobeDestinations className="mt-2 max-w-[340px] self-center lg:self-start" />
           </div>
           <div className="revele flex flex-col gap-4">
             {delais.barres.map((b) => (
@@ -551,7 +557,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         <div className="revele-cascade mt-8 flex flex-col">
           {faqCourte.items.map((item) => (
             <details key={item.question} className="group border-t border-marine/14 px-1 py-[18px] last:border-b">
-              <summary className="flex cursor-pointer list-none justify-between gap-4 text-base font-bold [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none justify-between gap-4 text-base font-bold transition-colors duration-200 hover:text-corail-fonce [&::-webkit-details-marker]:hidden">
                 {item.question}
                 <span className="font-normal text-corail transition group-open:rotate-45">+</span>
               </summary>
