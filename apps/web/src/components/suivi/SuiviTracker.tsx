@@ -167,6 +167,9 @@ export function SuiviTracker({ content }: { content: SuiviTrackerContent }) {
 
   useEffect(() => {
     const timer = setInterval(() => {
+      // Onglet caché : inutile de re-rendre toute la carte chaque seconde
+      // pour une horloge que personne ne regarde.
+      if (document.hidden) return;
       setTick((t) => t + 1);
       const d = new Date();
       const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -332,7 +335,15 @@ export function SuiviTracker({ content }: { content: SuiviTrackerContent }) {
                 </svg>
               </button>
             </div>
-            {!reel && <span className="font-mono text-[11px] text-ciel">{hero.noteDemo}</span>}
+            {/* La note d'honnêteté (« données de démonstration ») doit rester
+                lisible : crème sur marine, pas ciel (4,4:1 à 11 px). */}
+            {!reel && <span className="font-mono text-xs text-creme/90">{hero.noteDemo}</span>}
+            {/* Annonce du résultat aux lecteurs d'écran : la carte se met à
+                jour visuellement sous le hero, sans quoi une recherche reste
+                muette pour un utilisateur non-voyant. */}
+            <span aria-live="polite" className="sr-only">
+              {`${trajetAffiche} — ${etapeContent.jalon} — ETA ${eta}`}
+            </span>
           </div>
         </div>
       </header>
