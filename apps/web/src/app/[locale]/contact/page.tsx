@@ -112,6 +112,11 @@ async function getContenu(locale: Locale) {
     boutonReinitialiser: data?.formulaire?.boutonReinitialiser ?? FORMULAIRE_DEFAUT.boutonReinitialiser,
     emailDestinataire: settings?.email ?? 'contact@hgwf-cargo.fr',
     mentionRgpd: locale === 'en' ? MENTION_RGPD_EN : MENTION_RGPD_FR,
+    libelleSujet: locale === 'en' ? 'Subject' : 'Sujet',
+    erreurContact:
+      locale === 'en'
+        ? 'Please provide your name and at least one way to contact you (email or phone).'
+        : 'Indiquez votre nom et au moins un moyen de contact (e-mail ou téléphone).',
   };
 
   const centre = {
