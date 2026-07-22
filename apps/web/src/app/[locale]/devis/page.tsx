@@ -113,6 +113,25 @@ const REASSURANCE_DEFAUT = [
 
 const COULEURS_REASSURANCE = ['text-corail', 'text-ciel', 'text-or'];
 
+// Noms accessibles des champs de dimensions (étape 3) et message de
+// validation — même règle que l'API : un nom et un moyen de contact.
+const DIMS_ARIA_FR = {
+  longueur: 'Longueur (cm)',
+  largeur: 'Largeur (cm)',
+  hauteur: 'Hauteur (cm)',
+  quantite: 'Quantité',
+};
+const DIMS_ARIA_EN = {
+  longueur: 'Length (cm)',
+  largeur: 'Width (cm)',
+  hauteur: 'Height (cm)',
+  quantite: 'Quantity',
+};
+const ERREUR_CONTACT_FR =
+  'Indiquez votre nom et au moins un moyen de contact (e-mail ou téléphone) pour recevoir votre devis.';
+const ERREUR_CONTACT_EN =
+  'Please provide your name and at least one way to contact you (email or phone) to receive your quote.';
+
 const SEO_DEFAUT = {
   titre: 'Demande de devis — HGWF Cargo',
   description:
@@ -186,6 +205,8 @@ async function getContenu(locale: Locale) {
     emailDestinataire: settings?.email ?? 'contact@hgwf-cargo.fr',
     sujetEmail: 'Demande de devis',
     mentionRgpd: locale === 'en' ? MENTION_RGPD_EN : MENTION_RGPD_FR,
+    dimsAria: locale === 'en' ? DIMS_ARIA_EN : DIMS_ARIA_FR,
+    erreurContact: locale === 'en' ? ERREUR_CONTACT_EN : ERREUR_CONTACT_FR,
   };
 
   const reassurance = data?.reassurance?.length
@@ -257,7 +278,11 @@ export default async function DevisPage({ params }: { params: Promise<{ locale: 
         <div className="revele-cascade grid grid-cols-1 gap-[18px] md:grid-cols-3">
           {reassurance.map((r, i) => (
             <div key={r.titre} className="flex flex-col gap-2 rounded-[20px] border border-marine/12 p-6">
-              <span className={`font-mono text-xl ${COULEURS_REASSURANCE[i % COULEURS_REASSURANCE.length]}`}>
+              {/* Pastille marine : les trois couleurs de la balise (corail, ciel,
+                  or) y tiennent le contraste, ce qu'aucune ne fait sur blanc. */}
+              <span
+                className={`self-start rounded-full bg-marine px-3.5 py-1 font-mono text-xl ${COULEURS_REASSURANCE[i % COULEURS_REASSURANCE.length]}`}
+              >
                 {r.valeur}
               </span>
               <span className="text-base font-bold">{r.titre}</span>

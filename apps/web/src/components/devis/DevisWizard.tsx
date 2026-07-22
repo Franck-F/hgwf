@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Link } from '@/i18n/navigation';
 
@@ -40,6 +40,12 @@ export type DevisWizardContent = {
   // scindée en deux pour pouvoir insérer le lien vers la politique de
   // confidentialité au milieu.
   mentionRgpd: { texte: string; lienLibelle: string };
+  // Noms accessibles des champs de dimensions (étape 3), dont les
+  // placeholders visibles restent volontairement compacts (« L », « l »…).
+  dimsAria: { longueur: string; largeur: string; hauteur: string; quantite: string };
+  // Message affiché quand on tente d'envoyer sans nom ni moyen de contact —
+  // la même règle que l'API applique côté serveur.
+  erreurContact: string;
 };
 
 type Colis = { L: string; l: string; h: string; q: string };
@@ -69,6 +75,14 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
   const [envoye, setEnvoye] = useState(false);
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
   const [referenceApi, setReferenceApi] = useState<string | null>(null);
+  const [erreur, setErreur] = useState(false);
+
+  // À la confirmation, le focus rejoint le titre : un utilisateur clavier ou
+  // lecteur d'écran sait immédiatement que sa demande est partie.
+  const titreConfirmation = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (envoye) titreConfirmation.current?.focus();
+  }, [envoye]);
 
   const volume = colis.reduce((t, cl) => {
     const L = parseFloat(cl.L) || 0;
@@ -112,6 +126,16 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
   };
 
   const envoyer = async () => {
+    // Même règle que l'API : un nom et au moins un moyen de contact. Sans ce
+    // garde-fou, une demande vide « partait » quand même (l'API la refusait en
+    // 422, le code retombait sur mailto et affichait une fausse confirmation).
+    if (!nom.trim() || (!email.trim() && !tel.trim())) {
+      setErreur(true);
+      setStep(4);
+      return;
+    }
+    setErreur(false);
+
     // Envoi direct au back-office quand l'API est configurée ; repli mailto sinon.
     if (API_URL) {
       setEnvoiEnCours(true);
@@ -165,7 +189,8 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
                 <button
                   onClick={() => !envoye && setStep(n)}
                   aria-label={label}
-                  className={`inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full font-mono text-[13px] ${
+                  aria-current={actif ? 'step' : undefined}
+                  className={`inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full font-mono text-[13px] ${
                     actif
                       ? 'border-none bg-corail text-marine'
                       : fait
@@ -247,13 +272,13 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
             <div className="flex flex-col gap-2.5">
               {colis.map((cl, i) => (
                 <div key={i} className="flex items-center gap-1.5 sm:gap-2">
-                  <input type="number" min="0" placeholder="L" value={cl.L} onChange={(e) => updColis(i, 'L', e.target.value)} className={`${CHAMP_MONO} min-w-0 flex-1 sm:w-[98px] sm:flex-none`} />
-                  <span className="text-encre-douce">×</span>
-                  <input type="number" min="0" placeholder="l" value={cl.l} onChange={(e) => updColis(i, 'l', e.target.value)} className={`${CHAMP_MONO} min-w-0 flex-1 sm:w-[98px] sm:flex-none`} />
-                  <span className="text-encre-douce">×</span>
-                  <input type="number" min="0" placeholder="H" value={cl.h} onChange={(e) => updColis(i, 'h', e.target.value)} className={`${CHAMP_MONO} min-w-0 flex-1 sm:w-[98px] sm:flex-none`} />
-                  <span className="text-encre-douce">·</span>
-                  <input type="number" min="1" placeholder="Qté" value={cl.q} onChange={(e) => updColis(i, 'q', e.target.value)} className={`${CHAMP_MONO} w-[52px] shrink-0 sm:w-[72px]`} />
+                  <input type="number" min="0" placeholder="L" aria-label={c.dimsAria.longueur} value={cl.L} onChange={(e) => updColis(i, 'L', e.target.value)} className={`${CHAMP_MONO} min-w-0 flex-1 sm:w-[98px] sm:flex-none`} />
+                  <span className="text-encre-douce" aria-hidden="true">×</span>
+                  <input type="number" min="0" placeholder="l" aria-label={c.dimsAria.largeur} value={cl.l} onChange={(e) => updColis(i, 'l', e.target.value)} className={`${CHAMP_MONO} min-w-0 flex-1 sm:w-[98px] sm:flex-none`} />
+                  <span className="text-encre-douce" aria-hidden="true">×</span>
+                  <input type="number" min="0" placeholder="H" aria-label={c.dimsAria.hauteur} value={cl.h} onChange={(e) => updColis(i, 'h', e.target.value)} className={`${CHAMP_MONO} min-w-0 flex-1 sm:w-[98px] sm:flex-none`} />
+                  <span className="text-encre-douce" aria-hidden="true">·</span>
+                  <input type="number" min="1" placeholder="Qté" aria-label={c.dimsAria.quantite} value={cl.q} onChange={(e) => updColis(i, 'q', e.target.value)} className={`${CHAMP_MONO} w-[52px] shrink-0 sm:w-[72px]`} />
                   {colis.length > 1 && (
                     <button
                       onClick={() => setColis((prev) => prev.filter((_, j) => j !== i))}
@@ -280,19 +305,39 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
           (!envoye ? (
             <div className="flex flex-col gap-3.5">
               <h2 className="m-0 text-[22px] font-bold tracking-[-0.02em]">{c.etapeCoordonnees.titre}</h2>
-              <input placeholder={c.etapeCoordonnees.placeholderNom} value={nom} onChange={(e) => setNom(e.target.value)} className={CHAMP} />
-              <input type="email" placeholder={c.etapeCoordonnees.placeholderEmail} value={email} onChange={(e) => setEmail(e.target.value)} className={CHAMP} />
-              <input type="tel" placeholder={c.etapeCoordonnees.placeholderTel} value={tel} onChange={(e) => setTel(e.target.value)} className={CHAMP} />
-              <textarea placeholder={c.etapeCoordonnees.placeholderMessage} rows={4} value={message} onChange={(e) => setMessage(e.target.value)} className={`${CHAMP} resize-y`} />
+              {/* Vrais labels : un placeholder disparaît dès la saisie, un label reste. */}
+              <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                {c.etapeCoordonnees.placeholderNom}
+                <input value={nom} onChange={(e) => setNom(e.target.value)} aria-invalid={erreur && !nom.trim() ? true : undefined} aria-describedby={erreur ? 'erreur-devis' : undefined} className={CHAMP} />
+              </label>
+              <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                {c.etapeCoordonnees.placeholderEmail}
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={erreur && !email.trim() && !tel.trim() ? true : undefined} aria-describedby={erreur ? 'erreur-devis' : undefined} className={CHAMP} />
+              </label>
+              <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                {c.etapeCoordonnees.placeholderTel}
+                <input type="tel" value={tel} onChange={(e) => setTel(e.target.value)} aria-invalid={erreur && !email.trim() && !tel.trim() ? true : undefined} aria-describedby={erreur ? 'erreur-devis' : undefined} className={CHAMP} />
+              </label>
+              <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                {c.etapeCoordonnees.placeholderMessage}
+                <textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} className={`${CHAMP} resize-y`} />
+              </label>
+              {erreur && (
+                <p id="erreur-devis" role="alert" className="m-0 text-[13px] font-medium text-corail-texte">
+                  {c.erreurContact}
+                </p>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-start gap-4 py-3">
               <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-or/18">
-                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#FFB23E" strokeWidth="2.5" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fdb53d" strokeWidth="2.5" aria-hidden="true">
                   <path d="M4 12l5 5L20 6" />
                 </svg>
               </span>
-              <h2 className="m-0 text-[28px] font-bold tracking-[-0.03em]">{c.confirmation.titre}</h2>
+              <h2 ref={titreConfirmation} tabIndex={-1} className="m-0 text-[28px] font-bold tracking-[-0.03em] outline-none">
+                {c.confirmation.titre}
+              </h2>
               <p className="m-0 max-w-[48ch] text-[15px] leading-[1.55] text-encre-douce">
                 {nom ? c.confirmation.texte.replace('{nom}', nom) : c.confirmation.texte.replace(' {nom}', '')}
               </p>
@@ -339,6 +384,7 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
                 <button
                   onClick={envoyer}
                   disabled={envoiEnCours}
+                  aria-busy={envoiEnCours || undefined}
                   className="presse cursor-pointer rounded-full border-none bg-corail px-7 py-3 font-sans text-[15px] font-medium text-marine hover:bg-or disabled:opacity-60"
                 >
                   {envoiEnCours ? '…' : c.boutons.envoyer}
