@@ -126,12 +126,12 @@ const DOCUMENTS = [
         ),
         p('Vos données ne sont ni vendues, ni louées, ni transmises à des fins publicitaires.'),
       ]),
-      section('Transfert hors Union européenne', 'transferts', [
+      section('Hébergement et transferts de données', 'transferts', [
         p(
-          'Les demandes que vous nous adressez sont enregistrées dans notre outil de gestion de contenu Sanity, dont les serveurs sont situés aux États-Unis. Ce transfert est encadré par les garanties prévues au chapitre V du RGPD, décrites dans l’accord de sous-traitance conclu avec ce prestataire.',
+          'Les demandes que vous nous adressez sont enregistrées dans notre outil de gestion de contenu Sanity. Les serveurs qui hébergent nos données sont situés dans l’Union européenne (Belgique).',
         ),
         p(
-          'Vous pouvez obtenir communication de ces garanties en nous écrivant à ',
+          'Sanity est une société américaine : si un accès à des données depuis un pays tiers s’avérait nécessaire — par exemple pour une opération d’assistance technique —, il serait encadré par les garanties prévues au chapitre V du RGPD, décrites dans l’accord de sous-traitance conclu avec ce prestataire. Vous pouvez en obtenir communication en nous écrivant à ',
           lien('contact@hgwf-cargo.fr', 'mailto:contact@hgwf-cargo.fr'),
           '.',
         ),
@@ -409,12 +409,12 @@ const DOCUMENTS = [
         ),
         p('Your data is never sold, rented or transferred for advertising purposes.'),
       ]),
-      section('Transfers outside the European Union', 'transferts', [
+      section('Data hosting and transfers', 'transferts', [
         p(
-          'The requests you send us are recorded in our content management tool, Sanity, whose servers are located in the United States. This transfer is governed by the safeguards set out in Chapter V of the GDPR, described in the data processing agreement concluded with this provider.',
+          'The requests you send us are recorded in our content management tool, Sanity. The servers hosting our data are located in the European Union (Belgium).',
         ),
         p(
-          'You can request a copy of these safeguards by writing to ',
+          'Sanity is a US company: should access to data from a third country ever prove necessary — for instance during a technical support operation — it would be governed by the safeguards set out in Chapter V of the GDPR, described in the data processing agreement concluded with this provider. You can request a copy of these safeguards by writing to ',
           lien('contact@hgwf-cargo.fr', 'mailto:contact@hgwf-cargo.fr'),
           '.',
         ),

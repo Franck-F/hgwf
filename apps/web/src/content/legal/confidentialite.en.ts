@@ -63,14 +63,14 @@ export const CONFIDENTIALITE_EN: ContenuLegal = {
       ],
     },
     {
-      titre: 'Transfers outside the European Union',
+      titre: 'Data hosting and transfers',
       ancre: 'transferts',
       corps: [
         p(
-          'The requests you send us are recorded in our content management tool, Sanity, whose servers are located in the United States. This transfer is governed by the safeguards set out in Chapter V of the GDPR, described in the data processing agreement concluded with this provider.',
+          'The requests you send us are recorded in our content management tool, Sanity. The servers hosting our data are located in the European Union (Belgium).',
         ),
         p(
-          'You can request a copy of these safeguards by writing to ',
+          'Sanity is a US company: should access to data from a third country ever prove necessary — for instance during a technical support operation — it would be governed by the safeguards set out in Chapter V of the GDPR, described in the data processing agreement concluded with this provider. You can request a copy of these safeguards by writing to ',
           lien('contact@hgwf-cargo.fr', 'mailto:contact@hgwf-cargo.fr'),
           '.',
         ),
