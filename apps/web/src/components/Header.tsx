@@ -69,7 +69,7 @@ export async function Header({ locale }: { locale: string }) {
         <div className="flex items-center gap-1.5 sm:gap-3">
           <Link
             href={cta.href}
-            className="presse rounded-full bg-corail px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-creme hover:bg-corail-fonce sm:px-6 sm:text-sm"
+            className="presse inline-flex min-h-11 items-center justify-center rounded-full bg-corail px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-marine hover:bg-or sm:px-6 sm:text-sm"
           >
             {cta.libelle}
           </Link>

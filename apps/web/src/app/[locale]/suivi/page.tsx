@@ -304,7 +304,7 @@ export default async function SuiviPage({ params }: { params: Promise<{ locale: 
       {/* Le voyage en images */}
       <section className="mx-auto max-w-[1200px] px-5 sm:px-8 pt-22">
         <h2 className="revele m-0 text-center text-4xl font-bold tracking-[-0.03em]">
-          {voyage.titre} <span className="text-corail">{voyage.titreAccent}</span>.
+          {voyage.titre} <span className="text-corail-texte">{voyage.titreAccent}</span>.
         </h2>
         <div className="revele-cascade mt-9 grid grid-cols-1 gap-[18px] md:grid-cols-3">
           {voyage.etapes.map((e, i) => (
@@ -344,7 +344,7 @@ export default async function SuiviPage({ params }: { params: Promise<{ locale: 
           </div>
           <Link
             href={cta.lien}
-            className="rounded-full bg-corail px-5 sm:px-8 py-[15px] text-base font-medium text-creme transition hover:bg-corail-fonce"
+            className="rounded-full bg-corail px-5 sm:px-8 py-[15px] text-base font-medium text-marine transition hover:bg-or"
           >
             {cta.bouton}
           </Link>

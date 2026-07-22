@@ -167,7 +167,7 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
                   aria-label={label}
                   className={`inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full font-mono text-[13px] ${
                     actif
-                      ? 'border-none bg-corail text-creme'
+                      ? 'border-none bg-corail text-marine'
                       : fait
                         ? 'border-none bg-ciel text-ivoire'
                         : 'border-[1.5px] border-marine/25 bg-transparent text-encre-douce'
@@ -233,7 +233,7 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
               </label>
             </div>
             <div className="flex flex-wrap items-baseline gap-3 rounded-[14px] border border-marine/14 bg-creme px-[18px] py-3.5">
-              <span className="font-mono text-xs text-corail">{c.etapeDestination.libelleDelai}</span>
+              <span className="font-mono text-xs text-corail-texte">{c.etapeDestination.libelleDelai}</span>
               <span className="font-mono text-sm">{delai}</span>
             </div>
           </div>
@@ -296,11 +296,11 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
               <p className="m-0 max-w-[48ch] text-[15px] leading-[1.55] text-encre-douce">
                 {nom ? c.confirmation.texte.replace('{nom}', nom) : c.confirmation.texte.replace(' {nom}', '')}
               </p>
-              <span className="font-mono text-2xl tracking-[0.06em] text-corail">{reference}</span>
+              <span className="font-mono text-2xl tracking-[0.06em] text-corail-texte">{reference}</span>
               <div className="flex flex-wrap gap-3">
                 <Link
                   href="/contact"
-                  className="rounded-full bg-corail px-6 py-3 text-[15px] font-medium text-creme transition hover:bg-corail-fonce"
+                  className="rounded-full bg-corail px-6 py-3 text-[15px] font-medium text-marine transition hover:bg-or"
                 >
                   {c.confirmation.boutonContact}
                 </Link>
@@ -331,7 +331,7 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
               {step < 4 ? (
                 <button
                   onClick={() => setStep((s) => Math.min(4, s + 1))}
-                  className="presse cursor-pointer rounded-full border-none bg-corail px-7 py-3 font-sans text-[15px] font-medium text-creme hover:bg-corail-fonce"
+                  className="presse cursor-pointer rounded-full border-none bg-corail px-7 py-3 font-sans text-[15px] font-medium text-marine hover:bg-or"
                 >
                   {c.boutons.suivant}
                 </button>
@@ -339,7 +339,7 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
                 <button
                   onClick={envoyer}
                   disabled={envoiEnCours}
-                  className="presse cursor-pointer rounded-full border-none bg-corail px-7 py-3 font-sans text-[15px] font-medium text-creme hover:bg-corail-fonce disabled:opacity-60"
+                  className="presse cursor-pointer rounded-full border-none bg-corail px-7 py-3 font-sans text-[15px] font-medium text-marine hover:bg-or disabled:opacity-60"
                 >
                   {envoiEnCours ? '…' : c.boutons.envoyer}
                 </button>

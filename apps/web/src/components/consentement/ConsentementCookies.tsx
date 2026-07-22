@@ -69,7 +69,7 @@ export function ConsentementCookies({ locale }: { locale: string }) {
         {en
           ? 'This site currently sets no tracking cookies. You can record your preference now in case audience measurement is added later.'
           : 'Ce site ne dépose actuellement aucun cookie de suivi. Vous pouvez enregistrer dès maintenant votre préférence pour le cas où une mesure d’audience serait ajoutée.'}{' '}
-        <Link href="/confidentialite/#cookies" className="font-medium text-corail underline">
+        <Link href="/confidentialite/#cookies" className="font-medium text-corail-texte underline">
           {en ? 'Learn more' : 'En savoir plus'}
         </Link>
       </p>

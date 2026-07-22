@@ -48,10 +48,19 @@ export default async function LocaleLayout({
         className={`${saira.variable} ${barlow.variable} bg-ivoire font-sans text-marine antialiased`}
       >
         <NextIntlClientProvider>
+          {/* Lien d'évitement : invisible jusqu'au premier Tab, il permet de
+              sauter la navigation. Au-dessus de tout (le header est à z-60,
+              le bandeau cookies à z-70). */}
+          <a
+            href="#contenu"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[80] focus:rounded-full focus:bg-marine focus:px-5 focus:py-3 focus:text-sm focus:font-medium focus:text-creme"
+          >
+            {locale === 'en' ? 'Skip to content' : 'Aller au contenu'}
+          </a>
           <RevealScroll />
           <HeaderScroll />
           <Header locale={locale} />
-          {children}
+          <div id="contenu">{children}</div>
           <Footer locale={locale} />
           <ConsentementCookies locale={locale} />
         </NextIntlClientProvider>

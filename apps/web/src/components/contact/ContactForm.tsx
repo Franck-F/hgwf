@@ -117,7 +117,7 @@ export function ContactForm({ content }: { content: ContactFormContent }) {
             <button
               onClick={envoyer}
               disabled={envoiEnCours}
-              className="presse self-start rounded-full border-none bg-corail px-7 py-3.5 font-sans text-[15px] font-medium text-creme hover:bg-corail-fonce disabled:opacity-60"
+              className="presse self-start rounded-full border-none bg-corail px-7 py-3.5 font-sans text-[15px] font-medium text-marine hover:bg-or disabled:opacity-60"
             >
               {envoiEnCours ? '…' : content.boutonEnvoyer}
             </button>

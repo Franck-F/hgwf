@@ -115,7 +115,7 @@ export function MobileNav({
             <Link
               href={cta.href}
               onClick={() => setOpen(false)}
-              className="presse mt-8 inline-flex items-center justify-center rounded-full bg-corail px-6 py-4 text-base font-medium text-creme hover:bg-corail-fonce"
+              className="presse mt-8 inline-flex items-center justify-center rounded-full bg-corail px-6 py-4 text-base font-medium text-marine hover:bg-or"
             >
               {cta.libelle}
             </Link>

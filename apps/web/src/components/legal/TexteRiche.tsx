@@ -36,13 +36,13 @@ const composants = {
       const externe = /^(https?:|mailto:|tel:)/.test(href);
       if (externe) {
         return (
-          <a href={href} className="font-medium text-corail underline hover:text-corail-fonce" rel="noreferrer">
+          <a href={href} className="font-medium text-corail-texte underline hover:text-marine" rel="noreferrer">
             {children}
           </a>
         );
       }
       return (
-        <Link href={href} className="font-medium text-corail underline hover:text-corail-fonce">
+        <Link href={href} className="font-medium text-corail-texte underline hover:text-marine">
           {children}
         </Link>
       );
