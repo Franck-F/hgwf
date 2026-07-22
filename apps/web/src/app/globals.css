@@ -86,6 +86,25 @@ h3 {
   }
 }
 
+/* Ken Burns perpétuel du hero : très lente respiration après l'arrivée,
+   aller-retour (alternate) pour une boucle sans coupure. */
+@keyframes hero-vivant {
+  from {
+    transform: scale(1) translateX(0);
+  }
+  to {
+    transform: scale(1.07) translateX(-1.2%);
+  }
+}
+
+/* Dérive horizontale des nappes de houle (HouleAnimee) : le motif est dessiné
+   deux fois, la translation de -50 % retombe exactement sur lui-même. */
+@keyframes houle-derive {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 @keyframes reponse-ouvre {
   from {
     opacity: 0;
@@ -123,6 +142,20 @@ h3 {
 }
 .carte-zoom:hover .fleche-carte {
   transform: translate(2px, -2px);
+}
+
+/* Cartes de destinations (« Où nous livrons ») : léger soulèvement au survol,
+   le verre s'éclaircit — la carte répond sans crier. */
+.carte-zone {
+  transition:
+    transform 350ms var(--ease-out-quart),
+    background-color 350ms var(--ease-out-quart),
+    border-color 350ms var(--ease-out-quart);
+}
+.carte-zone:hover {
+  transform: translateY(-4px);
+  background-color: rgba(251, 244, 230, 0.22);
+  border-color: rgba(251, 244, 230, 0.55);
 }
 
 /* ── Header : matérialisation au scroll (piloté par HeaderScroll) ─────────
@@ -166,6 +199,23 @@ h3 {
   /* Arrivée lente de la photo de fond du hero */
   .hero-photo img {
     animation: zoom-arrivee 1400ms var(--ease-out-expo) both;
+  }
+
+  /* Page d'accueil : après l'arrivée, la photo continue de respirer très
+     lentement (Ken Burns). L'arrivée se termine à scale(1), la respiration en
+     repart : l'enchaînement est invisible. */
+  .hero-photo-vivant img {
+    animation:
+      zoom-arrivee 1400ms var(--ease-out-expo) both,
+      hero-vivant 46s ease-in-out 1400ms infinite alternate both;
+  }
+
+  /* Nappes de houle du hero : dérive continue, vitesse portée par chaque
+     nappe via animation-duration (inline). */
+  .houle-derive {
+    animation-name: houle-derive;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
   }
 
   /* Contenu d'un accordéon à l'ouverture */
@@ -251,7 +301,8 @@ h3 {
   /* Retours tactiles / survols : on garde la couleur, on retire le déplacement. */
   .presse:active,
   .carte-zoom:hover img,
-  .carte-zoom:hover .fleche-carte {
+  .carte-zoom:hover .fleche-carte,
+  .carte-zone:hover {
     transform: none !important;
   }
 }
