@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Link } from '@/i18n/navigation';
 
 export type ContactFormContent = {
   titre: string;
@@ -14,6 +15,9 @@ export type ContactFormContent = {
   confirmationTexte: string;
   boutonReinitialiser: string;
   emailDestinataire: string;
+  // Mention RGPD affichée sous le bouton d'envoi ; scindée en deux pour
+  // pouvoir insérer le lien vers la politique de confidentialité au milieu.
+  mentionRgpd: { texte: string; lienLibelle: string };
 };
 
 const CHAMP_CLASSES =
@@ -117,6 +121,13 @@ export function ContactForm({ content }: { content: ContactFormContent }) {
             >
               {envoiEnCours ? '…' : content.boutonEnvoyer}
             </button>
+            <p className="m-0 text-xs leading-[1.5] text-encre-douce">
+              {content.mentionRgpd.texte}{' '}
+              <Link href="/confidentialite" className="underline">
+                {content.mentionRgpd.lienLibelle}
+              </Link>
+              .
+            </p>
           </div>
         ) : (
           <div className="flex flex-col items-start gap-3.5 py-3">

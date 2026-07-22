@@ -77,6 +77,22 @@ const WIZARD_DEFAUT = {
   portsDepart: ['Le Havre', 'Fos / Marseille', 'Enlèvement à domicile', 'Dépôt à Rosny-sous-Bois'],
 };
 
+// Mention RGPD : ni Sanity ni WIZARD_DEFAUT ne sont localisés par langue (le
+// CMS ne connaît pas ce champ), donc on choisit la traduction ici même, à
+// partir de la locale de la page — même principe que contenuLegal() pour les
+// pages légales.
+const MENTION_RGPD_FR = {
+  texte:
+    'Les informations recueillies servent uniquement à traiter votre demande de devis. Elles sont conservées trois ans et ne sont jamais cédées. Vous disposez d’un droit d’accès, de rectification et d’effacement — voir notre',
+  lienLibelle: 'politique de confidentialité',
+};
+
+const MENTION_RGPD_EN = {
+  texte:
+    'The information collected is used only to process your quote request. It is kept for three years and is never shared with third parties. You have a right of access, rectification and erasure — see our',
+  lienLibelle: 'privacy policy',
+};
+
 const REASSURANCE_DEFAUT = [
   {
     valeur: '24–48 H',
@@ -169,6 +185,7 @@ async function getContenu(locale: Locale) {
     imagesEtapes: data?.imagesEtapesUrls?.length ? data.imagesEtapesUrls : [null, null, null, null],
     emailDestinataire: settings?.email ?? 'contact@hgwf-cargo.fr',
     sujetEmail: 'Demande de devis',
+    mentionRgpd: locale === 'en' ? MENTION_RGPD_EN : MENTION_RGPD_FR,
   };
 
   const reassurance = data?.reassurance?.length

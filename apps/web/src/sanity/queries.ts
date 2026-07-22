@@ -39,6 +39,7 @@ export type FooterData = {
   texteEn?: string | null;
   ligneLegale?: string | null;
   colonnes?: FooterColonne[] | null;
+  liensLegaux?: LienNav[] | null;
   copyrightFr?: string | null;
   copyrightEn?: string | null;
   mentionsLibelleFr?: string | null;
@@ -66,6 +67,7 @@ const NAVIGATION = groq`*[_type == "navigation"][0]{
 const FOOTER = groq`*[_type == "footer"][0]{
   texteFr, texteEn, ligneLegale,
   colonnes[]{titreFr, titreEn, liens[]{libelleFr, libelleEn, href}},
+  liensLegaux[]{libelleFr, libelleEn, href},
   copyrightFr, copyrightEn, mentionsLibelleFr, mentionsLibelleEn, mentionsHref
 }`;
 
@@ -187,25 +189,27 @@ export async function getPageAccueil(locale: Locale): Promise<PageAccueilData | 
   return sanityClient.fetch<PageAccueilData | null>(PAGE_ACCUEIL, { locale });
 }
 
-// ── Page Mentions légales ────────────────────────────────────────────────────
+// ── Pages légales ────────────────────────────────────────────────────────────────
 
-export type PageMentionsData = {
+export type PageLegaleData = {
   eyebrow?: string | null;
   titrePage?: string | null;
-  sections?: { titre?: string | null; corps?: string | null }[] | null;
+  chapo?: string | null;
+  dateMaj?: string | null;
+  sections?: { titre?: string | null; ancre?: string | null; corps?: unknown[] | null }[] | null;
   seoTitre?: string | null;
   seoDescription?: string | null;
 };
 
-const PAGE_MENTIONS = groq`*[_type == "pageMentions" && language == $locale][0]{
-  eyebrow, titrePage,
-  sections[]{titre, corps},
+const PAGE_LEGALE = groq`*[_type == "pageLegale" && slug.current == $slug && language == $locale][0]{
+  eyebrow, titrePage, chapo, dateMaj,
+  sections[]{titre, "ancre": ancre.current, corps},
   seoTitre, seoDescription
 }`;
 
-export async function getPageMentions(locale: Locale): Promise<PageMentionsData | null> {
+export async function getPageLegale(locale: Locale, slug: string): Promise<PageLegaleData | null> {
   if (!sanityClient) return null;
-  return sanityClient.fetch<PageMentionsData | null>(PAGE_MENTIONS, { locale });
+  return sanityClient.fetch<PageLegaleData | null>(PAGE_LEGALE, { locale, slug });
 }
 
 // ── Page Devis ───────────────────────────────────────────────────────────────

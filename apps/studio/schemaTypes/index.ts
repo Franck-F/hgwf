@@ -25,7 +25,7 @@ import { pageSuivi } from './documents/pageSuivi';
 import { pageContact } from './documents/pageContact';
 import { pageFaq } from './documents/pageFaq';
 import { pageDevis } from './documents/pageDevis';
-import { pageMentions } from './documents/pageMentions';
+import { pageLegale } from './documents/pageLegale';
 import { pageAccueil } from './documents/pageAccueil';
 import { service } from './documents/service';
 import { destination } from './documents/destination';
@@ -53,7 +53,7 @@ export const schemaTypes: SchemaTypeDefinition[] = [
   pageContact,
   pageFaq,
   pageDevis,
-  pageMentions,
+  pageLegale,
   pageAccueil,
   service,
   destination,

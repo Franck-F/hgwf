@@ -400,28 +400,12 @@ async function main() {
   });
   console.log('  ✓ pageDevis-fr');
 
-  // ── Page Mentions légales ──
-  await client.createOrReplace({
-    _id: 'pageMentions-fr',
-    _type: 'pageMentions',
-    language: 'fr',
-    titre: 'Mentions légales',
-    eyebrow: 'Informations légales',
-    titrePage: 'Mentions légales.',
-    sections: [
-      {
-        _key: k('sec'),
-        titre: 'Éditeur du site',
-        corps: 'HGWF SOLUTIONS TRANSPORTS LOGISTIQUES\n29 avenue Nollet, 93420 Villepinte',
-      },
-      { _key: k('sec'), titre: 'Immatriculation', corps: '940 048 051 R.C.S. Bobigny\nNuméro de TVA : FR18940048051' },
-      { _key: k('sec'), titre: 'Direction', corps: 'Dirigeante : Marie Bagassien' },
-      { _key: k('sec'), titre: 'Contact', corps: 'contact@hgwf-cargo.fr\n+33 6 27 05 69 34' },
-    ],
-    seoTitre: 'Mentions légales — HGWF Cargo',
-    seoDescription: 'Mentions légales du site HGWF Cargo — HGWF Solutions Transports Logistiques.',
-  });
-  console.log('  ✓ pageMentions-fr');
+  // Page Mentions légales : retirée de ce seed (tâche 11). Elle semait
+  // pageMentions-fr avec createOrReplace et une dénomination et une adresse
+  // absentes du registre du commerce (voir historique git), sur un type
+  // devenu obsolète (remplacé par pageLegale). Le contenu correct est semé par
+  // scripts/seed-pages-legales.ts (pageLegale-mentions-fr, déjà migré en
+  // production avec l'identité du registre du commerce).
 
   // ── Page Accueil ──
   await client.createOrReplace({
@@ -610,7 +594,7 @@ async function main() {
     texteFr: 'Transport de marchandises dans le monde entier.',
     texteEn: 'Freight transport all over the world.',
     ligneLegale:
-      'HGWF SOLUTIONS TRANSPORTS LOGISTIQUES · 29 AVENUE NOLLET, 93420 VILLEPINTE · 940 048 051 R.C.S. BOBIGNY · TVA FR18940048051',
+      'HGWF CARGO · AVENUE FAIDHERBE\n93110 ROSNY-SOUS-BOIS · 940 048 051 R.C.S. BOBIGNY · TVA FR18940048051',
     colonnes: [
       {
         _key: k('col'),
@@ -635,15 +619,22 @@ async function main() {
     ],
     copyrightFr: '© 2026 HGWF Cargo — Tous droits réservés.',
     copyrightEn: '© 2026 HGWF Cargo — All rights reserved.',
-    mentionsLibelleFr: 'Mentions légales',
-    mentionsLibelleEn: 'Legal notice',
-    mentionsHref: '/mentions-legales',
+    liensLegaux: [
+      { _key: k('legal'), libelleFr: 'Mentions légales', libelleEn: 'Legal notice', href: '/mentions-legales' },
+      {
+        _key: k('legal'),
+        libelleFr: 'Politique de confidentialité',
+        libelleEn: 'Privacy policy',
+        href: '/confidentialite',
+      },
+      { _key: k('legal'), libelleFr: 'CGV', libelleEn: 'Terms of sale', href: '/cgv' },
+    ],
   });
 
   await client.createIfNotExists({
     _id: 'siteSettings',
     _type: 'siteSettings',
-    raisonSociale: 'HGWF SOLUTIONS TRANSPORTS LOGISTIQUES',
+    raisonSociale: 'HGWF CARGO',
     nomCommercial: 'HGWF Cargo',
     baseline: 'Transport de marchandises dans le monde entier.',
     email: 'contact@hgwf-cargo.fr',
@@ -652,7 +643,7 @@ async function main() {
       { _key: k('tel'), contact: 'Fabrice', numero: '+33 7 64 16 90 82' },
       { _key: k('tel'), contact: 'Malia / Fuka', numero: '+33 6 13 37 71 14' },
     ],
-    adresseSiege: '29 avenue Nollet, 93420 Villepinte',
+    adresseSiege: 'Avenue Faidherbe, 93110 Rosny-sous-Bois',
     adresseLogistique: '10 rue Diderot, 93110 Rosny-sous-Bois',
   });
   console.log('  ✓ singletons (navigation, footer, siteSettings)');

@@ -4,6 +4,7 @@ import { NextIntlClientProvider, hasLocale } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import { Saira_Condensed, Barlow } from 'next/font/google';
 import { VisualEditingDev } from '@/components/VisualEditingDev';
+import { ConsentementCookies } from '@/components/consentement/ConsentementCookies';
 import { routing } from '@/i18n/routing';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -52,6 +53,7 @@ export default async function LocaleLayout({
           <Header locale={locale} />
           {children}
           <Footer locale={locale} />
+          <ConsentementCookies locale={locale} />
         </NextIntlClientProvider>
         {process.env.NEXT_PUBLIC_SITE_MODE === 'preview' && <VisualEditingDev />}
       </body>
