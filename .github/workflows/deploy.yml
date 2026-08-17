@@ -30,6 +30,10 @@ jobs:
           NEXT_PUBLIC_SANITY_PROJECT_ID: ${{ secrets.SANITY_PROJECT_ID }}
           NEXT_PUBLIC_SANITY_DATASET: ${{ secrets.SANITY_DATASET }}
           NEXT_PUBLIC_SANITY_API_VERSION: '2024-10-01'
+          # URL publique de l'API back-office (apps/api). Sans elle, les
+          # formulaires devis/contact retombent sur mailto et rien n'est
+          # enregistré dans le dataset « operations ».
+          NEXT_PUBLIC_HGWF_API_URL: ${{ secrets.HGWF_API_URL }}
 
       - name: Déploiement FTP vers OVH
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
