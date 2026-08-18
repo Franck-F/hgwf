@@ -56,9 +56,7 @@ const DEFAUT = {
       titre: 'Fret aérien',
       texte: 'La voie des airs pour vos envois urgents',
       lien: '/devis',
-      imageUrl: null as string | null,
-      // Pas de photo en stock : la carte dessine un ciel dégradé et un avion.
-      motif: 'avion' as const,
+      imageUrl: '/photos/fret-aerien.jpg' as string | null,
     },
     {
       titre: 'Entrepôt & box de stockage',
@@ -216,7 +214,6 @@ async function getContenu(locale: Locale) {
           // Images locales forcées (prioritaires sur Sanity) — voir DEFAUT.services.
           // À rebasculer sur Sanity (`s.imageUrl ?? …`) lors de la passe finale.
           imageUrl: DEFAUT.services[i]?.imageUrl ?? s.imageUrl ?? null,
-          motif: (DEFAUT.services[i] as { motif?: 'avion' } | undefined)?.motif,
         }))
       : DEFAUT.services,
     promesse: {
@@ -388,19 +385,6 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             <Link key={s.titre} href={s.lien} className="carte-zoom group relative block h-[250px] overflow-hidden rounded-[22px] bg-marine">
               {s.imageUrl && (
                 <Image src={s.imageUrl} alt="" fill sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw" className="object-cover" />
-              )}
-              {/* Sans photo : ciel dégradé et avion en filigrane, pour que la
-                  carte reste aussi habillée que ses voisines. */}
-              {!s.imageUrl && s.motif === 'avion' && (
-                <span aria-hidden="true" className="absolute inset-0 bg-linear-160 from-ciel from-0% via-[#2e6f9e] via-55% to-marine to-100%">
-                  <svg
-                    viewBox="0 0 512 512"
-                    className="absolute -top-2 -right-4 h-[170px] w-[170px] -rotate-12 text-creme/22"
-                    fill="currentColor"
-                  >
-                    <path d="M407.72 208c-2.72 0-14.44.08-18.12.27l-75.83 1.93-101.15-160.52a20.3 20.3 0 0 0-16.85-9.68h-40.1l59.32 172.2-88.62 2.91-31.29-48.79-42.26-.05 25.12 91.79-25.12 91.79 42.26-.05 31.29-48.79 88.62 2.91-59.32 172.2h40.1a20.3 20.3 0 0 0 16.85-9.68l101.15-160.52 75.83 1.93c3.68.19 15.4.27 18.12.27 40 0 72.42-17.66 72.42-48.06S447.72 208 407.72 208z" />
-                  </svg>
-                </span>
               )}
               <span
                 className="absolute inset-0 bg-linear-180 from-marine/0 from-30% to-marine/88 to-100%"
