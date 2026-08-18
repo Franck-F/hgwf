@@ -304,7 +304,8 @@ export function BackOffice() {
 
   const [vue, setVue] = useState<Vue>('dashboard');
   const [recherche, setRecherche] = useState('');
-  const [filtre, setFiltre] = useState(-1);
+  // Filtre principal des demandes : « Nouvelle » par défaut, le travail du jour.
+  const [filtre, setFiltre] = useState(0);
   const [selection, setSelection] = useState<string | null>(null);
   const [chargement, setChargement] = useState(true);
 
@@ -864,7 +865,10 @@ export function BackOffice() {
                 maxBarre={maxBarre}
                 activite={activite}
                 rotations={rotations}
-                allerDevis={() => setVue('devis')}
+                allerDevis={(statutFiltre?: number) => {
+                  if (statutFiltre !== undefined) setFiltre(statutFiltre);
+                  setVue('devis');
+                }}
                 allerExp={() => setVue('expeditions')}
               />
             )}
@@ -2035,7 +2039,7 @@ function VueDashboard({
   maxBarre: number;
   activite: { texte: string; quand?: string; tone: string }[];
   rotations: Rotation[];
-  allerDevis: () => void;
+  allerDevis: (statutFiltre?: number) => void;
   allerExp: () => void;
 }) {
   const kpiStyle: CSSProperties = {
@@ -2052,14 +2056,14 @@ function VueDashboard({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 16 }}>
-        <button onClick={allerDevis} style={kpiStyle}>
+        <button onClick={() => allerDevis(0)} style={kpiStyle}>
           <span style={eyebrow}>Nouvelles demandes</span>
           <span style={{ fontFamily: MONO, fontSize: 30, color: CORAIL }}>{kpiNouvelles}</span>
           <span style={{ fontSize: 12, color: kpiRetard ? ROUGE : ENCRE, fontWeight: kpiRetard ? 700 : 400 }}>
             {kpiRetard ? `⚠ ${kpiRetard} en retard (+48 h)` : 'à traiter sous 24–48 h'}
           </span>
         </button>
-        <button onClick={allerDevis} style={kpiStyle}>
+        <button onClick={() => allerDevis(2)} style={kpiStyle}>
           <span style={eyebrow}>Devis envoyés</span>
           <span style={{ fontFamily: MONO, fontSize: 30, color: MARINE }}>{kpiEnvoyes}</span>
           <span style={{ fontSize: 12, color: ENCRE }}>en attente de réponse</span>
