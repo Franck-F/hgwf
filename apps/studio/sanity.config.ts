@@ -236,11 +236,45 @@ function structureContenu(S: StructureBuilder) {
     ]);
 }
 
+// Étapes du pipeline devis : mêmes index que STATUTS_DEMANDE du schéma.
+const pipelineDevis = [
+  { titre: 'À traiter (nouvelles + en cours)', filtre: 'statut <= 1 || !defined(statut)' },
+  { titre: 'Devis envoyés, en attente', filtre: 'statut == 2' },
+  { titre: 'Acceptées, expédition à créer', filtre: 'statut == 3' },
+  { titre: 'Converties en expédition', filtre: 'statut == 4' },
+  { titre: 'Refusées / sans suite', filtre: 'statut == 5' },
+];
+
 function structureOperations(S: StructureBuilder) {
   return S.list()
     .title('Données')
     .items([
-      S.documentTypeListItem('demandeDevis').title('Demandes de devis').icon(ClipboardIcon),
+      S.listItem()
+        .title('Demandes de devis')
+        .id('demandesDevis')
+        .icon(ClipboardIcon)
+        .child(
+          S.list()
+            .title('Demandes de devis')
+            .items([
+              ...pipelineDevis.map((p, i) =>
+                S.listItem()
+                  .title(p.titre)
+                  .id(`devis-etape-${i}`)
+                  .icon(ClipboardIcon)
+                  .child(
+                    S.documentList()
+                      .schemaType('demandeDevis')
+                      .apiVersion(STUDIO_API_VERSION)
+                      .title(p.titre)
+                      .filter(`_type == "demandeDevis" && (${p.filtre})`)
+                      .defaultOrdering([{ field: '_createdAt', direction: 'desc' }]),
+                  ),
+              ),
+              S.divider(),
+              S.documentTypeListItem('demandeDevis').title('Toutes les demandes').icon(DocumentsIcon),
+            ]),
+        ),
       S.documentTypeListItem('expedition').title('Expéditions').icon(MarkerIcon),
       S.documentTypeListItem('clientFiche').title('Clients').icon(UsersIcon),
       S.documentTypeListItem('conteneurOccasion').title('Conteneurs d’occasion').icon(PackageIcon),

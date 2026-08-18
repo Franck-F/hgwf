@@ -15,6 +15,18 @@ export const expedition = defineType({
   fields: [
     defineField({ name: 'reference', title: 'Référence', type: 'string', validation: (r) => r.required() }),
     defineField({ name: 'clientNom', title: 'Client', type: 'string' }),
+    defineField({
+      name: 'contact',
+      title: 'Contact client (mail · tél · préférence)',
+      type: 'string',
+      description: 'Recopié depuis la demande de devis à la conversion.',
+    }),
+    defineField({
+      name: 'demandeRef',
+      title: 'Demande d’origine (référence)',
+      type: 'string',
+      readOnly: true,
+    }),
     defineField({ name: 'trajet', title: 'Trajet', type: 'string' }),
     defineField({
       name: 'etape',

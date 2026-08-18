@@ -26,6 +26,7 @@ const MONO = "'Space Mono', monospace";
 // ── Types documents ───────────────────────────────────────────────────────────
 type Demande = {
   _id: string;
+  _createdAt?: string;
   _updatedAt?: string;
   reference: string;
   clientNom?: string;
@@ -36,12 +37,18 @@ type Demande = {
   recueLe?: string;
   statut?: number;
   message?: string;
+  montantDevis?: string;
+  devisEnvoyeLe?: string;
+  notes?: string;
+  expeditionRef?: string;
 };
 type Expedition = {
   _id: string;
   _updatedAt?: string;
   reference: string;
   clientNom?: string;
+  contact?: string;
+  demandeRef?: string;
   trajet?: string;
   etape?: number;
   eta?: string;
@@ -73,7 +80,15 @@ type Stats = {
 
 type Vue = 'dashboard' | 'devis' | 'expeditions' | 'clients' | 'conteneurs';
 
-const ACTIONS_DEMANDE = ['Prendre en charge', 'Envoyer le devis', 'Marquer acceptée', "Créer l'expédition"];
+// Action principale proposée pour chaque statut (index aligné sur STATUTS_DEMANDE).
+const ACTIONS_DEMANDE = [
+  'Prendre en charge',
+  'Marquer devis envoyé',
+  'Marquer acceptée',
+  "Créer l'expédition",
+  "Voir l'expédition",
+  'Rouvrir la demande',
+];
 const ACTIONS_CONTENEUR = ['Réserver', 'Marquer vendu', 'Remettre en stock'];
 const TITRES: Record<Vue, string> = {
   dashboard: 'Tableau de bord.',
@@ -153,10 +168,12 @@ const badgeBase: CSSProperties = {
   justifySelf: 'start',
 };
 const BADGES_DEMANDE: CSSProperties[] = [
-  { background: 'rgba(255,111,94,0.15)', color: ROUGE },
-  { background: 'rgba(255,178,62,0.2)', color: '#8A5A10' },
-  { background: 'rgba(78,168,222,0.18)', color: '#1F5E8A' },
-  { background: MARINE, color: CREME },
+  { background: 'rgba(255,111,94,0.15)', color: ROUGE }, // Nouvelle
+  { background: 'rgba(255,178,62,0.2)', color: '#8A5A10' }, // En cours
+  { background: 'rgba(78,168,222,0.18)', color: '#1F5E8A' }, // Devis envoyé
+  { background: 'rgba(18,57,91,0.12)', color: MARINE }, // Acceptée
+  { background: MARINE, color: CREME }, // Convertie
+  { background: 'rgba(18,57,91,0.06)', color: ENCRE, border: '1px solid rgba(18,57,91,0.15)' }, // Refusée
 ];
 function badgeEtape(i: number): CSSProperties {
   return {
@@ -198,10 +215,33 @@ function slug(ref: string): string {
 }
 
 // Bornage des index de statut/étape (les tableaux sont des tuples fixes).
-const clampDemande = (i?: number) => Math.min(3, Math.max(0, i ?? 0)) as 0 | 1 | 2 | 3;
+const clampDemande = (i?: number) => Math.min(5, Math.max(0, i ?? 0)) as 0 | 1 | 2 | 3 | 4 | 5;
 const clampEtape = (i?: number) => Math.min(4, Math.max(0, i ?? 0)) as 0 | 1 | 2 | 3 | 4;
 const clampConteneur = (i?: number) => Math.min(2, Math.max(0, i ?? 0)) as 0 | 1 | 2;
-const TONES_DEMANDE = [CORAIL, OR, CIEL, MARINE] as const;
+const TONES_DEMANDE = [CORAIL, OR, CIEL, MARINE, MARINE, ENCRE] as const;
+
+// Promesse du site : réponse sous 24–48 h. Au-delà de 48 h sans devis envoyé,
+// la demande est signalée en retard.
+const RETARD_MS = 48 * 3600 * 1000;
+function enRetard(d: Demande): boolean {
+  if ((d.statut ?? 0) > 1 || !d._createdAt) return false;
+  return Date.now() - new Date(d._createdAt).getTime() > RETARD_MS;
+}
+
+const dateFR = () => {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
+// Extraction des moyens de contact depuis le champ libre « mail · tél (préférence : X) ».
+function extraireEmail(contact?: string): string | null {
+  return contact?.match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0] ?? null;
+}
+function extraireTel(contact?: string): string | null {
+  const m = contact?.match(/(?:\+?\d[\d ().-]{7,})/)?.[0];
+  return m ? m.replace(/[^\d+]/g, '') : null;
+}
 
 // ── Composant principal ───────────────────────────────────────────────────────
 export function BackOffice() {
@@ -223,6 +263,9 @@ export function BackOffice() {
 
   const [clientForm, setClientForm] = useState<(Partial<ClientFiche> & { envoisTexte?: string }) | null>(null);
   const [conteneurForm, setConteneurForm] = useState<Partial<Conteneur> | null>(null);
+  // Champs de traitement du panneau détail (chiffrage, notes internes).
+  const [montantEdit, setMontantEdit] = useState('');
+  const [notesEdit, setNotesEdit] = useState('');
 
   const charger = useCallback(async () => {
     const data = await client.fetch<{
@@ -233,8 +276,8 @@ export function BackOffice() {
       rotations: Rotation[];
       stats: Stats | null;
     }>(`{
-      "demandes": *[_type == "demandeDevis"] | order(reference desc){_id, _updatedAt, reference, clientNom, contact, typeEnvoi, destination, volume, recueLe, statut, message},
-      "expeditions": *[_type == "expedition"] | order(_updatedAt desc){_id, _updatedAt, reference, clientNom, trajet, etape, eta},
+      "demandes": *[_type == "demandeDevis"] | order(_createdAt desc){_id, _createdAt, _updatedAt, reference, clientNom, contact, typeEnvoi, destination, volume, recueLe, statut, message, montantDevis, devisEnvoyeLe, notes, expeditionRef},
+      "expeditions": *[_type == "expedition"] | order(_updatedAt desc){_id, _updatedAt, reference, clientNom, contact, demandeRef, trajet, etape, eta},
       "clients": *[_type == "clientFiche"] | order(nom asc){_id, nom, contact, destination, envois, volume},
       "conteneurs": *[_type == "conteneurOccasion"] | order(reference asc){_id, _updatedAt, reference, taille, etat, lieu, prix, statut},
       "rotations": *[_type == "rotation"] | order(cloture asc){_id, nom, cloture, depart, remplissage},
@@ -256,16 +299,33 @@ export function BackOffice() {
   const q = recherche.trim().toLowerCase();
 
   // ── Dérivés ──
+  // Ordre pipeline : les statuts à traiter d'abord (Nouvelle → …), puis les
+  // demandes closes (converties, refusées) ; à statut égal, les plus récentes.
   const demandesFiltrees = demandes
     .filter((d) => filtre === -1 || (d.statut ?? 0) === filtre)
     .filter(
       (d) =>
         !q ||
         `${d.reference}${d.clientNom ?? ''}${d.destination ?? ''}${d.typeEnvoi ?? ''}`.toLowerCase().includes(q),
+    )
+    .sort(
+      (a, b) =>
+        (a.statut ?? 0) - (b.statut ?? 0) || (b._createdAt ?? '').localeCompare(a._createdAt ?? ''),
     );
   const sel = demandes.find((d) => d._id === selection) ?? demandesFiltrees[0] ?? demandes[0] ?? null;
+  const selId = sel?._id ?? null;
+
+  // À chaque changement de demande sélectionnée, resynchronise les champs de
+  // traitement (sans écraser une saisie en cours sur la même demande).
+  useEffect(() => {
+    const d = selId ? demandes.find((x) => x._id === selId) : null;
+    setMontantEdit(d?.montantDevis ?? '');
+    setNotesEdit(d?.notes ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selId]);
 
   const kpiNouvelles = demandes.filter((d) => (d.statut ?? 0) === 0).length;
+  const kpiRetard = demandes.filter(enRetard).length;
   const kpiEnvoyes = demandes.filter((d) => d.statut === 2).length;
   const kpiEnMer = expeditions.filter((x) => x.etape === 2).length;
 
@@ -297,27 +357,83 @@ export function BackOffice() {
     return evts.sort((a, b) => (b.quand ?? '').localeCompare(a.quand ?? '')).slice(0, 5);
   }, [demandes, expeditions, conteneurs]);
 
-  // ── Mutations ──
-  const avancerStatutDemande = async () => {
-    if (!sel) return;
-    const statut = sel.statut ?? 0;
-    if (statut < 3) {
-      setDemandes((prev) => prev.map((d) => (d._id === sel._id ? { ...d, statut: statut + 1 } : d)));
-      await client.patch(sel._id).set({ statut: statut + 1 }).commit();
-    } else {
-      const id = `expedition-${slug(sel.reference)}`;
-      const nouvelle: Expedition = {
-        _id: id,
-        reference: sel.reference,
-        clientNom: sel.clientNom,
-        trajet: `Le Havre → ${sel.destination ?? ''}`,
-        etape: 0,
-        eta: 'À PLANIFIER',
+  // ── Mutations : cycle de vie d'une demande ──
+  // Changement de statut direct (chips du panneau détail). Le passage à
+  // « Devis envoyé » horodate l'envoi s'il ne l'est pas déjà.
+  const changerStatut = async (d: Demande, statut: number) => {
+    const patch: Partial<Demande> = { statut };
+    if (statut === 2 && !d.devisEnvoyeLe) patch.devisEnvoyeLe = dateFR();
+    setDemandes((prev) => prev.map((x) => (x._id === d._id ? { ...x, ...patch } : x)));
+    await client.patch(d._id).set(patch).commit();
+  };
+
+  // Enregistre le chiffrage et les notes internes du panneau détail.
+  const enregistrerTraitement = async (d: Demande, montantDevis: string, notes: string) => {
+    setDemandes((prev) => prev.map((x) => (x._id === d._id ? { ...x, montantDevis, notes } : x)));
+    await client.patch(d._id).set({ montantDevis, notes }).commit();
+  };
+
+  // Conversion d'une demande acceptée : crée l'expédition liée (même
+  // référence, celle que le client suit sur la page Suivi), marque la demande
+  // « Convertie », et crée ou incrémente la fiche client.
+  const convertirEnExpedition = async (d: Demande) => {
+    const id = `expedition-${slug(d.reference)}`;
+    // Le port de départ vit dans le message (« Départ : Fos / Marseille »).
+    const depart = d.message?.match(/Départ : (.+)/)?.[1]?.trim() || 'Le Havre';
+    const nouvelle: Expedition = {
+      _id: id,
+      reference: d.reference,
+      clientNom: d.clientNom,
+      contact: d.contact,
+      demandeRef: d.reference,
+      trajet: `${depart} → ${d.destination ?? ''}`,
+      etape: 0,
+      eta: 'À PLANIFIER',
+    };
+    await client.createIfNotExists({ ...nouvelle, _type: 'expedition' });
+    setExpeditions((prev) => (prev.some((x) => x._id === id) ? prev : [nouvelle, ...prev]));
+
+    setDemandes((prev) =>
+      prev.map((x) => (x._id === d._id ? { ...x, statut: 4, expeditionRef: d.reference } : x)),
+    );
+    await client.patch(d._id).set({ statut: 4, expeditionRef: d.reference }).commit();
+
+    // Fiche client : retrouvée par e-mail (le plus fiable) sinon par nom.
+    const email = extraireEmail(d.contact)?.toLowerCase();
+    const nom = (d.clientNom ?? '').trim();
+    const existante = clients.find(
+      (c) =>
+        (email && (c.contact ?? '').toLowerCase().includes(email)) ||
+        (nom && c.nom.trim().toLowerCase() === nom.toLowerCase()),
+    );
+    if (existante) {
+      const envois = (existante.envois ?? 0) + 1;
+      const fiche = { envois, destination: d.destination ?? existante.destination };
+      setClients((prev) => prev.map((c) => (c._id === existante._id ? { ...c, ...fiche } : c)));
+      await client.patch(existante._id).set(fiche).commit();
+    } else if (nom) {
+      const fiche = {
+        nom,
+        contact: d.contact ?? '',
+        destination: d.destination ?? '',
+        envois: 1,
+        volume: d.volume ?? '',
       };
-      await client.createIfNotExists({ ...nouvelle, _type: 'expedition' });
-      setExpeditions((prev) => (prev.some((x) => x._id === id) ? prev : [nouvelle, ...prev]));
-      setVue('expeditions');
+      const cree = await client.create({ _type: 'clientFiche', ...fiche });
+      setClients((prev) =>
+        [...prev, { _id: cree._id, ...fiche }].sort((a, b) => a.nom.localeCompare(b.nom)),
+      );
     }
+    setVue('expeditions');
+  };
+
+  // Action principale contextuelle du panneau détail.
+  const actionPrincipale = async (d: Demande) => {
+    const statut = clampDemande(d.statut);
+    if (statut === 3) return convertirEnExpedition(d);
+    if (statut === 4) return setVue('expeditions');
+    if (statut === 5) return changerStatut(d, 1);
+    return changerStatut(d, statut + 1);
   };
 
   const bougerExpedition = async (x: Expedition, delta: 1 | -1) => {
@@ -395,7 +511,7 @@ export function BackOffice() {
   // ── Exports XLSX ──
   const exporterTout = () => {
     const rows = [
-      ['Référence', 'Client', 'Contact', "Type d'envoi", 'Destination', 'Volume', 'Reçue le', 'Statut', 'Message'],
+      ['Référence', 'Client', 'Contact', "Type d'envoi", 'Destination', 'Volume', 'Reçue le', 'Statut', 'Montant devis', 'Devis envoyé le', 'Expédition', 'Message', 'Notes internes'],
       ...demandes.map((d) => [
         d.reference,
         d.clientNom ?? '',
@@ -404,12 +520,16 @@ export function BackOffice() {
         d.destination ?? '',
         d.volume ?? '',
         d.recueLe ?? '',
-        STATUTS_DEMANDE[d.statut ?? 0],
+        STATUTS_DEMANDE[clampDemande(d.statut)],
+        d.montantDevis ?? '',
+        d.devisEnvoyeLe ?? '',
+        d.expeditionRef ?? '',
         d.message ?? '',
+        d.notes ?? '',
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{ wch: 17 }, { wch: 20 }, { wch: 32 }, { wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 70 }];
+    ws['!cols'] = [{ wch: 17 }, { wch: 20 }, { wch: 32 }, { wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 17 }, { wch: 60 }, { wch: 40 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Demandes de devis');
     XLSX.writeFile(wb, 'HGWF-demandes-devis.xlsx');
@@ -420,14 +540,18 @@ export function BackOffice() {
     const rows = [
       ['FICHE DE DEVIS — HGWF CARGO', ''],
       ['Référence', sel.reference],
-      ['Statut', STATUTS_DEMANDE[sel.statut ?? 0]],
+      ['Statut', STATUTS_DEMANDE[clampDemande(sel.statut)]],
       ['Client', sel.clientNom ?? ''],
       ['Contact', sel.contact ?? ''],
       ["Type d'envoi", sel.typeEnvoi ?? ''],
       ['Destination', sel.destination ?? ''],
       ['Volume estimé', sel.volume ?? ''],
       ['Reçue le', sel.recueLe ?? ''],
+      ['Montant du devis', sel.montantDevis ?? ''],
+      ['Devis envoyé le', sel.devisEnvoyeLe ?? ''],
+      ['Expédition liée', sel.expeditionRef ?? ''],
       ['Message', sel.message ?? ''],
+      ['Notes internes', sel.notes ?? ''],
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [{ wch: 22 }, { wch: 70 }];
@@ -591,6 +715,7 @@ export function BackOffice() {
             {vue === 'dashboard' && (
               <VueDashboard
                 kpiNouvelles={kpiNouvelles}
+                kpiRetard={kpiRetard}
                 kpiEnvoyes={kpiEnvoyes}
                 kpiEnMer={kpiEnMer}
                 stats={stats}
@@ -690,8 +815,15 @@ export function BackOffice() {
                           </span>
                         </span>
                         <span style={{ fontSize: 13, textAlign: 'left', minWidth: 0 }}>{d.destination}</span>
-                        <span style={{ ...badgeBase, alignSelf: 'center', ...BADGES_DEMANDE[d.statut ?? 0] }}>
-                          {STATUTS_DEMANDE[d.statut ?? 0]}
+                        <span style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                          <span style={{ ...badgeBase, ...BADGES_DEMANDE[clampDemande(d.statut)] }}>
+                            {STATUTS_DEMANDE[clampDemande(d.statut)]}
+                          </span>
+                          {enRetard(d) && (
+                            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: ROUGE }}>
+                              ⚠ +48 H SANS DEVIS
+                            </span>
+                          )}
                         </span>
                       </button>
                     ))}
@@ -705,7 +837,14 @@ export function BackOffice() {
                       <span style={eyebrow}>Détail de la demande</span>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                         <span style={{ fontFamily: MONO, fontSize: 18 }}>{sel.reference}</span>
-                        <span style={{ ...badgeBase, ...BADGES_DEMANDE[sel.statut ?? 0] }}>{STATUTS_DEMANDE[sel.statut ?? 0]}</span>
+                        <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          {enRetard(sel) && (
+                            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: ROUGE }}>⚠ +48 H</span>
+                          )}
+                          <span style={{ ...badgeBase, ...BADGES_DEMANDE[clampDemande(sel.statut)] }}>
+                            {STATUTS_DEMANDE[clampDemande(sel.statut)]}
+                          </span>
+                        </span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14 }}>
                         <LigneDetail libelle="Client" valeur={<b>{sel.clientNom}</b>} />
@@ -717,15 +856,114 @@ export function BackOffice() {
                         <LigneDetail libelle="Destination" valeur={<b>{sel.destination}</b>} />
                         <LigneDetail libelle="Volume estimé" valeur={<span style={{ fontFamily: MONO }}>{sel.volume}</span>} />
                         <LigneDetail libelle="Reçue le" valeur={<span style={{ fontFamily: MONO }}>{sel.recueLe}</span>} />
+                        {sel.devisEnvoyeLe && (
+                          <LigneDetail libelle="Devis envoyé le" valeur={<span style={{ fontFamily: MONO }}>{sel.devisEnvoyeLe}</span>} />
+                        )}
+                        {sel.expeditionRef && (
+                          <LigneDetail
+                            libelle="Expédition liée"
+                            valeur={
+                              <button
+                                onClick={() => setVue('expeditions')}
+                                style={{ fontFamily: MONO, fontSize: 13, color: MARINE, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                              >
+                                {sel.expeditionRef}
+                              </button>
+                            }
+                          />
+                        )}
                       </div>
-                      <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: ENCRE, background: CREME, borderRadius: 12, padding: '12px 14px' }}>
+                      <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: ENCRE, background: CREME, borderRadius: 12, padding: '12px 14px', whiteSpace: 'pre-line' }}>
                         {sel.message}
                       </p>
-                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                        <button onClick={avancerStatutDemande} style={{ ...boutonPlein, padding: '11px 22px' }}>
-                          {ACTIONS_DEMANDE[sel.statut ?? 0]}
+
+                      {/* Statut : accès direct à chaque étape du cycle. */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <span style={eyebrow}>Statut</span>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {STATUTS_DEMANDE.map((s, i) => (
+                            <button
+                              key={s}
+                              onClick={() => changerStatut(sel, i)}
+                              style={{
+                                fontFamily: SANS,
+                                fontWeight: 500,
+                                fontSize: 12,
+                                borderRadius: 999,
+                                padding: '6px 12px',
+                                cursor: 'pointer',
+                                ...(clampDemande(sel.statut) === i
+                                  ? { background: MARINE, color: CREME, border: `1.5px solid ${MARINE}` }
+                                  : { background: 'none', color: MARINE, border: '1.5px solid rgba(18,57,91,0.2)' }),
+                              }}
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Traitement : chiffrage et notes internes. */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <span style={eyebrow}>Traitement</span>
+                        <input
+                          placeholder="Montant du devis (ex. 1 250 €)"
+                          value={montantEdit}
+                          onChange={(e) => setMontantEdit(e.target.value)}
+                          style={champ}
+                        />
+                        <textarea
+                          placeholder="Notes internes : relances, particularités, accords…"
+                          value={notesEdit}
+                          onChange={(e) => setNotesEdit(e.target.value)}
+                          rows={3}
+                          style={{ ...champ, resize: 'vertical', fontFamily: SANS }}
+                        />
+                        {(montantEdit !== (sel.montantDevis ?? '') || notesEdit !== (sel.notes ?? '')) && (
+                          <button
+                            onClick={() => enregistrerTraitement(sel, montantEdit, notesEdit)}
+                            style={{ ...boutonContour, alignSelf: 'flex-start', fontSize: 13, padding: '8px 18px' }}
+                          >
+                            Enregistrer le traitement
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Contact direct : selon les moyens présents dans la demande. */}
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {extraireEmail(sel.contact) && (
+                          <a
+                            href={`mailto:${extraireEmail(sel.contact)}?subject=${encodeURIComponent(`Votre devis HGWF Cargo · ${sel.reference}`)}`}
+                            style={{ ...boutonContour, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                          >
+                            ✉ Répondre par e-mail
+                          </a>
+                        )}
+                        {extraireTel(sel.contact) && (
+                          <a
+                            href={`https://wa.me/${extraireTel(sel.contact)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(`Bonjour, au sujet de votre demande de devis HGWF Cargo ${sel.reference} :`)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ ...boutonContour, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                          >
+                            ☎ WhatsApp / appeler
+                          </a>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', borderTop: '1px solid rgba(18,57,91,0.1)', paddingTop: 14 }}>
+                        <button onClick={() => actionPrincipale(sel)} style={{ ...boutonPlein, padding: '11px 22px' }}>
+                          {ACTIONS_DEMANDE[clampDemande(sel.statut)]}
                         </button>
-                        <button onClick={telechargerFiche} style={{ ...boutonContour, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 22px' }}>
+                        {clampDemande(sel.statut) <= 3 && (
+                          <button
+                            onClick={() => changerStatut(sel, 5)}
+                            style={{ ...boutonContour, borderColor: 'rgba(255,111,94,0.5)', color: ROUGE, padding: '11px 18px' }}
+                          >
+                            Refuser / sans suite
+                          </button>
+                        )}
+                        <button onClick={telechargerFiche} style={{ ...boutonContour, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px' }}>
                           <IconeExport />
                           Fiche XLSX
                         </button>
@@ -760,6 +998,11 @@ export function BackOffice() {
                         <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                           <span style={{ fontFamily: MONO, fontSize: 13 }}>{x.reference}</span>
                           <span style={{ fontSize: 12, color: ENCRE }}>{x.clientNom}</span>
+                          {x.contact && (
+                            <span style={{ fontFamily: MONO, fontSize: 10, color: ENCRE, overflowWrap: 'anywhere' }}>
+                              {x.contact}
+                            </span>
+                          )}
                         </span>
                         <span style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
                           <span style={{ fontSize: 13, fontWeight: 700 }}>{x.trajet}</span>
@@ -1006,7 +1249,7 @@ export function BackOffice() {
           }}
         >
           <span>Back-office HGWF Cargo.</span>
-          <a href="http://localhost:3000/fr/" target="_blank" rel="noreferrer" style={{ fontWeight: 500, textDecoration: 'underline', color: MARINE }}>
+          <a href="https://www.hgwf-cargo.fr/fr/" target="_blank" rel="noreferrer" style={{ fontWeight: 500, textDecoration: 'underline', color: MARINE }}>
             Voir le site public
           </a>
         </div>
@@ -1027,6 +1270,7 @@ function LigneDetail({ libelle, valeur }: { libelle: string; valeur: ReactNode }
 
 function VueDashboard({
   kpiNouvelles,
+  kpiRetard,
   kpiEnvoyes,
   kpiEnMer,
   stats,
@@ -1038,6 +1282,7 @@ function VueDashboard({
   allerExp,
 }: {
   kpiNouvelles: number;
+  kpiRetard: number;
   kpiEnvoyes: number;
   kpiEnMer: number;
   stats: Stats | null;
@@ -1065,7 +1310,9 @@ function VueDashboard({
         <button onClick={allerDevis} style={kpiStyle}>
           <span style={eyebrow}>Nouvelles demandes</span>
           <span style={{ fontFamily: MONO, fontSize: 30, color: CORAIL }}>{kpiNouvelles}</span>
-          <span style={{ fontSize: 12, color: ENCRE }}>à traiter sous 24–48 h</span>
+          <span style={{ fontSize: 12, color: kpiRetard ? ROUGE : ENCRE, fontWeight: kpiRetard ? 700 : 400 }}>
+            {kpiRetard ? `⚠ ${kpiRetard} en retard (+48 h)` : 'à traiter sous 24–48 h'}
+          </span>
         </button>
         <button onClick={allerDevis} style={kpiStyle}>
           <span style={eyebrow}>Devis envoyés</span>
