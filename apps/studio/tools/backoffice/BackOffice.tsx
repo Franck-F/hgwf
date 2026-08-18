@@ -1109,24 +1109,33 @@ export function BackOffice() {
                         <span style={eyebrow}>Répondre au client</span>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {extraireEmail(sel.contact) && selPourEnvoi && (
-                            <button
-                              onClick={() =>
-                                genererEmlDevis(selPourEnvoi, extraireEmail(sel.contact) as string, templateReponse(selPourEnvoi))
-                              }
-                              style={{ ...boutonPlein, display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 16px' }}
-                              title="Télécharge un e-mail prêt à envoyer : destinataire, message et devis PDF déjà joints"
+                            <a
+                              href={`mailto:${extraireEmail(sel.contact)}?subject=${encodeURIComponent(`Votre devis HGWF Cargo · ${sel.reference}`)}&body=${encodeURIComponent(templateReponse(selPourEnvoi))}`}
+                              style={{ ...boutonPlein, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}
+                              title="Ouvre votre messagerie avec le message pré-rempli ; joignez le devis PDF téléchargé"
                             >
-                              ✉ E-mail + devis PDF joint
-                            </button>
+                              ✉ Envoyer par e-mail
+                            </a>
                           )}
                           <button
                             onClick={() => selPourEnvoi && genererDevisPdf(selPourEnvoi)}
                             style={{ ...boutonContour, display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 16px' }}
-                            title="Télécharger uniquement le devis PDF pré-rempli"
+                            title="Télécharger le devis PDF pré-rempli, à joindre au message"
                           >
                             <IconeExport />
-                            Devis PDF seul
+                            Devis PDF
                           </button>
+                          {extraireEmail(sel.contact) && selPourEnvoi && (
+                            <button
+                              onClick={() =>
+                                genererEmlDevis(selPourEnvoi, extraireEmail(sel.contact) as string, templateReponse(selPourEnvoi))
+                              }
+                              style={{ ...boutonContour, fontSize: 13, padding: '8px 16px' }}
+                              title="Télécharge un fichier e-mail (.eml) prêt à envoyer, avec le devis PDF déjà en pièce jointe"
+                            >
+                              ✉ E-mail + PDF joint (.eml)
+                            </button>
+                          )}
                           {extraireTel(sel.contact) && selPourEnvoi && (
                             <a
                               href={`https://wa.me/${extraireTel(sel.contact)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(templateReponse(selPourEnvoi))}`}
@@ -1146,8 +1155,8 @@ export function BackOffice() {
                           </button>
                         </div>
                         <span style={{ fontSize: 11, color: ENCRE }}>
-                          « E-mail + devis PDF joint » télécharge un fichier e-mail : ouvrez-le, il s'affiche prêt à envoyer
-                          (destinataire, message et PDF déjà en pièce jointe). Sur WhatsApp, joignez le « Devis PDF seul ».
+                          « Envoyer par e-mail » ouvre votre messagerie avec le message pré-rempli : joignez-y le « Devis
+                          PDF » téléchargé. L'option « .eml » prépare l'e-mail avec le PDF déjà en pièce jointe.
                           {!selPourEnvoi?.montantDevis &&
                             ' Renseignez le chiffrage ci-dessus : il s’insère automatiquement dans le message et le PDF.'}
                         </span>
