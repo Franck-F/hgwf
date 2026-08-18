@@ -266,6 +266,11 @@ export function BackOffice() {
   // Champs de traitement du panneau détail (chiffrage, notes internes).
   const [montantEdit, setMontantEdit] = useState('');
   const [notesEdit, setNotesEdit] = useState('');
+  // Vue expéditions : sélection, filtre d'étape et champs éditables.
+  const [selectionExp, setSelectionExp] = useState<string | null>(null);
+  const [filtreExp, setFiltreExp] = useState(-1);
+  const [trajetEdit, setTrajetEdit] = useState('');
+  const [etaEdit, setEtaEdit] = useState('');
 
   const charger = useCallback(async () => {
     const data = await client.fetch<{
@@ -328,6 +333,51 @@ export function BackOffice() {
   const kpiRetard = demandes.filter(enRetard).length;
   const kpiEnvoyes = demandes.filter((d) => d.statut === 2).length;
   const kpiEnMer = expeditions.filter((x) => x.etape === 2).length;
+
+  // ── Expéditions : liste triée (en cours d'abord) et focus client ──
+  const expeditionsFiltrees = expeditions
+    .filter((x) => filtreExp === -1 || clampEtape(x.etape) === filtreExp)
+    .filter(
+      (x) =>
+        !q ||
+        `${x.reference}${x.clientNom ?? ''}${x.trajet ?? ''}${x.contact ?? ''}`.toLowerCase().includes(q),
+    )
+    .sort((a, b) => {
+      const fa = clampEtape(a.etape) >= 4 ? 1 : 0;
+      const fb = clampEtape(b.etape) >= 4 ? 1 : 0;
+      return fa - fb || (b._updatedAt ?? '').localeCompare(a._updatedAt ?? '');
+    });
+  const selExp = expeditions.find((x) => x._id === selectionExp) ?? expeditionsFiltrees[0] ?? expeditions[0] ?? null;
+  const selExpId = selExp?._id ?? null;
+
+  useEffect(() => {
+    const x = selExpId ? expeditions.find((e) => e._id === selExpId) : null;
+    setTrajetEdit(x?.trajet ?? '');
+    setEtaEdit(x?.eta ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selExpId]);
+
+  // Tout ce que l'on sait du client de l'expédition sélectionnée : sa fiche,
+  // la demande de devis d'origine et ses autres expéditions.
+  const emailExp = extraireEmail(selExp?.contact)?.toLowerCase() ?? null;
+  const clientExp = selExp
+    ? (clients.find(
+        (c) =>
+          (emailExp && (c.contact ?? '').toLowerCase().includes(emailExp)) ||
+          (selExp.clientNom && c.nom.trim().toLowerCase() === selExp.clientNom.trim().toLowerCase()),
+      ) ?? null)
+    : null;
+  const demandeExp = selExp
+    ? (demandes.find((d) => d.reference === (selExp.demandeRef ?? selExp.reference)) ?? null)
+    : null;
+  const historiqueExp = selExp
+    ? expeditions.filter(
+        (x) =>
+          x._id !== selExp._id &&
+          ((emailExp && extraireEmail(x.contact)?.toLowerCase() === emailExp) ||
+            (!!selExp.clientNom && x.clientNom === selExp.clientNom)),
+      )
+    : [];
 
   const activite = useMemo(() => {
     const evts: { texte: string; quand?: string; tone: string }[] = [];
@@ -424,6 +474,14 @@ export function BackOffice() {
         [...prev, { _id: cree._id, ...fiche }].sort((a, b) => a.nom.localeCompare(b.nom)),
       );
     }
+    setSelectionExp(id);
+    setVue('expeditions');
+  };
+
+  // Ouvre la vue expéditions sur l'expédition liée à une demande.
+  const ouvrirExpedition = (reference?: string) => {
+    const exp = expeditions.find((x) => x.reference === reference);
+    if (exp) setSelectionExp(exp._id);
     setVue('expeditions');
   };
 
@@ -431,7 +489,7 @@ export function BackOffice() {
   const actionPrincipale = async (d: Demande) => {
     const statut = clampDemande(d.statut);
     if (statut === 3) return convertirEnExpedition(d);
-    if (statut === 4) return setVue('expeditions');
+    if (statut === 4) return ouvrirExpedition(d.expeditionRef ?? d.reference);
     if (statut === 5) return changerStatut(d, 1);
     return changerStatut(d, statut + 1);
   };
@@ -440,6 +498,12 @@ export function BackOffice() {
     const etape = Math.max(0, Math.min(4, (x.etape ?? 0) + delta));
     setExpeditions((prev) => prev.map((e) => (e._id === x._id ? { ...e, etape } : e)));
     await client.patch(x._id).set({ etape }).commit();
+  };
+
+  // Édition du trajet et de l'ETA depuis le panneau focus.
+  const enregistrerExpedition = async (x: Expedition, trajet: string, eta: string) => {
+    setExpeditions((prev) => prev.map((e) => (e._id === x._id ? { ...e, trajet, eta } : e)));
+    await client.patch(x._id).set({ trajet, eta }).commit();
   };
 
   const enregistrerClient = async () => {
@@ -864,7 +928,7 @@ export function BackOffice() {
                             libelle="Expédition liée"
                             valeur={
                               <button
-                                onClick={() => setVue('expeditions')}
+                                onClick={() => ouvrirExpedition(sel.expeditionRef)}
                                 style={{ fontFamily: MONO, fontSize: 13, color: MARINE, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
                               >
                                 {sel.expeditionRef}
@@ -976,71 +1040,318 @@ export function BackOffice() {
 
             {vue === 'expeditions' && (
               <>
-                <div style={{ ...carte, overflow: 'hidden' }}>
-                  <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(18,57,91,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                    <h2 style={{ margin: 0, fontWeight: 700, fontSize: 18, letterSpacing: '-0.02em' }}>Expéditions en cours.</h2>
-                    <span style={{ fontFamily: MONO, fontSize: 12, color: ENCRE }}>MISE À JOUR DE L'AVANCEMENT</span>
-                  </div>
-                  {expeditions
-                    .filter((x) => !q || `${x.reference}${x.clientNom ?? ''}${x.trajet ?? ''}`.toLowerCase().includes(q))
-                    .map((x) => (
-                      <div
+                {/* Filtres par étape */}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {[{ label: 'Toutes', val: -1 }, ...ETAPES_EXPEDITION.map((s, i) => ({ label: s, val: i }))].map((f) => (
+                    <button
+                      key={f.label}
+                      onClick={() => setFiltreExp(f.val)}
+                      style={{
+                        fontFamily: SANS,
+                        fontWeight: 500,
+                        fontSize: 13,
+                        whiteSpace: 'nowrap',
+                        borderRadius: 999,
+                        padding: '8px 16px',
+                        cursor: 'pointer',
+                        ...(filtreExp === f.val
+                          ? { background: MARINE, color: CREME, border: `1.5px solid ${MARINE}` }
+                          : { background: 'none', color: MARINE, border: '1.5px solid rgba(18,57,91,0.2)' }),
+                      }}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(430px,1fr))', gap: 20, alignItems: 'start' }}>
+                  {/* ── Liste des expéditions ── */}
+                  <div style={{ ...carte, overflow: 'hidden' }}>
+                    <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(18,57,91,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                      <h2 style={{ margin: 0, fontWeight: 700, fontSize: 18, letterSpacing: '-0.02em' }}>Expéditions.</h2>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: ENCRE }}>{expeditionsFiltrees.length} EXPÉDITIONS</span>
+                    </div>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(110px,130px) minmax(0,1.3fr) auto',
+                        gap: 12,
+                        padding: '10px 24px',
+                        background: CREME,
+                        fontSize: 10,
+                        fontWeight: 500,
+                        letterSpacing: '0.2em',
+                        textTransform: 'uppercase',
+                        color: ENCRE,
+                      }}
+                    >
+                      <span>Réf. · client</span>
+                      <span>Trajet · ETA</span>
+                      <span>Étape</span>
+                    </div>
+                    {expeditionsFiltrees.map((x) => (
+                      <button
                         key={x._id}
+                        onClick={() => setSelectionExp(x._id)}
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: 'minmax(110px,150px) minmax(0,1.3fr) minmax(0,1fr) auto',
-                          gap: 14,
+                          gridTemplateColumns: 'minmax(110px,130px) minmax(0,1.3fr) auto',
+                          gap: 12,
                           alignItems: 'center',
-                          padding: '16px 24px',
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          overflowWrap: 'anywhere',
+                          padding: '14px 24px',
+                          border: 'none',
                           borderTop: '1px solid rgba(18,57,91,0.08)',
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                          color: MARINE,
+                          textAlign: 'left',
+                          background: selExp?._id === x._id ? CREME : IVOIRE,
                         }}
                       >
                         <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                          <span style={{ fontFamily: MONO, fontSize: 13 }}>{x.reference}</span>
-                          <span style={{ fontSize: 12, color: ENCRE }}>{x.clientNom}</span>
-                          {x.contact && (
-                            <span style={{ fontFamily: MONO, fontSize: 10, color: ENCRE, overflowWrap: 'anywhere' }}>
-                              {x.contact}
-                            </span>
-                          )}
+                          <span style={{ fontFamily: MONO, fontSize: 12 }}>{x.reference}</span>
+                          <span style={{ fontWeight: 700, fontSize: 13 }}>{x.clientNom}</span>
                         </span>
-                        <span style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700 }}>{x.trajet}</span>
-                          <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <span style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
+                          <span style={{ fontSize: 13 }}>{x.trajet}</span>
+                          <span style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
                             {ETAPES_EXPEDITION.map((_, k) => (
                               <span
                                 key={k}
                                 style={{
                                   display: 'inline-block',
-                                  width: 8 + k,
-                                  height: 8 + k,
+                                  width: 7 + k,
+                                  height: 7 + k,
                                   borderRadius: '50%',
-                                  ...(k < (x.etape ?? 0)
+                                  ...(k < clampEtape(x.etape)
                                     ? { background: CIEL }
-                                    : k === (x.etape ?? 0)
+                                    : k === clampEtape(x.etape)
                                       ? { background: CORAIL }
                                       : { background: 'none', border: '1.5px solid rgba(18,57,91,0.25)' }),
                                 }}
                               />
                             ))}
+                            <span style={{ fontFamily: MONO, fontSize: 10, color: ENCRE, marginLeft: 4 }}>ETA {x.eta}</span>
                           </span>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: ENCRE }}>ETA {x.eta}</span>
                         </span>
-                        <span style={badgeEtape(x.etape ?? 0)}>{ETAPES_EXPEDITION[x.etape ?? 0]}</span>
-                        <span style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                          <button onClick={() => bougerExpedition(x, -1)} aria-label="Étape précédente" style={{ ...boutonRond, width: 36, height: 36 }}>
-                            ←
-                          </button>
-                          <button
-                            onClick={() => bougerExpedition(x, 1)}
-                            style={{ ...boutonPlein, background: MARINE, fontSize: 13, padding: '9px 16px' }}
-                          >
-                            {(x.etape ?? 0) >= 4 ? 'Livré ✓' : 'Étape suivante →'}
-                          </button>
-                        </span>
-                      </div>
+                        <span style={badgeEtape(clampEtape(x.etape))}>{ETAPES_EXPEDITION[clampEtape(x.etape)]}</span>
+                      </button>
                     ))}
-                  {!expeditions.length && <p style={{ margin: 0, padding: '18px 24px', fontSize: 13, color: ENCRE }}>Aucune expédition.</p>}
+                    {!expeditionsFiltrees.length && (
+                      <p style={{ margin: 0, padding: '18px 24px', fontSize: 13, color: ENCRE }}>Aucune expédition.</p>
+                    )}
+                  </div>
+
+                  {/* ── Panneau focus : l'expédition et son client ── */}
+                  {selExp && (
+                    <div style={{ ...carte, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 24, minWidth: 0 }}>
+                      <span style={eyebrow}>Suivi de l'expédition</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                        <span style={{ fontFamily: MONO, fontSize: 18 }}>{selExp.reference}</span>
+                        <span style={badgeEtape(clampEtape(selExp.etape))}>{ETAPES_EXPEDITION[clampEtape(selExp.etape)]}</span>
+                      </div>
+
+                      {/* Timeline verticale des 5 étapes */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        {ETAPES_EXPEDITION.map((etapeLabel, k) => {
+                          const fait = k < clampEtape(selExp.etape);
+                          const actif = k === clampEtape(selExp.etape);
+                          return (
+                            <div key={etapeLabel} style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
+                              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 16 }}>
+                                <span
+                                  style={{
+                                    width: actif ? 14 : 10,
+                                    height: actif ? 14 : 10,
+                                    borderRadius: '50%',
+                                    flexShrink: 0,
+                                    marginTop: 3,
+                                    ...(fait
+                                      ? { background: CIEL }
+                                      : actif
+                                        ? { background: CORAIL, boxShadow: '0 0 0 4px rgba(255,111,94,0.2)' }
+                                        : { background: 'none', border: '1.5px solid rgba(18,57,91,0.3)', boxSizing: 'border-box' }),
+                                  }}
+                                />
+                                {k < ETAPES_EXPEDITION.length - 1 && (
+                                  <span style={{ width: 2, flex: 1, minHeight: 14, background: fait ? CIEL : 'rgba(18,57,91,0.15)' }} />
+                                )}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: 13,
+                                  paddingBottom: 12,
+                                  fontWeight: actif ? 700 : 400,
+                                  color: fait || actif ? MARINE : ENCRE,
+                                }}
+                              >
+                                {etapeLabel}
+                                {actif && selExp.eta && (
+                                  <span style={{ fontFamily: MONO, fontSize: 11, color: ENCRE, marginLeft: 8 }}>ETA {selExp.eta}</span>
+                                )}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        {clampEtape(selExp.etape) > 0 && (
+                          <button onClick={() => bougerExpedition(selExp, -1)} style={{ ...boutonContour, fontSize: 13, padding: '9px 18px' }}>
+                            ← Étape précédente
+                          </button>
+                        )}
+                        {clampEtape(selExp.etape) < 4 ? (
+                          <button onClick={() => bougerExpedition(selExp, 1)} style={{ ...boutonPlein, background: MARINE, fontSize: 13, padding: '9px 18px' }}>
+                            Étape suivante →
+                          </button>
+                        ) : (
+                          <span style={{ ...badgeBase, background: MARINE, color: CREME }}>Livré ✓</span>
+                        )}
+                      </div>
+
+                      {/* Trajet & ETA éditables */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid rgba(18,57,91,0.1)', paddingTop: 14 }}>
+                        <span style={eyebrow}>Trajet & ETA</span>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.6fr) minmax(0,1fr)', gap: 8 }}>
+                          <input placeholder="Trajet (ex. Le Havre → Pointe-à-Pitre)" value={trajetEdit} onChange={(e) => setTrajetEdit(e.target.value)} style={champ} />
+                          <input placeholder="ETA (ex. 12/09/2026)" value={etaEdit} onChange={(e) => setEtaEdit(e.target.value)} style={champ} />
+                        </div>
+                        {(trajetEdit !== (selExp.trajet ?? '') || etaEdit !== (selExp.eta ?? '')) && (
+                          <button
+                            onClick={() => enregistrerExpedition(selExp, trajetEdit, etaEdit)}
+                            style={{ ...boutonContour, alignSelf: 'flex-start', fontSize: 13, padding: '8px 18px' }}
+                          >
+                            Enregistrer
+                          </button>
+                        )}
+                      </div>
+
+                      {/* ── Focus client ── */}
+                      <div style={{ background: CREME, borderRadius: 16, padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <span style={eyebrow}>Client traité</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <span
+                            style={{
+                              width: 42,
+                              height: 42,
+                              borderRadius: '50%',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              fontSize: 16,
+                              color: CREME,
+                              flexShrink: 0,
+                              background: AVATARS[(selExp.clientNom?.length ?? 0) % AVATARS.length],
+                            }}
+                          >
+                            {(selExp.clientNom ?? '?').charAt(0).toUpperCase()}
+                          </span>
+                          <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                            <span style={{ fontWeight: 700, fontSize: 15 }}>{selExp.clientNom ?? 'Client inconnu'}</span>
+                            <span style={{ fontSize: 12, color: ENCRE }}>
+                              {clientExp
+                                ? `${clientExp.envois ?? 0} envoi${(clientExp.envois ?? 0) > 1 ? 's' : ''}${clientExp.destination ? ` · habituel : ${clientExp.destination}` : ''}${clientExp.volume ? ` · ${clientExp.volume}` : ''}`
+                                : 'Pas encore de fiche client'}
+                            </span>
+                          </span>
+                        </div>
+                        {selExp.contact && (
+                          <span style={{ fontFamily: MONO, fontSize: 12, overflowWrap: 'anywhere', color: MARINE }}>{selExp.contact}</span>
+                        )}
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {extraireEmail(selExp.contact) && (
+                            <a
+                              href={`mailto:${extraireEmail(selExp.contact)}?subject=${encodeURIComponent(`Votre expédition HGWF Cargo · ${selExp.reference}`)}`}
+                              style={{ ...boutonContour, fontSize: 12, padding: '7px 14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                            >
+                              ✉ E-mail
+                            </a>
+                          )}
+                          {extraireTel(selExp.contact) && (
+                            <a
+                              href={`https://wa.me/${extraireTel(selExp.contact)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(`Bonjour, au sujet de votre expédition HGWF Cargo ${selExp.reference} :`)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ ...boutonContour, fontSize: 12, padding: '7px 14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                            >
+                              ☎ WhatsApp / appeler
+                            </a>
+                          )}
+                        </div>
+
+                        {/* La demande d'origine, avec le chiffrage */}
+                        {demandeExp && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid rgba(18,57,91,0.12)', paddingTop: 10, fontSize: 13 }}>
+                            <LigneDetail
+                              libelle="Demande d'origine"
+                              valeur={
+                                <button
+                                  onClick={() => {
+                                    setSelection(demandeExp._id);
+                                    setVue('devis');
+                                  }}
+                                  style={{ fontFamily: MONO, fontSize: 12, color: MARINE, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                                >
+                                  {demandeExp.reference}
+                                </button>
+                              }
+                            />
+                            {demandeExp.typeEnvoi && <LigneDetail libelle="Envoi" valeur={<b>{demandeExp.typeEnvoi}</b>} />}
+                            {demandeExp.volume && (
+                              <LigneDetail libelle="Volume" valeur={<span style={{ fontFamily: MONO }}>{demandeExp.volume}</span>} />
+                            )}
+                            {demandeExp.montantDevis && (
+                              <LigneDetail
+                                libelle="Montant du devis"
+                                valeur={<span style={{ fontFamily: MONO, color: CORAIL, fontWeight: 700 }}>{demandeExp.montantDevis}</span>}
+                              />
+                            )}
+                            {demandeExp.notes && (
+                              <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: ENCRE }}>{demandeExp.notes}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Historique des autres expéditions du même client */}
+                        {historiqueExp.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid rgba(18,57,91,0.12)', paddingTop: 10 }}>
+                            <span style={{ ...eyebrow, fontSize: 9 }}>Autres expéditions de ce client</span>
+                            {historiqueExp.map((h) => (
+                              <button
+                                key={h._id}
+                                onClick={() => setSelectionExp(h._id)}
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  gap: 10,
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  padding: '4px 0',
+                                  fontFamily: 'inherit',
+                                  color: MARINE,
+                                  textAlign: 'left',
+                                }}
+                              >
+                                <span style={{ fontFamily: MONO, fontSize: 12 }}>{h.reference}</span>
+                                <span style={{ fontSize: 12, color: ENCRE, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {h.trajet}
+                                </span>
+                                <span style={{ ...badgeEtape(clampEtape(h.etape)), fontSize: 10, padding: '3px 8px' }}>
+                                  {ETAPES_EXPEDITION[clampEtape(h.etape)]}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <p style={{ margin: 0, fontSize: 12, color: ENCRE }}>
                   Chaque avancement met à jour le statut visible par le client sur la page Suivi.
