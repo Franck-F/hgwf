@@ -243,6 +243,58 @@ function extraireTel(contact?: string): string | null {
   return m ? m.replace(/[^\d+]/g, '') : null;
 }
 
+// ── Modèles de réponse ────────────────────────────────────────────────────────
+// L'API du site range les détails structurés dans le message de la demande
+// (« Colis : … », « Remarques colis : … », « Départ : … ») ; on les relit ici
+// pour composer un récapitulatif complet.
+function lireDetail(message: string | undefined, cle: string): string | null {
+  return message?.match(new RegExp(`^${cle} : (.+)$`, 'm'))?.[1]?.trim() ?? null;
+}
+function messageLibre(message?: string): string {
+  return (message ?? '')
+    .split('\n')
+    .filter((l) => !/^(Colis|Remarques colis|Départ) : /.test(l))
+    .join(' ')
+    .trim();
+}
+
+// Réponse type au client : toutes les informations de sa demande, plus le
+// montant s'il a été chiffré (sinon un espace à compléter avant l'envoi).
+function templateReponse(d: Demande): string {
+  const colis = lireDetail(d.message, 'Colis');
+  const remarques = lireDetail(d.message, 'Remarques colis');
+  const depart = lireDetail(d.message, 'Départ');
+  const libre = messageLibre(d.message);
+
+  const recap = [
+    d.typeEnvoi ? `- Type d'envoi : ${d.typeEnvoi}` : null,
+    d.destination ? `- Destination : ${d.destination}` : null,
+    depart ? `- Port de départ : ${depart}` : null,
+    d.volume ? `- Volume estimé : ${d.volume}` : null,
+    colis ? `- Colis (L × l × H en cm × quantité) : ${colis}` : null,
+    remarques ? `- Vos remarques : ${remarques}` : null,
+    libre ? `- Votre message : ${libre}` : null,
+  ].filter(Boolean);
+
+  return [
+    `Bonjour${d.clientNom ? ` ${d.clientNom}` : ''},`,
+    '',
+    `Nous vous remercions pour votre demande de devis (référence ${d.reference}${d.recueLe ? `, reçue le ${d.recueLe}` : ''}).`,
+    '',
+    'Récapitulatif de votre demande :',
+    ...recap,
+    '',
+    `Notre proposition : ${d.montantDevis ?? '[montant à compléter]'}, valable trente jours. Nous vous communiquerons les prochaines dates de départ dès votre accord.`,
+    '',
+    'Nous restons à votre disposition pour toute précision ou ajustement.',
+    '',
+    'Bien cordialement,',
+    "L'équipe HGWF Cargo",
+    'contact@hgwf-cargo.fr · 09 62 03 80 13',
+    'www.hgwf-cargo.fr',
+  ].join('\n');
+}
+
 // ── Composant principal ───────────────────────────────────────────────────────
 export function BackOffice() {
   const client = useClient({ apiVersion: '2024-10-01' });
@@ -993,25 +1045,41 @@ export function BackOffice() {
                         )}
                       </div>
 
-                      {/* Contact direct : selon les moyens présents dans la demande. */}
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {extraireEmail(sel.contact) && (
-                          <a
-                            href={`mailto:${extraireEmail(sel.contact)}?subject=${encodeURIComponent(`Votre devis HGWF Cargo · ${sel.reference}`)}`}
-                            style={{ ...boutonContour, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                      {/* Contact direct : e-mail et WhatsApp partent avec un modèle
+                          complet (récapitulatif de la demande + montant chiffré). */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <span style={eyebrow}>Répondre au client</span>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {extraireEmail(sel.contact) && (
+                            <a
+                              href={`mailto:${extraireEmail(sel.contact)}?subject=${encodeURIComponent(`Votre devis HGWF Cargo · ${sel.reference}`)}&body=${encodeURIComponent(templateReponse(sel))}`}
+                              style={{ ...boutonContour, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                            >
+                              ✉ E-mail (modèle pré-rempli)
+                            </a>
+                          )}
+                          {extraireTel(sel.contact) && (
+                            <a
+                              href={`https://wa.me/${extraireTel(sel.contact)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(templateReponse(sel))}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ ...boutonContour, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                            >
+                              ☎ WhatsApp (modèle pré-rempli)
+                            </a>
+                          )}
+                          <button
+                            onClick={() => navigator.clipboard.writeText(templateReponse(sel))}
+                            style={{ ...boutonContour, fontSize: 13, padding: '8px 16px' }}
+                            title="Copier le modèle de réponse dans le presse-papiers"
                           >
-                            ✉ Répondre par e-mail
-                          </a>
-                        )}
-                        {extraireTel(sel.contact) && (
-                          <a
-                            href={`https://wa.me/${extraireTel(sel.contact)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(`Bonjour, au sujet de votre demande de devis HGWF Cargo ${sel.reference} :`)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ ...boutonContour, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-                          >
-                            ☎ WhatsApp / appeler
-                          </a>
+                            ⧉ Copier le modèle
+                          </button>
+                        </div>
+                        {!sel.montantDevis && (
+                          <span style={{ fontSize: 11, color: ENCRE }}>
+                            Astuce : renseignez le montant du devis ci-dessus, il s'insère automatiquement dans le modèle.
+                          </span>
                         )}
                       </div>
 
@@ -1361,22 +1429,228 @@ export function BackOffice() {
 
             {vue === 'clients' && (
               <>
-                {clientForm && (
-                  <div style={{ ...carte, background: CREME, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <span style={{ fontWeight: 700, fontSize: 15 }}>{clientForm._id ? 'Modifier le client.' : 'Nouveau client.'}</span>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 }}>
-                      <input placeholder="Nom" value={clientForm.nom ?? ''} onChange={(e) => setClientForm({ ...clientForm, nom: e.target.value })} style={champ} />
-                      <input placeholder="Contact (mail · tél)" value={clientForm.contact ?? ''} onChange={(e) => setClientForm({ ...clientForm, contact: e.target.value })} style={champ} />
-                      <input placeholder="Destination habituelle" value={clientForm.destination ?? ''} onChange={(e) => setClientForm({ ...clientForm, destination: e.target.value })} style={champ} />
-                      <input placeholder="Nb d'envois" value={clientForm.envoisTexte ?? ''} onChange={(e) => setClientForm({ ...clientForm, envoisTexte: e.target.value })} style={champ} />
-                      <input placeholder="Volume cumulé" value={clientForm.volume ?? ''} onChange={(e) => setClientForm({ ...clientForm, volume: e.target.value })} style={champ} />
+                {/* Fiche client en pop-up : identité éditable, contact direct et
+                    historique complet (demandes de devis + expéditions). */}
+                {clientForm && (() => {
+                  const emailFiche = extraireEmail(clientForm.contact)?.toLowerCase() ?? null;
+                  const nomFiche = (clientForm.nom ?? '').trim().toLowerCase();
+                  const correspond = (contact?: string, nom?: string) =>
+                    (emailFiche && (contact ?? '').toLowerCase().includes(emailFiche)) ||
+                    (!!nomFiche && (nom ?? '').trim().toLowerCase() === nomFiche);
+                  const demandesClient = clientForm._id
+                    ? demandes.filter((d) => correspond(d.contact, d.clientNom))
+                    : [];
+                  const expedsClient = clientForm._id
+                    ? expeditions.filter((x) => correspond(x.contact, x.clientNom))
+                    : [];
+                  return (
+                    <div
+                      onClick={() => setClientForm(null)}
+                      style={{
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 1200,
+                        background: 'rgba(6,20,34,0.55)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 20,
+                      }}
+                    >
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={clientForm._id ? `Fiche client ${clientForm.nom ?? ''}` : 'Nouveau client'}
+                        style={{
+                          ...carte,
+                          width: 'min(680px, 100%)',
+                          maxHeight: '88vh',
+                          overflowY: 'auto',
+                          padding: 28,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 16,
+                          boxShadow: '0 28px 80px rgba(6,20,34,0.45)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                          <span
+                            style={{
+                              width: 46,
+                              height: 46,
+                              borderRadius: '50%',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              fontSize: 18,
+                              color: CREME,
+                              flexShrink: 0,
+                              background: AVATARS[(clientForm.nom?.length ?? 0) % AVATARS.length],
+                            }}
+                          >
+                            {(clientForm.nom ?? '+').charAt(0).toUpperCase()}
+                          </span>
+                          <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                            <span style={eyebrow}>{clientForm._id ? 'Fiche client' : 'Nouveau client'}</span>
+                            <span style={{ fontWeight: 700, fontSize: 20, letterSpacing: '-0.02em' }}>
+                              {clientForm.nom || 'À nommer'}
+                            </span>
+                          </span>
+                          <button
+                            onClick={() => setClientForm(null)}
+                            aria-label="Fermer"
+                            style={{ ...boutonRond, marginLeft: 'auto', flexShrink: 0 }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 10 }}>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                            Nom
+                            <input value={clientForm.nom ?? ''} onChange={(e) => setClientForm({ ...clientForm, nom: e.target.value })} style={champ} />
+                          </label>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                            Contact (mail · tél)
+                            <input value={clientForm.contact ?? ''} onChange={(e) => setClientForm({ ...clientForm, contact: e.target.value })} style={champ} />
+                          </label>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                            Destination habituelle
+                            <input value={clientForm.destination ?? ''} onChange={(e) => setClientForm({ ...clientForm, destination: e.target.value })} style={champ} />
+                          </label>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                            Nombre d'envois
+                            <input value={clientForm.envoisTexte ?? ''} onChange={(e) => setClientForm({ ...clientForm, envoisTexte: e.target.value })} style={champ} />
+                          </label>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                            Volume cumulé
+                            <input value={clientForm.volume ?? ''} onChange={(e) => setClientForm({ ...clientForm, volume: e.target.value })} style={champ} />
+                          </label>
+                        </div>
+
+                        {/* Contact direct depuis la fiche */}
+                        {(extraireEmail(clientForm.contact) || extraireTel(clientForm.contact)) && (
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {extraireEmail(clientForm.contact) && (
+                              <a
+                                href={`mailto:${extraireEmail(clientForm.contact)}`}
+                                style={{ ...boutonContour, fontSize: 12, padding: '7px 14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                              >
+                                ✉ E-mail
+                              </a>
+                            )}
+                            {extraireTel(clientForm.contact) && (
+                              <a
+                                href={`https://wa.me/${extraireTel(clientForm.contact)?.replace(/^\+/, '').replace(/^0/, '33')}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ ...boutonContour, fontSize: 12, padding: '7px 14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                              >
+                                ☎ WhatsApp / appeler
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Historique : demandes de devis du client */}
+                        {demandesClient.length > 0 && (
+                          <div style={{ background: CREME, borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <span style={{ ...eyebrow, fontSize: 9 }}>Demandes de devis ({demandesClient.length})</span>
+                            {demandesClient.map((d) => (
+                              <button
+                                key={d._id}
+                                onClick={() => {
+                                  setSelection(d._id);
+                                  setClientForm(null);
+                                  setVue('devis');
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  gap: 10,
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  padding: '4px 0',
+                                  fontFamily: 'inherit',
+                                  color: MARINE,
+                                  textAlign: 'left',
+                                }}
+                              >
+                                <span style={{ fontFamily: MONO, fontSize: 12 }}>{d.reference}</span>
+                                <span style={{ fontSize: 12, color: ENCRE, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {d.destination}
+                                  {d.montantDevis ? ` · ${d.montantDevis}` : ''}
+                                </span>
+                                <span style={{ ...badgeBase, fontSize: 10, padding: '3px 8px', ...BADGES_DEMANDE[clampDemande(d.statut)] }}>
+                                  {STATUTS_DEMANDE[clampDemande(d.statut)]}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Historique : expéditions du client */}
+                        {expedsClient.length > 0 && (
+                          <div style={{ background: CREME, borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <span style={{ ...eyebrow, fontSize: 9 }}>Expéditions ({expedsClient.length})</span>
+                            {expedsClient.map((x) => (
+                              <button
+                                key={x._id}
+                                onClick={() => {
+                                  setSelectionExp(x._id);
+                                  setClientForm(null);
+                                  setVue('expeditions');
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  gap: 10,
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  padding: '4px 0',
+                                  fontFamily: 'inherit',
+                                  color: MARINE,
+                                  textAlign: 'left',
+                                }}
+                              >
+                                <span style={{ fontFamily: MONO, fontSize: 12 }}>{x.reference}</span>
+                                <span style={{ fontSize: 12, color: ENCRE, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {x.trajet}
+                                </span>
+                                <span style={{ ...badgeEtape(clampEtape(x.etape)), fontSize: 10, padding: '3px 8px' }}>
+                                  {ETAPES_EXPEDITION[clampEtape(x.etape)]}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', borderTop: '1px solid rgba(18,57,91,0.1)', paddingTop: 14 }}>
+                          <button onClick={enregistrerClient} style={boutonPlein}>Enregistrer</button>
+                          <button onClick={() => setClientForm(null)} style={boutonContour}>Annuler</button>
+                          {clientForm._id && (
+                            <button
+                              onClick={() => {
+                                const fiche = clients.find((c) => c._id === clientForm._id);
+                                if (fiche) supprimerClient(fiche);
+                                setClientForm(null);
+                              }}
+                              style={{ ...boutonContour, marginLeft: 'auto', borderColor: 'rgba(255,111,94,0.5)', color: ROUGE }}
+                            >
+                              Supprimer la fiche
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <button onClick={enregistrerClient} style={boutonPlein}>Enregistrer</button>
-                      <button onClick={() => setClientForm(null)} style={boutonContour}>Annuler</button>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
                 <div style={{ ...carte, overflow: 'hidden' }}>
                   <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(18,57,91,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                     <h2 style={{ margin: 0, fontWeight: 700, fontSize: 18, letterSpacing: '-0.02em' }}>Clients.</h2>
@@ -1476,19 +1750,113 @@ export function BackOffice() {
 
             {vue === 'conteneurs' && (
               <>
+                {/* Fiche conteneur en pop-up : champs étiquetés, tailles et états
+                    proposés en liste pour éviter les saisies libres ambiguës. */}
                 {conteneurForm && (
-                  <div style={{ ...carte, background: CREME, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <span style={{ fontWeight: 700, fontSize: 15 }}>{conteneurForm._id ? 'Modifier le conteneur.' : 'Nouveau conteneur.'}</span>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
-                      <input placeholder="Référence (ex. CTN-20-130)" value={conteneurForm.reference ?? ''} onChange={(e) => setConteneurForm({ ...conteneurForm, reference: e.target.value })} style={champ} />
-                      <input placeholder="Taille (20 / 40 pieds)" value={conteneurForm.taille ?? ''} onChange={(e) => setConteneurForm({ ...conteneurForm, taille: e.target.value })} style={champ} />
-                      <input placeholder="État (A / B / C)" value={conteneurForm.etat ?? ''} onChange={(e) => setConteneurForm({ ...conteneurForm, etat: e.target.value })} style={champ} />
-                      <input placeholder="Lieu" value={conteneurForm.lieu ?? ''} onChange={(e) => setConteneurForm({ ...conteneurForm, lieu: e.target.value })} style={champ} />
-                      <input placeholder="Prix (ex. 1 450 €)" value={conteneurForm.prix ?? ''} onChange={(e) => setConteneurForm({ ...conteneurForm, prix: e.target.value })} style={champ} />
-                    </div>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <button onClick={enregistrerConteneur} style={boutonPlein}>Enregistrer</button>
-                      <button onClick={() => setConteneurForm(null)} style={boutonContour}>Annuler</button>
+                  <div
+                    onClick={() => setConteneurForm(null)}
+                    style={{
+                      position: 'fixed',
+                      inset: 0,
+                      zIndex: 1200,
+                      background: 'rgba(6,20,34,0.55)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 20,
+                    }}
+                  >
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label={conteneurForm._id ? `Conteneur ${conteneurForm.reference ?? ''}` : 'Nouveau conteneur'}
+                      style={{
+                        ...carte,
+                        width: 'min(560px, 100%)',
+                        maxHeight: '88vh',
+                        overflowY: 'auto',
+                        padding: 28,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 16,
+                        boxShadow: '0 28px 80px rgba(6,20,34,0.45)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                          <span style={eyebrow}>{conteneurForm._id ? 'Modifier le conteneur' : 'Nouveau conteneur'}</span>
+                          <span style={{ fontWeight: 700, fontSize: 20, letterSpacing: '-0.02em', fontFamily: MONO }}>
+                            {conteneurForm.reference || 'Référence à saisir'}
+                          </span>
+                        </span>
+                        <button
+                          onClick={() => setConteneurForm(null)}
+                          aria-label="Fermer"
+                          style={{ ...boutonRond, marginLeft: 'auto', flexShrink: 0 }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 10 }}>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                          Référence (identifiant unique)
+                          <input placeholder="ex. CTN-20-130" value={conteneurForm.reference ?? ''} onChange={(e) => setConteneurForm({ ...conteneurForm, reference: e.target.value })} style={champ} />
+                        </label>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                          Taille
+                          <select value={conteneurForm.taille ?? '20 pieds'} onChange={(e) => setConteneurForm({ ...conteneurForm, taille: e.target.value })} style={champ}>
+                            {[...new Set(['20 pieds', '40 pieds', conteneurForm.taille ?? '20 pieds'])].map((t) => (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                          État général
+                          <select value={conteneurForm.etat ?? 'A'} onChange={(e) => setConteneurForm({ ...conteneurForm, etat: e.target.value })} style={champ}>
+                            {[
+                              { v: 'A', t: 'A · très bon état' },
+                              { v: 'B', t: 'B · bon état' },
+                              { v: 'C', t: 'C · état correct' },
+                              ...(['A', 'B', 'C'].includes(conteneurForm.etat ?? 'A')
+                                ? []
+                                : [{ v: conteneurForm.etat as string, t: conteneurForm.etat as string }]),
+                            ].map((o) => (
+                              <option key={o.v} value={o.v}>
+                                {o.t}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                          Lieu de stockage
+                          <input placeholder="ex. Dépôt Rosny-sous-Bois" value={conteneurForm.lieu ?? ''} onChange={(e) => setConteneurForm({ ...conteneurForm, lieu: e.target.value })} style={champ} />
+                        </label>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                          Prix de vente
+                          <input placeholder="ex. 1 450 €" value={conteneurForm.prix ?? ''} onChange={(e) => setConteneurForm({ ...conteneurForm, prix: e.target.value })} style={champ} />
+                        </label>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', borderTop: '1px solid rgba(18,57,91,0.1)', paddingTop: 14 }}>
+                        <button onClick={enregistrerConteneur} style={boutonPlein}>Enregistrer</button>
+                        <button onClick={() => setConteneurForm(null)} style={boutonContour}>Annuler</button>
+                        {conteneurForm._id && (
+                          <button
+                            onClick={() => {
+                              const fiche = conteneurs.find((k) => k._id === conteneurForm._id);
+                              if (fiche) supprimerConteneur(fiche);
+                              setConteneurForm(null);
+                            }}
+                            style={{ ...boutonContour, marginLeft: 'auto', borderColor: 'rgba(255,111,94,0.5)', color: ROUGE }}
+                          >
+                            Supprimer
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
