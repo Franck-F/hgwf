@@ -13,7 +13,7 @@ const HERO_DEFAUT = {
   titre: 'Votre devis en 4',
   titreAccent: 'étapes',
   description:
-    "Type d'envoi, destination, volume, coordonnées — l'équipe vous répond avec un prix personnalisé et les prochaines dates de départ.",
+    "Type d'envoi, destination, volume, coordonnées : l'équipe vous répond avec un prix personnalisé et les prochaines dates de départ.",
   imageUrl: null as string | null,
 };
 
@@ -28,15 +28,21 @@ const WIZARD_DEFAUT = {
   },
   etapeVolume: {
     titre: 'Estimez votre volume.',
-    texte: 'Mesurez chaque colis au point le plus large, en centimètres. Le groupage est facturé au mètre cube.',
+    texte:
+      'Mesurez chaque colis au point le plus large, en centimètres (cm). Le groupage est facturé au mètre cube (m³).',
     boutonAjouter: '+ Ajouter un colis',
+    legendeDims: 'Longueur × largeur × hauteur en cm, puis quantité',
+    commentaireLabel: 'Commentaires sur vos colis (facultatif)',
+    commentairePlaceholder: 'Nature des biens, poids approximatif, fragile, véhicule…',
   },
   etapeCoordonnees: {
     titre: 'Vos coordonnées.',
     placeholderNom: 'Nom et prénom',
     placeholderEmail: 'E-mail',
     placeholderTel: 'Téléphone / WhatsApp',
-    placeholderMessage: 'Précisions — nature des biens, véhicule, dates souhaitées…',
+    placeholderMessage: 'Précisions : nature des biens, véhicule, dates souhaitées…',
+    preferenceLabel: 'Comment souhaitez-vous être contacté ?',
+    preferences: ['E-mail', 'Téléphone', 'WhatsApp'],
   },
   recap: {
     titre: 'Votre envoi',
@@ -48,15 +54,15 @@ const WIZARD_DEFAUT = {
   confirmation: {
     titre: 'Demande envoyée.',
     texte:
-      "Merci {nom} — votre demande est entre les mains de l'équipe. Un délai moyen de 24 à 48 h est nécessaire pour vous répondre. Votre référence :",
+      "Merci {nom}, votre demande est entre les mains de l'équipe. Un délai moyen de 24 à 48 h est nécessaire pour vous répondre. Votre référence :",
     boutonContact: "Parler à l'équipe",
     boutonAccueil: "Retour à l'accueil",
   },
   boutons: { precedent: '← Précédent', suivant: 'Suivant →', envoyer: 'Envoyer la demande' },
   typesEnvoi: [
-    { label: 'Groupage (LCL)', description: 'Cartons, palettes, effets personnels — facturé au mètre cube.' },
+    { label: 'Groupage (LCL)', description: 'Cartons, palettes, effets personnels : facturé au mètre cube.' },
     { label: 'Conteneur complet (FCL)', description: "Un conteneur 20' ou 40' réservé à votre envoi, dry ou reefer." },
-    { label: 'Véhicule / bateau', description: 'Voiture, moto, bateau, jetski, remorque — conteneur ou ro-ro.' },
+    { label: 'Véhicule / bateau', description: 'Voiture, moto, bateau, jetski, remorque : conteneur ou ro-ro.' },
     { label: 'Déménagement', description: 'Mutation Outre-mer, retraite, retour au pays : tout votre foyer.' },
   ],
   destinations: [
@@ -66,11 +72,8 @@ const WIZARD_DEFAUT = {
     { nom: 'Saint-Martin / Saint-Barthélemy', delai: '3 À 5 SEMAINES' },
     { nom: 'Haïti', delai: '4 À 6 SEMAINES' },
     { nom: 'République Dominicaine', delai: '4 À 6 SEMAINES' },
-    { nom: 'Nouvelle-Calédonie', delai: '41 JOURS EN MOYENNE' },
-    { nom: 'Tahiti / Polynésie', delai: '41 JOURS EN MOYENNE' },
-    { nom: 'Wallis-et-Futuna', delai: '60 À 70 JOURS' },
-    { nom: 'Vanuatu / Fidji / Samoa', delai: 'SELON ROTATION — NOUS CONSULTER' },
-    { nom: 'Australie / Nouvelle-Zélande', delai: 'SELON ROTATION — NOUS CONSULTER' },
+    { nom: 'États-Unis / Canada', delai: 'SELON ROTATION, NOUS CONSULTER' },
+    { nom: 'Amérique du Sud', delai: 'SELON ROTATION, NOUS CONSULTER' },
     { nom: 'Afrique francophone', delai: 'VARIABLE SELON DESTINATION' },
     { nom: 'Autre destination', delai: 'NOUS CONSULTER' },
   ],
@@ -83,13 +86,13 @@ const WIZARD_DEFAUT = {
 // pages légales.
 const MENTION_RGPD_FR = {
   texte:
-    'Les informations recueillies servent uniquement à traiter votre demande de devis. Elles sont conservées trois ans et ne sont jamais cédées. Vous disposez d’un droit d’accès, de rectification et d’effacement — voir notre',
+    'Les informations recueillies servent uniquement à traiter votre demande de devis. Elles sont conservées trois ans et ne sont jamais cédées. Vous disposez d’un droit d’accès, de rectification et d’effacement ; voir notre',
   lienLibelle: 'politique de confidentialité',
 };
 
 const MENTION_RGPD_EN = {
   texte:
-    'The information collected is used only to process your quote request. It is kept for three years and is never shared with third parties. You have a right of access, rectification and erasure — see our',
+    'The information collected is used only to process your quote request. It is kept for three years and is never shared with third parties. You have a right of access, rectification and erasure; see our',
   lienLibelle: 'privacy policy',
 };
 
@@ -97,7 +100,7 @@ const REASSURANCE_DEFAUT = [
   {
     valeur: '24–48 H',
     titre: 'Réponse rapide',
-    texte: 'Chaque demande est traitée avec attention — prix personnalisé et prochaines dates de départ.',
+    texte: 'Chaque demande est traitée avec attention : prix personnalisé et prochaines dates de départ.',
   },
   {
     valeur: 'AU M³',
@@ -107,7 +110,7 @@ const REASSURANCE_DEFAUT = [
   {
     valeur: '0 €',
     titre: 'Devis gratuit',
-    texte: "Sans engagement — l'équipe vous aide aussi à constituer le dossier douane complet.",
+    texte: "Sans engagement : l'équipe vous aide aussi à constituer le dossier douane complet.",
   },
 ];
 
@@ -133,7 +136,7 @@ const ERREUR_CONTACT_EN =
   'Please provide your name and at least one way to contact you (email or phone) to receive your quote.';
 
 const SEO_DEFAUT = {
-  titre: 'Demande de devis — HGWF Cargo',
+  titre: 'Demande de devis · HGWF Cargo',
   description:
     'Obtenez un devis gratuit en 4 étapes : type d’envoi, destination, volume estimé et coordonnées. Réponse personnalisée sous 24 à 48 h.',
 };
@@ -167,6 +170,15 @@ async function getContenu(locale: Locale) {
       titre: data?.etapeVolume?.titre ?? WIZARD_DEFAUT.etapeVolume.titre,
       texte: data?.etapeVolume?.texte ?? WIZARD_DEFAUT.etapeVolume.texte,
       boutonAjouter: data?.etapeVolume?.boutonAjouter ?? WIZARD_DEFAUT.etapeVolume.boutonAjouter,
+      // Champs absents du CMS : traduits ici même, selon la locale de la page.
+      legendeDims:
+        locale === 'en' ? 'Length × width × height in cm, then quantity' : WIZARD_DEFAUT.etapeVolume.legendeDims,
+      commentaireLabel:
+        locale === 'en' ? 'Comments about your parcels (optional)' : WIZARD_DEFAUT.etapeVolume.commentaireLabel,
+      commentairePlaceholder:
+        locale === 'en'
+          ? 'Nature of the goods, approximate weight, fragile, vehicle…'
+          : WIZARD_DEFAUT.etapeVolume.commentairePlaceholder,
     },
     etapeCoordonnees: {
       titre: data?.etapeCoordonnees?.titre ?? WIZARD_DEFAUT.etapeCoordonnees.titre,
@@ -175,6 +187,10 @@ async function getContenu(locale: Locale) {
       placeholderTel: data?.etapeCoordonnees?.placeholderTel ?? WIZARD_DEFAUT.etapeCoordonnees.placeholderTel,
       placeholderMessage:
         data?.etapeCoordonnees?.placeholderMessage ?? WIZARD_DEFAUT.etapeCoordonnees.placeholderMessage,
+      preferenceLabel:
+        locale === 'en' ? 'How would you like to be contacted?' : WIZARD_DEFAUT.etapeCoordonnees.preferenceLabel,
+      preferences:
+        locale === 'en' ? ['Email', 'Phone', 'WhatsApp'] : WIZARD_DEFAUT.etapeCoordonnees.preferences,
     },
     recap: {
       titre: data?.recap?.titre ?? WIZARD_DEFAUT.recap.titre,
@@ -198,7 +214,7 @@ async function getContenu(locale: Locale) {
       ? data.typesEnvoi.map((t) => ({ label: t.label ?? '', description: t.description ?? '' }))
       : WIZARD_DEFAUT.typesEnvoi,
     destinations: data?.destinations?.length
-      ? data.destinations.map((d) => ({ nom: d.nom ?? '', delai: d.delai ?? '—' }))
+      ? data.destinations.map((d) => ({ nom: d.nom ?? '', delai: d.delai ?? '…' }))
       : WIZARD_DEFAUT.destinations,
     portsDepart: data?.portsDepart?.length ? data.portsDepart : WIZARD_DEFAUT.portsDepart,
     imagesEtapes: data?.imagesEtapesUrls?.length ? data.imagesEtapesUrls : [null, null, null, null],

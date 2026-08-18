@@ -47,7 +47,7 @@ export function ContactForm({ content }: { content: ContactFormContent }) {
   }, [envoye]);
 
   const envoyerParMail = () => {
-    const corps = [message, '', `— ${nom}`, tel ? `Tél : ${tel}` : '', email ? `E-mail : ${email}` : '']
+    const corps = [message, '', nom, tel ? `Tél : ${tel}` : '', email ? `E-mail : ${email}` : '']
       .filter(Boolean)
       .join('\n');
     const url = `mailto:${content.emailDestinataire}?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;

@@ -66,7 +66,7 @@ export const CONFIDENTIALITE_FR: ContenuLegal = {
           'Les demandes que vous nous adressez sont enregistrées dans notre outil de gestion de contenu Sanity. Les serveurs qui hébergent nos données sont situés dans l’Union européenne (Belgique).',
         ),
         p(
-          'Sanity est une société américaine : si un accès à des données depuis un pays tiers s’avérait nécessaire — par exemple pour une opération d’assistance technique —, il serait encadré par les garanties prévues au chapitre V du RGPD, décrites dans l’accord de sous-traitance conclu avec ce prestataire. Vous pouvez en obtenir communication en nous écrivant à ',
+          'Sanity est une société américaine : si un accès à des données depuis un pays tiers s’avérait nécessaire (par exemple pour une opération d’assistance technique), il serait encadré par les garanties prévues au chapitre V du RGPD, décrites dans l’accord de sous-traitance conclu avec ce prestataire. Vous pouvez en obtenir communication en nous écrivant à ',
           lien('contact@hgwf-cargo.fr', 'mailto:contact@hgwf-cargo.fr'),
           '.',
         ),
@@ -88,7 +88,7 @@ export const CONFIDENTIALITE_FR: ContenuLegal = {
         p(
           'Pour les exercer, écrivez à ',
           lien('contact@hgwf-cargo.fr', 'mailto:contact@hgwf-cargo.fr'),
-          ' en précisant votre demande. Nous répondons dans un délai d’un mois, qui peut être prolongé de deux mois si la demande est complexe — nous vous en informerions alors.',
+          ' en précisant votre demande. Nous répondons dans un délai d’un mois, qui peut être prolongé de deux mois si la demande est complexe ; nous vous en informerions alors.',
         ),
         p(
           'Si notre réponse ne vous satisfait pas, vous pouvez saisir la Commission nationale de l’informatique et des libertés, 3 place de Fontenoy, TSA 80715, 75334 Paris Cedex 07, ou déposer une plainte sur ',

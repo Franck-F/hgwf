@@ -21,7 +21,7 @@ const COORDONNEES_DEFAUT = [
   { libelle: 'E-mail', valeur: 'contact@hgwf-cargo.fr', type: 'email' },
   { libelle: 'Marie', valeur: '+33 6 27 05 69 34', type: 'tel' },
   { libelle: 'Fabrice', valeur: '+33 7 64 16 90 82', type: 'tel' },
-  { libelle: 'Malia / Fuka', valeur: '+33 6 13 37 71 14', type: 'tel' },
+  { libelle: 'Clara', valeur: '+33 6 13 37 71 14', type: 'tel' },
 ];
 
 const FORMULAIRE_DEFAUT = {
@@ -29,7 +29,7 @@ const FORMULAIRE_DEFAUT = {
   placeholderNom: 'Nom et prénom',
   placeholderTel: 'Téléphone / WhatsApp',
   placeholderEmail: 'E-mail',
-  placeholderMessage: 'Votre message — destination, nature des biens, dates souhaitées…',
+  placeholderMessage: 'Votre message : destination, nature des biens, dates souhaitées…',
   sujets: [
     'Demande de devis',
     "Suivi d'un envoi",
@@ -40,7 +40,7 @@ const FORMULAIRE_DEFAUT = {
   boutonEnvoyer: 'Envoyer le message',
   confirmationTitre: 'Message envoyé.',
   confirmationTexte:
-    "Merci {nom} — votre message est bien parti. L'équipe vous répond sous 24 à 48 h, par mail ou téléphone.",
+    "Merci {nom}, votre message est bien parti. L'équipe vous répond sous 24 à 48 h, par mail ou téléphone.",
   boutonReinitialiser: 'Envoyer un autre message',
 };
 
@@ -50,13 +50,13 @@ const FORMULAIRE_DEFAUT = {
 // les pages légales.
 const MENTION_RGPD_FR = {
   texte:
-    'Les informations recueillies servent uniquement à traiter votre demande. Elles sont conservées trois ans et ne sont jamais cédées. Vous disposez d’un droit d’accès, de rectification et d’effacement — voir notre',
+    'Les informations recueillies servent uniquement à traiter votre demande. Elles sont conservées trois ans et ne sont jamais cédées. Vous disposez d’un droit d’accès, de rectification et d’effacement ; voir notre',
   lienLibelle: 'politique de confidentialité',
 };
 
 const MENTION_RGPD_EN = {
   texte:
-    'The information collected is used only to process your request. It is kept for three years and is never shared with third parties. You have a right of access, rectification and erasure — see our',
+    'The information collected is used only to process your request. It is kept for three years and is never shared with third parties. You have a right of access, rectification and erasure; see our',
   lienLibelle: 'privacy policy',
 };
 
@@ -72,7 +72,7 @@ const CENTRE_DEFAUT = {
 };
 
 const SEO_DEFAUT = {
-  titre: 'Nous contacter — HGWF Cargo',
+  titre: 'Nous contacter · HGWF Cargo',
   description:
     'Contactez HGWF Cargo par mail, téléphone ou WhatsApp : devis gratuit, suivi d’envoi, conteneurs et déménagement Outre-mer. Réponse sous 24 à 48 h.',
 };

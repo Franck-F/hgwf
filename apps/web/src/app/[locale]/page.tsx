@@ -18,7 +18,7 @@ const DEFAUT = {
     boutonPrincipalLien: '/devis',
     boutonSecondaire: 'Suivre un conteneur',
     boutonSecondaireLien: '/suivi',
-    badge: 'PACIFIQUE · CARAÏBES · AFRIQUE — DEPUIS LE HAVRE & FOS/MARSEILLE',
+    badge: 'AMÉRIQUE DU NORD & SUD · CARAÏBES · AFRIQUE · DEPUIS LE HAVRE & FOS/MARSEILLE',
     imageUrl: null as string | null,
   },
   services: [
@@ -46,12 +46,30 @@ const DEFAUT = {
       lien: '/#demenagement',
       imageUrl: null as string | null,
     },
+    {
+      titre: 'Transport de conteneur',
+      texte: 'Acheminement port à port ou porte à porte',
+      lien: '/devis',
+      imageUrl: '/photos/conteneur-complet.jpg' as string | null,
+    },
+    {
+      titre: 'Fret aérien',
+      texte: 'La voie des airs pour vos envois urgents',
+      lien: '/devis',
+      imageUrl: null as string | null,
+    },
+    {
+      titre: 'Entrepôt & box de stockage',
+      texte: 'Espaces de stockage à louer, courte ou longue durée',
+      lien: '/contact',
+      imageUrl: null as string | null,
+    },
   ],
   promesse: {
     titre: 'Parce que vos marchandises sont',
     titreAccent: 'importantes',
     texte:
-      'Vous êtes professionnel — commerçant, industriel — ou particulier : nous trouverons la meilleure option pour vos marchandises, véhicules et effets personnels.',
+      'Vous êtes professionnel (commerçant, industriel) ou particulier : nous trouverons la meilleure option pour vos marchandises, véhicules et effets personnels.',
   },
   zones: {
     titre: 'Où nous',
@@ -62,14 +80,14 @@ const DEFAUT = {
     imageUrl: null as string | null,
     cartes: [
       {
-        titre: 'Pacifique Sud',
-        texte: 'Nouvelle-Calédonie, Wallis-et-Futuna, Tahiti · Marquises · Polynésie, Vanuatu, Fidji, Samoa',
+        titre: 'Amérique du Nord',
+        texte: 'États-Unis et Canada, selon rotation : nous consulter',
       },
       { titre: 'Antilles françaises', texte: 'Martinique, Guadeloupe, Saint-Martin, Saint-Barthélemy' },
       { titre: 'Guyane', texte: 'Dégrad des Cannes et livraisons intérieures' },
       { titre: 'Caraïbes', texte: 'Haïti, République Dominicaine et toutes destinations caribéennes' },
       { titre: 'Afrique', texte: "Les principaux ports d'Afrique francophone" },
-      { titre: 'Océanie & au-delà', texte: 'Australie, Nouvelle-Zélande — et autres destinations sur devis' },
+      { titre: 'Amérique du Sud', texte: 'Principaux ports sud-américains, et autres destinations sur devis' },
     ],
   },
   demenagement: {
@@ -78,7 +96,7 @@ const DEFAUT = {
     titreAccent: 'serein',
     titreFin: ", on s'occupe de tout.",
     texte:
-      'Militaires, fonctionnaires, salariés et cadres du privé — départ en retraite, retour au pays. Nous gérons toutes les étapes pour un départ en toute sérénité vers votre nouvelle aventure.',
+      'Militaires, fonctionnaires, salariés et cadres du privé, départ en retraite ou retour au pays : nous gérons toutes les étapes pour un départ en toute sérénité vers votre nouvelle aventure.',
     points: [
       'Effets personnels, meubles, électroménagers',
       'Véhicules, motos, bateaux, jetskis, remorques',
@@ -98,11 +116,10 @@ const DEFAUT = {
     lienFaq: 'Tout savoir sur les délais',
     barres: [
       { destination: 'Antilles & Guyane', delai: '3–5 SEMAINES', pourcentage: 34, couleur: 'corail' },
-      { destination: 'Tahiti · Polynésie', delai: '41 JOURS', pourcentage: 58, couleur: 'ciel' },
-      { destination: 'Nouvelle-Calédonie (Nouméa)', delai: '41 JOURS', pourcentage: 58, couleur: 'ciel' },
-      { destination: 'Wallis', delai: '60 JOURS', pourcentage: 78, couleur: 'or' },
-      { destination: 'Futuna', delai: '70 JOURS', pourcentage: 90, couleur: 'or' },
-      { destination: 'Afrique & Océan indien', delai: 'SELON DESTINATION', pourcentage: 46, couleur: 'marine' },
+      { destination: 'Caraïbes (Haïti, Rép. Dominicaine)', delai: '4–6 SEMAINES', pourcentage: 46, couleur: 'ciel' },
+      { destination: 'Amérique du Nord', delai: 'SELON ROTATION', pourcentage: 58, couleur: 'ciel' },
+      { destination: 'Amérique du Sud', delai: 'SELON ROTATION', pourcentage: 72, couleur: 'or' },
+      { destination: 'Afrique & Océan indien', delai: 'SELON DESTINATION', pourcentage: 50, couleur: 'marine' },
     ],
   },
   conteneurs: {
@@ -119,7 +136,7 @@ const DEFAUT = {
   faqCourte: {
     titre: 'Vos questions, nos',
     titreAccent: 'réponses',
-    texte: "L'essentiel sur le transport longue distance — la FAQ complète est",
+    texte: "L'essentiel sur le transport longue distance ; la FAQ complète est",
     lienTexte: 'ici',
     bouton: 'Voir toutes les questions',
     items: [
@@ -136,12 +153,12 @@ const DEFAUT = {
       {
         question: 'Comment est calculé le prix en groupage maritime (LCL) ?',
         reponse:
-          'Au volume (mètre cube) : additionnez la taille de chacun de vos colis (longueur × largeur × hauteur). Astuce : mesurez au point le plus large — cartons bombés, palettes.',
+          'Au volume (mètre cube) : additionnez la taille de chacun de vos colis (longueur × largeur × hauteur). Astuce : mesurez au point le plus large, comme les cartons bombés ou les palettes.',
       },
       {
         question: 'Comment suivre mon envoi ?',
         reponse:
-          'Un suivi personnalisé est assuré par nos équipes — et vous pouvez suivre votre conteneur à tout moment depuis la page Suivi.',
+          'Un suivi personnalisé est assuré par nos équipes, et vous pouvez suivre votre conteneur à tout moment depuis la page Suivi.',
       },
     ],
   },
@@ -150,7 +167,7 @@ const DEFAUT = {
     titre: "Suivez chaque conteneur, jusqu'au",
     titreAccent: 'lagon',
     texte:
-      'Référence dossier ou numéro de conteneur : statut, position, navire et ETA — et une équipe joignable à tout moment.',
+      'Référence dossier ou numéro de conteneur : statut, position, navire et ETA. Une équipe joignable à tout moment.',
     boutonPrincipal: 'Suivre mon envoi',
     boutonSecondaire: "Parler à l'équipe",
     imageUrl: null as string | null,
@@ -159,7 +176,7 @@ const DEFAUT = {
     // Titre d'onglet volontairement court : la description porte les mots-clés.
     titre: 'HGWF Cargo',
     description:
-      'Transport maritime, aérien et terrestre vers le Pacifique, les Caraïbes et l’Afrique : groupage, conteneur complet, véhicules et déménagement Outre-mer.',
+      'Transport maritime, aérien et terrestre vers les Amériques, les Caraïbes et l’Afrique : groupage, conteneur complet, véhicules et déménagement Outre-mer.',
   },
 };
 
@@ -490,8 +507,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               className="mt-2 max-w-[340px] self-center lg:self-start"
               label={
                 locale === 'en'
-                  ? 'Interactive globe of served destinations — departure ports in gold, destinations in blue, maritime routes drawn as arcs'
-                  : 'Globe interactif des destinations desservies — ports de départ en or, destinations en bleu, routes maritimes en arc'
+                  ? 'Interactive globe of served destinations: departure ports in gold, destinations in blue, maritime routes drawn as arcs'
+                  : 'Globe interactif des destinations desservies : ports de départ en or, destinations en bleu, routes maritimes en arc'
               }
             />
           </div>

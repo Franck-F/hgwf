@@ -15,7 +15,7 @@ const HERO_DEFAUT = {
   titre: 'Où est votre',
   titreAccent: 'colis',
   description:
-    "Référence dossier ou numéro de conteneur : statut, position, navire et ETA — du quai du Havre jusqu'au lagon.",
+    "Référence dossier ou numéro de conteneur : statut, position, navire et ETA, du quai du Havre jusqu'au lagon.",
   placeholderRecherche: 'HGWF-2026-4815 ou MSKU 907 214 3',
   boutonRecherche: 'Suivre',
   noteDemo: 'DONNÉES DE DÉMONSTRATION',
@@ -31,7 +31,7 @@ const RESULTAT_DEFAUT = {
   carteProgression: 'Progression',
   carteEta: 'ETA',
   noteContact: 'Une question sur cet acheminement ?',
-  noteContactLien: "Contactez l'équipe — suivi personnalisé par téléphone ou WhatsApp, à tout moment.",
+  noteContactLien: "Contactez l'équipe : suivi personnalisé par téléphone ou WhatsApp, à tout moment.",
   positionAvantDepart: "LE HAVRE · QUAI DE L'EURE",
   navireAttente: "EN ATTENTE D'EMBARQUEMENT",
   suffixeDebarque: '(DÉBARQUÉ)',
@@ -43,28 +43,28 @@ const ETAPES_DEFAUT = [
   {
     jalon: 'Pris en charge',
     statut: 'PRIS EN CHARGE',
-    position: 'Au centre logistique — Rosny-sous-Bois',
+    position: 'Au centre logistique, Rosny-sous-Bois',
     chipA: 'EMPOTAGE EN COURS',
     chipB: '10 RUE DIDEROT',
   },
   {
     jalon: 'Au port du Havre',
     statut: 'AU PORT',
-    position: 'À quai — Le Havre',
+    position: 'À quai, Le Havre',
     chipA: 'ATTENTE EMBARQUEMENT',
     chipB: "QUAI DE L'EURE",
   },
   {
     jalon: 'En mer',
     statut: 'EN MER',
-    position: 'Position en direct — en mer',
+    position: 'Position en direct, en mer',
     chipA: null,
     chipB: null,
   },
   {
     jalon: "Port d'arrivée",
     statut: 'ARRIVÉ AU PORT',
-    position: "À quai — port d'arrivée",
+    position: "À quai, port d'arrivée",
     chipA: 'DÉDOUANEMENT',
     chipB: 'TERMINAL CONTENEURS',
   },
@@ -162,7 +162,7 @@ const VOYAGE_DEFAUT = {
     },
     {
       titre: 'Livraison',
-      texte: 'Débarquement, dédouanement et remise à destination — jusqu’au lagon.',
+      texte: 'Débarquement, dédouanement et remise à destination, jusqu’au lagon.',
       imageUrl: null as string | null,
     },
   ],
@@ -177,7 +177,7 @@ const CTA_DEFAUT = {
 };
 
 const SEO_DEFAUT = {
-  titre: "Suivi d'envoi — HGWF Cargo",
+  titre: "Suivi d'envoi · HGWF Cargo",
   description:
     "Suivez votre envoi HGWF Cargo : statut, position, navire et date d'arrivée estimée, du départ à la livraison.",
 };

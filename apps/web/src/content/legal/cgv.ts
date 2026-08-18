@@ -34,7 +34,7 @@ export const CGV_FR: ContenuLegal = {
           'les prestations de manutention exceptionnelle non prévues à la commande',
         ),
         p(
-          'Toute modification des caractéristiques de l’envoi — poids, dimensions, nature, destination — entraîne la révision du prix.',
+          'Toute modification des caractéristiques de l’envoi (poids, dimensions, nature, destination) entraîne la révision du prix.',
         ),
       ],
     },
@@ -110,6 +110,24 @@ export const CGV_FR: ContenuLegal = {
         ),
         p(
           'Conformément à l’article L.132-2 du code de commerce, nous disposons d’un privilège et d’un droit de rétention sur les marchandises pour les créances nées à leur occasion.',
+        ),
+      ],
+    },
+    {
+      titre: 'Achats et TVA (France / Union européenne)',
+      ancre: 'tva',
+      corps: [
+        p(
+          'Nos prix s’entendent hors taxes. La TVA française au taux en vigueur s’y ajoute lorsqu’elle est applicable. Les ventes de biens en France, notamment les conteneurs d’occasion, sont soumises à la TVA au taux normal, sauf régime particulier.',
+        ),
+        p(
+          'Les prestations de transport international et les opérations qui leur sont directement liées peuvent bénéficier d’une exonération de TVA en application de l’article 262 du code général des impôts.',
+        ),
+        p(
+          'Clients professionnels établis dans l’Union européenne, hors France : sur communication d’un numéro de TVA intracommunautaire valide avant la facturation, les prestations sont facturées hors taxe ; la TVA est alors autoliquidée par le client dans son État membre, conformément à l’article 196 de la directive 2006/112/CE. La mention correspondante figure sur la facture.',
+        ),
+        p(
+          'Le régime de TVA applicable à chaque opération est précisé sur le devis puis sur la facture.',
         ),
       ],
     },

@@ -21,7 +21,7 @@ export const MENTIONS_EN: ContenuLegal = {
         p(
           'Email: ',
           lien('contact@hgwf-cargo.fr', 'mailto:contact@hgwf-cargo.fr'),
-          ' — Phone: ',
+          '. Phone: ',
           lien('+33 6 27 05 69 34', 'tel:+33627056934'),
           '.',
         ),
@@ -35,7 +35,7 @@ export const MENTIONS_EN: ContenuLegal = {
           'Registered with the Registre du commerce et des sociétés (Trade and Companies Register) of Bobigny, under number 940 048 051.',
         ),
         p('Intra-Community VAT number: FR18940048051.'),
-        p('Business activity code (code APE): 49.41B — road freight transport.'),
+        p('Business activity code (code APE): 49.41B, road freight transport.'),
       ],
     },
     {
@@ -57,7 +57,7 @@ export const MENTIONS_EN: ContenuLegal = {
       ancre: 'propriete-intellectuelle',
       corps: [
         p(
-          'All content on this site — text, images, visual identity, logos — is protected by intellectual property law. Any reproduction or representation, in whole or in part, without prior written authorisation is prohibited.',
+          'All content on this site (text, images, visual identity, logos) is protected by intellectual property law. Any reproduction or representation, in whole or in part, without prior written authorisation is prohibited.',
         ),
       ],
     },

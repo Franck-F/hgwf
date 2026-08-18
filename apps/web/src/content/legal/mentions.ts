@@ -21,7 +21,7 @@ export const MENTIONS_FR: ContenuLegal = {
         p(
           'Courriel : ',
           lien('contact@hgwf-cargo.fr', 'mailto:contact@hgwf-cargo.fr'),
-          ' — Téléphone : ',
+          '. Téléphone : ',
           lien('+33 6 27 05 69 34', 'tel:+33627056934'),
           '.',
         ),
@@ -33,7 +33,7 @@ export const MENTIONS_FR: ContenuLegal = {
       corps: [
         p('Registre du commerce et des sociétés de Bobigny, sous le numéro 940 048 051.'),
         p('Numéro de TVA intracommunautaire : FR18940048051.'),
-        p('Code d’activité : 49.41B — transport routier de fret.'),
+        p('Code d’activité : 49.41B (transport routier de fret).'),
       ],
     },
     {
@@ -55,7 +55,7 @@ export const MENTIONS_FR: ContenuLegal = {
       ancre: 'propriete-intellectuelle',
       corps: [
         p(
-          'L’ensemble des contenus de ce site — textes, images, identité visuelle, logos — est protégé par le droit de la propriété intellectuelle. Toute reproduction ou représentation, totale ou partielle, sans autorisation écrite préalable est interdite.',
+          'L’ensemble des contenus de ce site (textes, images, identité visuelle, logos) est protégé par le droit de la propriété intellectuelle. Toute reproduction ou représentation, totale ou partielle, sans autorisation écrite préalable est interdite.',
         ),
       ],
     },

@@ -32,7 +32,7 @@ const CTA_DEFAUT = {
 };
 
 const SEO_DEFAUT = {
-  titre: 'Questions fréquentes (FAQ) — HGWF Cargo',
+  titre: 'Questions fréquentes (FAQ) · HGWF Cargo',
   description:
     'Expéditions, tarifs, délais, groupage, conteneurs d’occasion : toutes les réponses sur le transport de marchandises avec HGWF Cargo.',
 };

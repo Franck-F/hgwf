@@ -224,9 +224,9 @@ export function SuiviTracker({ content }: { content: SuiviTrackerContent }) {
         ? `${trajet.navire} ${resultat.suffixeDebarque}`
         : resultat.navireAttente;
   const eta = reel
-    ? reel.eta || '—'
+    ? reel.eta || '…'
     : etape === 4
-      ? (etapeLivre.chipA ?? '—')
+      ? (etapeLivre.chipA ?? '…')
       : `${String(jour).padStart(2, '0')}/08/2026 · 06:40`;
   const progression = `${Math.round((etape / 4) * 100)} %`;
 
@@ -342,7 +342,7 @@ export function SuiviTracker({ content }: { content: SuiviTrackerContent }) {
                 jour visuellement sous le hero, sans quoi une recherche reste
                 muette pour un utilisateur non-voyant. */}
             <span aria-live="polite" className="sr-only">
-              {`${trajetAffiche} — ${etapeContent.jalon} — ETA ${eta}`}
+              {`${trajetAffiche}. ${etapeContent.jalon}. ETA ${eta}`}
             </span>
           </div>
         </div>
@@ -475,7 +475,7 @@ export function SuiviTracker({ content }: { content: SuiviTrackerContent }) {
                     {j.jalon}
                   </span>
                   <span className="font-mono text-[11px] text-encre-douce">
-                    {!reel && i <= etape ? DATES_DEMO[i] : '—'}
+                    {!reel && i <= etape ? DATES_DEMO[i] : '…'}
                   </span>
                 </div>
               );

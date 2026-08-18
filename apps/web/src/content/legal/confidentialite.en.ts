@@ -70,7 +70,7 @@ export const CONFIDENTIALITE_EN: ContenuLegal = {
           'The requests you send us are recorded in our content management tool, Sanity. The servers hosting our data are located in the European Union (Belgium).',
         ),
         p(
-          'Sanity is a US company: should access to data from a third country ever prove necessary — for instance during a technical support operation — it would be governed by the safeguards set out in Chapter V of the GDPR, described in the data processing agreement concluded with this provider. You can request a copy of these safeguards by writing to ',
+          'Sanity is a US company: should access to data from a third country ever prove necessary (for instance during a technical support operation), it would be governed by the safeguards set out in Chapter V of the GDPR, described in the data processing agreement concluded with this provider. You can request a copy of these safeguards by writing to ',
           lien('contact@hgwf-cargo.fr', 'mailto:contact@hgwf-cargo.fr'),
           '.',
         ),
@@ -92,7 +92,7 @@ export const CONFIDENTIALITE_EN: ContenuLegal = {
         p(
           'To exercise these rights, write to ',
           lien('contact@hgwf-cargo.fr', 'mailto:contact@hgwf-cargo.fr'),
-          ' specifying your request. We respond within one month, which may be extended by two months if the request is complex — we would inform you of this.',
+          ' specifying your request. We respond within one month, which may be extended by two months if the request is complex; we would inform you of this.',
         ),
         p(
           'If our response does not satisfy you, you may contact the Commission nationale de l’informatique et des libertés (CNIL), the French supervisory authority, at 3 place de Fontenoy, TSA 80715, 75334 Paris Cedex 07, or lodge a complaint at ',

@@ -13,13 +13,22 @@ export type DevisWizardContent = {
     libelleDepart: string;
     libelleDelai: string;
   };
-  etapeVolume: { titre: string; texte: string; boutonAjouter: string };
+  etapeVolume: {
+    titre: string;
+    texte: string;
+    boutonAjouter: string;
+    legendeDims: string;
+    commentaireLabel: string;
+    commentairePlaceholder: string;
+  };
   etapeCoordonnees: {
     titre: string;
     placeholderNom: string;
     placeholderEmail: string;
     placeholderTel: string;
     placeholderMessage: string;
+    preferenceLabel: string;
+    preferences: string[];
   };
   recap: {
     titre: string;
@@ -68,9 +77,11 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
   const [destination, setDestination] = useState(c.destinations[0]?.nom ?? '');
   const [depart, setDepart] = useState(c.portsDepart[0] ?? '');
   const [colis, setColis] = useState<Colis[]>([{ L: '', l: '', h: '', q: '1' }]);
+  const [commentaireColis, setCommentaireColis] = useState('');
   const [nom, setNom] = useState('');
   const [email, setEmail] = useState('');
   const [tel, setTel] = useState('');
+  const [preference, setPreference] = useState(c.etapeCoordonnees.preferences[0] ?? '');
   const [message, setMessage] = useState('');
   const [envoye, setEnvoye] = useState(false);
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
@@ -94,7 +105,7 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
   const volumeAffiche = volume.toFixed(2).replace('.', ',');
 
   const typeLabel = c.typesEnvoi[type]?.label ?? '';
-  const delai = c.destinations.find((d) => d.nom === destination)?.delai ?? '—';
+  const delai = c.destinations.find((d) => d.nom === destination)?.delai ?? '…';
   const reference = referenceApi ?? `HGWF-${new Date().getFullYear()}-${(hashRef(nom + destination) % 9000) + 1000}`;
 
   const updColis = (i: number, k: keyof Colis, v: string) =>
@@ -109,19 +120,21 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
       `${c.recap.libelleDestination} : ${destination}`,
       `${c.recap.libelleDepart} : ${depart}`,
       `Colis : ${dimsColis()}`,
+      commentaireColis ? `Remarques colis : ${commentaireColis}` : '',
       `${c.recap.libelleVolume} : ${volumeAffiche} m³`,
       `Référence : ${reference}`,
       '',
       message,
       '',
-      `— ${nom}`,
+      nom,
       tel ? `Tél : ${tel}` : '',
       email ? `E-mail : ${email}` : '',
+      preference ? `Préférence de contact : ${preference}` : '',
     ]
       .filter(Boolean)
       .join('\n');
     window.location.href = `mailto:${c.emailDestinataire}?subject=${encodeURIComponent(
-      `${c.sujetEmail} — ${destination} (${reference})`,
+      `${c.sujetEmail} · ${destination} (${reference})`,
     )}&body=${encodeURIComponent(corps)}`;
   };
 
@@ -147,12 +160,14 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
             nom,
             email,
             tel,
+            preference,
             message,
             typeEnvoi: typeLabel,
             destination,
             portDepart: depart,
             volume: `${volumeAffiche} m³`,
             colis: dimsColis(),
+            commentaireColis,
             website: '',
           }),
         });
@@ -209,6 +224,18 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
             );
           })}
         </div>
+
+        {/* Récap compact : la colonne visuelle est masquée sous lg, ce bandeau
+            garde l'envoi sous les yeux sur mobile et tablette. */}
+        {!envoye && (
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-[14px] bg-marine px-4 py-3 text-creme lg:hidden">
+            <span className="text-[10px] font-bold tracking-[0.28em] text-or uppercase">{c.recap.titre}</span>
+            <span className="text-[13px] font-medium">{typeLabel}</span>
+            <span className="text-creme/40" aria-hidden="true">·</span>
+            <span className="text-[13px] font-medium">{destination}</span>
+            <span className="ml-auto font-mono text-[15px] font-bold text-or">{volumeAffiche} m³</span>
+          </div>
+        )}
 
         {/* Étape 1 : type d'envoi */}
         {step === 1 && (
@@ -269,14 +296,17 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
           <div className="flex flex-col gap-[18px]">
             <h2 className="m-0 text-[22px] font-bold tracking-[-0.02em]">{c.etapeVolume.titre}</h2>
             <p className="m-0 text-sm text-encre-douce">{c.etapeVolume.texte}</p>
+            <span className="font-mono text-[11px] tracking-[0.04em] text-encre-douce uppercase">
+              {c.etapeVolume.legendeDims}
+            </span>
             <div className="flex flex-col gap-2.5">
               {colis.map((cl, i) => (
                 <div key={i} className="flex items-center gap-1.5 sm:gap-2">
-                  <input type="number" min="0" placeholder="L" aria-label={c.dimsAria.longueur} value={cl.L} onChange={(e) => updColis(i, 'L', e.target.value)} className={`${CHAMP_MONO} min-w-0 flex-1 sm:w-[98px] sm:flex-none`} />
+                  <input type="number" min="0" placeholder="L (cm)" aria-label={c.dimsAria.longueur} value={cl.L} onChange={(e) => updColis(i, 'L', e.target.value)} className={`${CHAMP_MONO} min-w-0 flex-1 sm:w-[104px] sm:flex-none`} />
                   <span className="text-encre-douce" aria-hidden="true">×</span>
-                  <input type="number" min="0" placeholder="l" aria-label={c.dimsAria.largeur} value={cl.l} onChange={(e) => updColis(i, 'l', e.target.value)} className={`${CHAMP_MONO} min-w-0 flex-1 sm:w-[98px] sm:flex-none`} />
+                  <input type="number" min="0" placeholder="l (cm)" aria-label={c.dimsAria.largeur} value={cl.l} onChange={(e) => updColis(i, 'l', e.target.value)} className={`${CHAMP_MONO} min-w-0 flex-1 sm:w-[104px] sm:flex-none`} />
                   <span className="text-encre-douce" aria-hidden="true">×</span>
-                  <input type="number" min="0" placeholder="H" aria-label={c.dimsAria.hauteur} value={cl.h} onChange={(e) => updColis(i, 'h', e.target.value)} className={`${CHAMP_MONO} min-w-0 flex-1 sm:w-[98px] sm:flex-none`} />
+                  <input type="number" min="0" placeholder="H (cm)" aria-label={c.dimsAria.hauteur} value={cl.h} onChange={(e) => updColis(i, 'h', e.target.value)} className={`${CHAMP_MONO} min-w-0 flex-1 sm:w-[104px] sm:flex-none`} />
                   <span className="text-encre-douce" aria-hidden="true">·</span>
                   <input type="number" min="1" placeholder="Qté" aria-label={c.dimsAria.quantite} value={cl.q} onChange={(e) => updColis(i, 'q', e.target.value)} className={`${CHAMP_MONO} w-[52px] shrink-0 sm:w-[72px]`} />
                   {colis.length > 1 && (
@@ -297,6 +327,16 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
             >
               {c.etapeVolume.boutonAjouter}
             </button>
+            <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+              {c.etapeVolume.commentaireLabel}
+              <textarea
+                rows={3}
+                value={commentaireColis}
+                onChange={(e) => setCommentaireColis(e.target.value)}
+                placeholder={c.etapeVolume.commentairePlaceholder}
+                className={`${CHAMP} resize-y`}
+              />
+            </label>
           </div>
         )}
 
@@ -310,14 +350,42 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
                 {c.etapeCoordonnees.placeholderNom}
                 <input value={nom} onChange={(e) => setNom(e.target.value)} aria-invalid={erreur && !nom.trim() ? true : undefined} aria-describedby={erreur ? 'erreur-devis' : undefined} className={CHAMP} />
               </label>
-              <label className="flex flex-col gap-1.5 text-[13px] font-medium">
-                {c.etapeCoordonnees.placeholderEmail}
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={erreur && !email.trim() && !tel.trim() ? true : undefined} aria-describedby={erreur ? 'erreur-devis' : undefined} className={CHAMP} />
-              </label>
-              <label className="flex flex-col gap-1.5 text-[13px] font-medium">
-                {c.etapeCoordonnees.placeholderTel}
-                <input type="tel" value={tel} onChange={(e) => setTel(e.target.value)} aria-invalid={erreur && !email.trim() && !tel.trim() ? true : undefined} aria-describedby={erreur ? 'erreur-devis' : undefined} className={CHAMP} />
-              </label>
+              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                  {c.etapeCoordonnees.placeholderEmail}
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={erreur && !email.trim() && !tel.trim() ? true : undefined} aria-describedby={erreur ? 'erreur-devis' : undefined} className={CHAMP} />
+                </label>
+                <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                  {c.etapeCoordonnees.placeholderTel}
+                  <input type="tel" value={tel} onChange={(e) => setTel(e.target.value)} aria-invalid={erreur && !email.trim() && !tel.trim() ? true : undefined} aria-describedby={erreur ? 'erreur-devis' : undefined} className={CHAMP} />
+                </label>
+              </div>
+              {/* Préférence de contact : groupe radio rendu en pastilles. */}
+              <fieldset className="m-0 flex flex-col gap-2 border-none p-0">
+                <legend className="mb-1.5 p-0 text-[13px] font-medium">{c.etapeCoordonnees.preferenceLabel}</legend>
+                <div className="flex flex-wrap gap-2">
+                  {c.etapeCoordonnees.preferences.map((p) => (
+                    <label
+                      key={p}
+                      className={`cursor-pointer rounded-full px-5 py-2.5 text-sm font-medium transition ${
+                        preference === p
+                          ? 'bg-corail text-marine shadow-[0_1px_0_rgba(18,57,91,0.08)]'
+                          : 'border-[1.5px] border-marine/25 bg-transparent text-encre-douce hover:bg-creme'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="preference-contact"
+                        value={p}
+                        checked={preference === p}
+                        onChange={() => setPreference(p)}
+                        className="sr-only"
+                      />
+                      {p}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <label className="flex flex-col gap-1.5 text-[13px] font-medium">
                 {c.etapeCoordonnees.placeholderMessage}
                 <textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} className={`${CHAMP} resize-y`} />
@@ -414,23 +482,29 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
           className="absolute inset-0 bg-linear-180 from-marine/10 from-0% to-marine/85 to-100%"
           aria-hidden="true"
         />
-        <div className="absolute right-6 bottom-6 left-6 flex flex-col gap-2.5 rounded-[20px] border border-creme/30 bg-creme/14 p-[22px] text-creme backdrop-blur-lg">
-          <span className="text-[10px] font-medium tracking-[0.32em] text-or uppercase">{c.recap.titre}</span>
-          <div className="flex justify-between gap-3 text-sm">
-            <span className="opacity-80">{c.recap.libelleType}</span>
+        {/* Récapitulatif : carte pleine (plus de verre dépoli) pour rester
+            parfaitement lisible quelle que soit la photo derrière. */}
+        <div className="absolute right-6 bottom-6 left-6 flex flex-col gap-3 rounded-[20px] border-2 border-or/60 bg-marine p-6 text-creme shadow-[0_18px_44px_rgba(6,20,34,0.5)]">
+          <span className="text-[11px] font-bold tracking-[0.32em] text-or uppercase">{c.recap.titre}</span>
+          <div className="flex justify-between gap-3 border-b border-creme/12 pb-2.5 text-[15px]">
+            <span className="text-creme/70">{c.recap.libelleType}</span>
             <span className="text-right font-bold">{typeLabel}</span>
           </div>
-          <div className="flex justify-between gap-3 text-sm">
-            <span className="opacity-80">{c.recap.libelleDestination}</span>
+          <div className="flex justify-between gap-3 border-b border-creme/12 pb-2.5 text-[15px]">
+            <span className="text-creme/70">{c.recap.libelleDestination}</span>
             <span className="text-right font-bold">{destination}</span>
           </div>
-          <div className="flex justify-between gap-3 text-sm">
-            <span className="opacity-80">{c.recap.libelleDepart}</span>
+          <div className="flex justify-between gap-3 border-b border-creme/12 pb-2.5 text-[15px]">
+            <span className="text-creme/70">{c.recap.libelleDepart}</span>
             <span className="text-right font-bold">{depart}</span>
           </div>
-          <div className="flex items-baseline justify-between gap-3 text-sm">
-            <span className="opacity-80">{c.recap.libelleVolume}</span>
-            <span className="font-mono text-xl text-or">{volumeAffiche} m³</span>
+          <div className="flex justify-between gap-3 border-b border-creme/12 pb-2.5 text-[15px]">
+            <span className="text-creme/70">{c.etapeDestination.libelleDelai}</span>
+            <span className="text-right font-mono text-[13px] font-bold text-ciel">{delai}</span>
+          </div>
+          <div className="flex items-baseline justify-between gap-3 text-[15px]">
+            <span className="text-creme/70">{c.recap.libelleVolume}</span>
+            <span className="font-mono text-[26px] font-bold text-or">{volumeAffiche} m³</span>
           </div>
         </div>
       </div>

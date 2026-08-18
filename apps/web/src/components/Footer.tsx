@@ -85,7 +85,7 @@ export async function Footer({ locale }: { locale: string }) {
   const copyright =
     (en ? footer?.copyrightEn : footer?.copyrightFr) ??
     footer?.copyrightFr ??
-    (en ? '© 2026 HGWF Cargo — All rights reserved.' : '© 2026 HGWF Cargo — Tous droits réservés.');
+    (en ? '© 2026 HGWF Cargo. All rights reserved.' : '© 2026 HGWF Cargo. Tous droits réservés.');
 
   const liensLegaux = footer?.liensLegaux?.length
     ? footer.liensLegaux.map((l) => ({
@@ -103,6 +103,8 @@ export async function Footer({ locale }: { locale: string }) {
 
   const email = settings?.email ?? 'contact@hgwf-cargo.fr';
   const telephone = settings?.telephones?.[0]?.numero ?? '+33 6 27 05 69 34';
+  // Ligne fixe de l'agence, affichée en plus du mobile.
+  const telephoneFixe = '09 62 03 80 13';
   const reseaux = settings?.reseaux;
   const logoUrl = '/logos/hgwf-monochrome-blanc.png';
 
@@ -160,6 +162,8 @@ export async function Footer({ locale }: { locale: string }) {
             {email}
             <br />
             {telephone}
+            <br />
+            {telephoneFixe}
           </span>
         </div>
       </div>
