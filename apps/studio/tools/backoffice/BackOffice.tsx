@@ -10,6 +10,7 @@ import * as XLSX from 'xlsx';
 import { STATUTS_DEMANDE } from '../../schemaTypes/backoffice/demandeDevis';
 import { ETAPES_EXPEDITION } from '../../schemaTypes/backoffice/expedition';
 import { STATUTS_CONTENEUR } from '../../schemaTypes/backoffice/conteneurOccasion';
+import { genererDevisPdf, lireDetail, messageLibre } from './devisPdf';
 
 // ── Palette HGWF ──────────────────────────────────────────────────────────────
 const MARINE = '#12395B';
@@ -245,19 +246,9 @@ function extraireTel(contact?: string): string | null {
 
 // ── Modèles de réponse ────────────────────────────────────────────────────────
 // L'API du site range les détails structurés dans le message de la demande
-// (« Colis : … », « Remarques colis : … », « Départ : … ») ; on les relit ici
-// pour composer un récapitulatif complet.
-function lireDetail(message: string | undefined, cle: string): string | null {
-  return message?.match(new RegExp(`^${cle} : (.+)$`, 'm'))?.[1]?.trim() ?? null;
-}
-function messageLibre(message?: string): string {
-  return (message ?? '')
-    .split('\n')
-    .filter((l) => !/^(Colis|Remarques colis|Départ) : /.test(l))
-    .join(' ')
-    .trim();
-}
-
+// (« Colis : … », « Remarques colis : … », « Départ : … ») ; lireDetail et
+// messageLibre (importés de devisPdf) les relisent pour composer le
+// récapitulatif, partagé entre le message et le devis PDF.
 // Réponse type au client : toutes les informations de sa demande, plus le
 // montant s'il a été chiffré (sinon un espace à compléter avant l'envoi).
 function templateReponse(d: Demande): string {
@@ -1046,10 +1037,18 @@ export function BackOffice() {
                       </div>
 
                       {/* Contact direct : e-mail et WhatsApp partent avec un modèle
-                          complet (récapitulatif de la demande + montant chiffré). */}
+                          complet, et le devis PDF uniforme se joint au message. */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <span style={eyebrow}>Répondre au client</span>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button
+                            onClick={() => genererDevisPdf(sel)}
+                            style={{ ...boutonPlein, display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 16px' }}
+                            title="Télécharger le devis PDF pré-rempli, à joindre à votre message"
+                          >
+                            <IconeExport />
+                            Devis PDF
+                          </button>
                           {extraireEmail(sel.contact) && (
                             <a
                               href={`mailto:${extraireEmail(sel.contact)}?subject=${encodeURIComponent(`Votre devis HGWF Cargo · ${sel.reference}`)}&body=${encodeURIComponent(templateReponse(sel))}`}
@@ -1076,11 +1075,11 @@ export function BackOffice() {
                             ⧉ Copier le modèle
                           </button>
                         </div>
-                        {!sel.montantDevis && (
-                          <span style={{ fontSize: 11, color: ENCRE }}>
-                            Astuce : renseignez le montant du devis ci-dessus, il s'insère automatiquement dans le modèle.
-                          </span>
-                        )}
+                        <span style={{ fontSize: 11, color: ENCRE }}>
+                          Le devis PDF se télécharge pré-rempli : joignez-le à votre e-mail ou message WhatsApp.
+                          {!sel.montantDevis &&
+                            ' Renseignez d’abord le montant ci-dessus : il s’insère dans le modèle et dans le PDF (sinon « À compléter »).'}
+                        </span>
                       </div>
 
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', borderTop: '1px solid rgba(18,57,91,0.1)', paddingTop: 14 }}>
