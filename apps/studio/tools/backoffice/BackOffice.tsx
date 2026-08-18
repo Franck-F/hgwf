@@ -10,7 +10,7 @@ import * as XLSX from 'xlsx';
 import { STATUTS_DEMANDE } from '../../schemaTypes/backoffice/demandeDevis';
 import { ETAPES_EXPEDITION } from '../../schemaTypes/backoffice/expedition';
 import { STATUTS_CONTENEUR } from '../../schemaTypes/backoffice/conteneurOccasion';
-import { genererDevisPdf, lireDetail, messageLibre } from './devisPdf';
+import { genererDevisPdf, genererEmlDevis, lireDetail, messageLibre } from './devisPdf';
 
 // ── Palette HGWF ──────────────────────────────────────────────────────────────
 const MARINE = '#12395B';
@@ -39,6 +39,8 @@ type Demande = {
   statut?: number;
   message?: string;
   montantDevis?: string;
+  descriptionPrestation?: string;
+  delaiEstime?: string;
   devisEnvoyeLe?: string;
   notes?: string;
   expeditionRef?: string;
@@ -267,6 +269,13 @@ function templateReponse(d: Demande): string {
     libre ? `- Votre message : ${libre}` : null,
   ].filter(Boolean);
 
+  const proposition = [
+    'Notre proposition :',
+    d.descriptionPrestation ? `- Prestation : ${d.descriptionPrestation}` : null,
+    `- Montant : ${d.montantDevis ?? '[montant à compléter]'}, valable trente jours`,
+    d.delaiEstime ? `- Délai estimé : ${d.delaiEstime}` : null,
+  ].filter(Boolean) as string[];
+
   return [
     `Bonjour${d.clientNom ? ` ${d.clientNom}` : ''},`,
     '',
@@ -275,7 +284,9 @@ function templateReponse(d: Demande): string {
     'Récapitulatif de votre demande :',
     ...recap,
     '',
-    `Notre proposition : ${d.montantDevis ?? '[montant à compléter]'}, valable trente jours. Nous vous communiquerons les prochaines dates de départ dès votre accord.`,
+    ...proposition,
+    '',
+    'Vous trouverez le devis détaillé en pièce jointe. Nous vous communiquerons les prochaines dates de départ dès votre accord.',
     '',
     'Nous restons à votre disposition pour toute précision ou ajustement.',
     '',
@@ -306,8 +317,11 @@ export function BackOffice() {
 
   const [clientForm, setClientForm] = useState<(Partial<ClientFiche> & { envoisTexte?: string }) | null>(null);
   const [conteneurForm, setConteneurForm] = useState<Partial<Conteneur> | null>(null);
-  // Champs de traitement du panneau détail (chiffrage, notes internes).
+  // Champs de traitement du panneau détail (chiffrage, notes internes) :
+  // repris automatiquement dans le message de réponse et le devis PDF.
   const [montantEdit, setMontantEdit] = useState('');
+  const [descriptionEdit, setDescriptionEdit] = useState('');
+  const [delaiEdit, setDelaiEdit] = useState('');
   const [notesEdit, setNotesEdit] = useState('');
   // Vue expéditions : sélection, filtre d'étape et champs éditables.
   const [selectionExp, setSelectionExp] = useState<string | null>(null);
@@ -324,7 +338,7 @@ export function BackOffice() {
       rotations: Rotation[];
       stats: Stats | null;
     }>(`{
-      "demandes": *[_type == "demandeDevis"] | order(_createdAt desc){_id, _createdAt, _updatedAt, reference, clientNom, contact, typeEnvoi, destination, volume, recueLe, statut, message, montantDevis, devisEnvoyeLe, notes, expeditionRef},
+      "demandes": *[_type == "demandeDevis"] | order(_createdAt desc){_id, _createdAt, _updatedAt, reference, clientNom, contact, typeEnvoi, destination, volume, recueLe, statut, message, montantDevis, descriptionPrestation, delaiEstime, devisEnvoyeLe, notes, expeditionRef},
       "expeditions": *[_type == "expedition"] | order(_updatedAt desc){_id, _updatedAt, reference, clientNom, contact, demandeRef, trajet, etape, eta},
       "clients": *[_type == "clientFiche"] | order(nom asc){_id, nom, contact, destination, envois, volume},
       "conteneurs": *[_type == "conteneurOccasion"] | order(reference asc){_id, _updatedAt, reference, taille, etat, lieu, prix, statut},
@@ -368,9 +382,22 @@ export function BackOffice() {
   useEffect(() => {
     const d = selId ? demandes.find((x) => x._id === selId) : null;
     setMontantEdit(d?.montantDevis ?? '');
+    setDescriptionEdit(d?.descriptionPrestation ?? '');
+    setDelaiEdit(d?.delaiEstime ?? '');
     setNotesEdit(d?.notes ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selId]);
+
+  // La demande enrichie des saisies en cours : message, PDF et e-mail partent
+  // toujours avec les dernières valeurs, même avant l'enregistrement.
+  const selPourEnvoi: Demande | null = sel
+    ? {
+        ...sel,
+        montantDevis: montantEdit.trim() || undefined,
+        descriptionPrestation: descriptionEdit.trim() || undefined,
+        delaiEstime: delaiEdit.trim() || undefined,
+      }
+    : null;
 
   const kpiNouvelles = demandes.filter((d) => (d.statut ?? 0) === 0).length;
   const kpiRetard = demandes.filter(enRetard).length;
@@ -460,10 +487,13 @@ export function BackOffice() {
     await client.patch(d._id).set(patch).commit();
   };
 
-  // Enregistre le chiffrage et les notes internes du panneau détail.
-  const enregistrerTraitement = async (d: Demande, montantDevis: string, notes: string) => {
-    setDemandes((prev) => prev.map((x) => (x._id === d._id ? { ...x, montantDevis, notes } : x)));
-    await client.patch(d._id).set({ montantDevis, notes }).commit();
+  // Enregistre le chiffrage (montant, prestation, délai) et les notes internes.
+  const enregistrerTraitement = async (
+    d: Demande,
+    traitement: Pick<Demande, 'montantDevis' | 'descriptionPrestation' | 'delaiEstime' | 'notes'>,
+  ) => {
+    setDemandes((prev) => prev.map((x) => (x._id === d._id ? { ...x, ...traitement } : x)));
+    await client.patch(d._id).set(traitement).commit();
   };
 
   // Conversion d'une demande acceptée : crée l'expédition liée (même
@@ -618,7 +648,7 @@ export function BackOffice() {
   // ── Exports XLSX ──
   const exporterTout = () => {
     const rows = [
-      ['Référence', 'Client', 'Contact', "Type d'envoi", 'Destination', 'Volume', 'Reçue le', 'Statut', 'Montant devis', 'Devis envoyé le', 'Expédition', 'Message', 'Notes internes'],
+      ['Référence', 'Client', 'Contact', "Type d'envoi", 'Destination', 'Volume', 'Reçue le', 'Statut', 'Montant devis', 'Prestation', 'Délai estimé', 'Devis envoyé le', 'Expédition', 'Message', 'Notes internes'],
       ...demandes.map((d) => [
         d.reference,
         d.clientNom ?? '',
@@ -629,6 +659,8 @@ export function BackOffice() {
         d.recueLe ?? '',
         STATUTS_DEMANDE[clampDemande(d.statut)],
         d.montantDevis ?? '',
+        d.descriptionPrestation ?? '',
+        d.delaiEstime ?? '',
         d.devisEnvoyeLe ?? '',
         d.expeditionRef ?? '',
         d.message ?? '',
@@ -655,6 +687,8 @@ export function BackOffice() {
       ['Volume estimé', sel.volume ?? ''],
       ['Reçue le', sel.recueLe ?? ''],
       ['Montant du devis', sel.montantDevis ?? ''],
+      ['Prestation', sel.descriptionPrestation ?? ''],
+      ['Délai estimé', sel.delaiEstime ?? ''],
       ['Devis envoyé le', sel.devisEnvoyeLe ?? ''],
       ['Expédition liée', sel.expeditionRef ?? ''],
       ['Message', sel.message ?? ''],
@@ -1010,56 +1044,88 @@ export function BackOffice() {
                         </div>
                       </div>
 
-                      {/* Traitement : chiffrage et notes internes. */}
+                      {/* Traitement : chiffrage repris automatiquement dans le
+                          message de réponse et le devis PDF. */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <span style={eyebrow}>Traitement</span>
-                        <input
-                          placeholder="Montant du devis (ex. 1 250 €)"
-                          value={montantEdit}
-                          onChange={(e) => setMontantEdit(e.target.value)}
-                          style={champ}
-                        />
-                        <textarea
-                          placeholder="Notes internes : relances, particularités, accords…"
-                          value={notesEdit}
-                          onChange={(e) => setNotesEdit(e.target.value)}
-                          rows={3}
-                          style={{ ...champ, resize: 'vertical', fontFamily: SANS }}
-                        />
-                        {(montantEdit !== (sel.montantDevis ?? '') || notesEdit !== (sel.notes ?? '')) && (
+                        <span style={eyebrow}>Chiffrage du devis</span>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8 }}>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                            Montant
+                            <input placeholder="ex. 1 250 €" value={montantEdit} onChange={(e) => setMontantEdit(e.target.value)} style={champ} />
+                          </label>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                            Délai estimé
+                            <input placeholder="ex. 3 à 5 semaines" value={delaiEdit} onChange={(e) => setDelaiEdit(e.target.value)} style={champ} />
+                          </label>
+                        </div>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                          Description de la prestation
+                          <textarea
+                            placeholder="ex. Groupage maritime Le Havre → Pointe-à-Pitre, enlèvement à domicile, dédouanement inclus…"
+                            value={descriptionEdit}
+                            onChange={(e) => setDescriptionEdit(e.target.value)}
+                            rows={2}
+                            style={{ ...champ, resize: 'vertical', fontFamily: SANS }}
+                          />
+                        </label>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                          Notes internes (jamais transmises au client)
+                          <textarea
+                            placeholder="Relances, particularités, accords…"
+                            value={notesEdit}
+                            onChange={(e) => setNotesEdit(e.target.value)}
+                            rows={2}
+                            style={{ ...champ, resize: 'vertical', fontFamily: SANS }}
+                          />
+                        </label>
+                        {(montantEdit !== (sel.montantDevis ?? '') ||
+                          descriptionEdit !== (sel.descriptionPrestation ?? '') ||
+                          delaiEdit !== (sel.delaiEstime ?? '') ||
+                          notesEdit !== (sel.notes ?? '')) && (
                           <button
-                            onClick={() => enregistrerTraitement(sel, montantEdit, notesEdit)}
+                            onClick={() =>
+                              enregistrerTraitement(sel, {
+                                montantDevis: montantEdit,
+                                descriptionPrestation: descriptionEdit,
+                                delaiEstime: delaiEdit,
+                                notes: notesEdit,
+                              })
+                            }
                             style={{ ...boutonContour, alignSelf: 'flex-start', fontSize: 13, padding: '8px 18px' }}
                           >
-                            Enregistrer le traitement
+                            Enregistrer le chiffrage
                           </button>
                         )}
                       </div>
 
-                      {/* Contact direct : e-mail et WhatsApp partent avec un modèle
-                          complet, et le devis PDF uniforme se joint au message. */}
+                      {/* Réponse au client : e-mail complet (.eml) avec le devis
+                          PDF déjà joint, ou canaux séparés. Tout part avec les
+                          valeurs du chiffrage ci-dessus, même non enregistrées. */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <span style={eyebrow}>Répondre au client</span>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {extraireEmail(sel.contact) && selPourEnvoi && (
+                            <button
+                              onClick={() =>
+                                genererEmlDevis(selPourEnvoi, extraireEmail(sel.contact) as string, templateReponse(selPourEnvoi))
+                              }
+                              style={{ ...boutonPlein, display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 16px' }}
+                              title="Télécharge un e-mail prêt à envoyer : destinataire, message et devis PDF déjà joints"
+                            >
+                              ✉ E-mail + devis PDF joint
+                            </button>
+                          )}
                           <button
-                            onClick={() => genererDevisPdf(sel)}
-                            style={{ ...boutonPlein, display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 16px' }}
-                            title="Télécharger le devis PDF pré-rempli, à joindre à votre message"
+                            onClick={() => selPourEnvoi && genererDevisPdf(selPourEnvoi)}
+                            style={{ ...boutonContour, display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 16px' }}
+                            title="Télécharger uniquement le devis PDF pré-rempli"
                           >
                             <IconeExport />
-                            Devis PDF
+                            Devis PDF seul
                           </button>
-                          {extraireEmail(sel.contact) && (
+                          {extraireTel(sel.contact) && selPourEnvoi && (
                             <a
-                              href={`mailto:${extraireEmail(sel.contact)}?subject=${encodeURIComponent(`Votre devis HGWF Cargo · ${sel.reference}`)}&body=${encodeURIComponent(templateReponse(sel))}`}
-                              style={{ ...boutonContour, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-                            >
-                              ✉ E-mail (modèle pré-rempli)
-                            </a>
-                          )}
-                          {extraireTel(sel.contact) && (
-                            <a
-                              href={`https://wa.me/${extraireTel(sel.contact)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(templateReponse(sel))}`}
+                              href={`https://wa.me/${extraireTel(sel.contact)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(templateReponse(selPourEnvoi))}`}
                               target="_blank"
                               rel="noreferrer"
                               style={{ ...boutonContour, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
@@ -1068,7 +1134,7 @@ export function BackOffice() {
                             </a>
                           )}
                           <button
-                            onClick={() => navigator.clipboard.writeText(templateReponse(sel))}
+                            onClick={() => selPourEnvoi && navigator.clipboard.writeText(templateReponse(selPourEnvoi))}
                             style={{ ...boutonContour, fontSize: 13, padding: '8px 16px' }}
                             title="Copier le modèle de réponse dans le presse-papiers"
                           >
@@ -1076,9 +1142,10 @@ export function BackOffice() {
                           </button>
                         </div>
                         <span style={{ fontSize: 11, color: ENCRE }}>
-                          Le devis PDF se télécharge pré-rempli : joignez-le à votre e-mail ou message WhatsApp.
-                          {!sel.montantDevis &&
-                            ' Renseignez d’abord le montant ci-dessus : il s’insère dans le modèle et dans le PDF (sinon « À compléter »).'}
+                          « E-mail + devis PDF joint » télécharge un fichier e-mail : ouvrez-le, il s'affiche prêt à envoyer
+                          (destinataire, message et PDF déjà en pièce jointe). Sur WhatsApp, joignez le « Devis PDF seul ».
+                          {!selPourEnvoi?.montantDevis &&
+                            ' Renseignez le chiffrage ci-dessus : il s’insère automatiquement dans le message et le PDF.'}
                         </span>
                       </div>
 

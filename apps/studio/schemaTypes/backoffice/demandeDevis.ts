@@ -47,7 +47,21 @@ export const demandeDevis = defineType({
       name: 'montantDevis',
       title: 'Montant du devis (ex. 1 250 €)',
       type: 'string',
-      description: 'Renseigné au moment du chiffrage ; apparaît dans les exports.',
+      description: 'Repris automatiquement dans le message de réponse et le devis PDF.',
+    }),
+    defineField({
+      name: 'descriptionPrestation',
+      title: 'Description de la prestation',
+      type: 'text',
+      rows: 2,
+      description:
+        'Ce que couvre le devis (ex. groupage maritime port à port, dédouanement inclus). Reprise dans le message et le PDF.',
+    }),
+    defineField({
+      name: 'delaiEstime',
+      title: 'Délai estimé (ex. 3 à 5 semaines)',
+      type: 'string',
+      description: 'Repris automatiquement dans le message de réponse et le devis PDF.',
     }),
     defineField({
       name: 'devisEnvoyeLe',
