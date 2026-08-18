@@ -18,8 +18,8 @@ const HERO_DEFAUT = {
 };
 
 const WIZARD_DEFAUT = {
-  etapeLabels: ['Envoi', 'Destination', 'Volume', 'Coordonnées'],
-  etapeType: { titre: 'Que souhaitez-vous expédier ?' },
+  etapeLabels: ['Service', 'Destination', 'Volume', 'Coordonnées'],
+  etapeType: { titre: 'De quel service avez-vous besoin ?' },
   etapeDestination: {
     titre: 'Vers où expédiez-vous ?',
     libelleDestination: 'Destination',
@@ -64,6 +64,9 @@ const WIZARD_DEFAUT = {
     { label: 'Conteneur complet (FCL)', description: "Un conteneur 20' ou 40' réservé à votre envoi, dry ou reefer." },
     { label: 'Véhicule / bateau', description: 'Voiture, moto, bateau, jetski, remorque : conteneur ou ro-ro.' },
     { label: 'Déménagement', description: 'Mutation Outre-mer, retraite, retour au pays : tout votre foyer.' },
+    { label: 'Transport de conteneur', description: 'Acheminement de votre conteneur, port à port ou porte à porte.' },
+    { label: 'Fret aérien', description: 'Vos envois urgents par avion, délais raccourcis.' },
+    { label: 'Entrepôt & box de stockage', description: 'Location d’espaces de stockage, courte ou longue durée.' },
   ],
   destinations: [
     { nom: 'Guadeloupe', delai: '3 À 5 SEMAINES' },
