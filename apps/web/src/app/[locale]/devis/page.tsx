@@ -134,9 +134,63 @@ const DIMS_ARIA_EN = {
   quantite: 'Quantity',
 };
 const ERREUR_CONTACT_FR =
-  'Indiquez votre nom et au moins un moyen de contact (e-mail ou téléphone) pour recevoir votre devis.';
+  'Indiquez au moins un moyen de contact (e-mail ou téléphone) pour recevoir votre devis.';
 const ERREUR_CONTACT_EN =
-  'Please provide your name and at least one way to contact you (email or phone) to receive your quote.';
+  'Please provide at least one way to contact you (email or phone) to receive your quote.';
+const ERREUR_NOM_FR = 'Indiquez votre nom : l’équipe saura à qui répondre.';
+const ERREUR_NOM_EN = 'Please enter your name so the team knows who to reply to.';
+
+// ── Étape volume, mode simple : estimation par presets. Ces textes ne sont pas
+// dans le CMS (comme legendeDims ou les préférences) : traduits ici, par locale.
+const PRESETS_VOLUME_FR = [
+  { label: 'Quelques cartons', estimation: '≈ 1–3 m³', description: 'Cartons, valises, petits objets.' },
+  { label: 'Studio / T1', estimation: '≈ 5–10 m³', description: 'L’essentiel d’un petit logement.' },
+  { label: 'T2 – T3', estimation: '≈ 10–20 m³', description: 'Meubles et cartons d’un logement familial.' },
+  { label: 'Maison entière', estimation: '≈ 20–40 m³', description: 'Tout le foyer, de la cave au grenier.' },
+  { label: 'Véhicule', estimation: '', description: 'Voiture, moto, bateau : chiffré selon le modèle.' },
+  { label: 'Je ne sais pas encore', estimation: '', description: 'Pas de souci : l’équipe estime avec vous, par téléphone ou WhatsApp.' },
+];
+const PRESETS_VOLUME_EN = [
+  { label: 'A few boxes', estimation: '≈ 1–3 m³', description: 'Boxes, suitcases, small items.' },
+  { label: 'Studio / 1-bedroom', estimation: '≈ 5–10 m³', description: 'The essentials of a small home.' },
+  { label: '2–3 bedrooms', estimation: '≈ 10–20 m³', description: 'Furniture and boxes of a family home.' },
+  { label: 'Whole house', estimation: '≈ 20–40 m³', description: 'The entire household, top to bottom.' },
+  { label: 'Vehicle', estimation: '', description: 'Car, motorbike or boat: priced by model.' },
+  { label: 'Not sure yet', estimation: '', description: 'No problem: the team will estimate it with you by phone or WhatsApp.' },
+];
+
+// Micro-textes du parcours (fil d'étapes, bascule simple/précis, champs) —
+// même principe : hors CMS, choisis par locale.
+const TEXTES_WIZARD_FR = {
+  etapeSur: 'Étape {n} sur {total}',
+  lienModePrecis: 'J’ai mes dimensions exactes →',
+  lienModeSimple: '← Revenir à l’estimation rapide',
+  erreurPreset: 'Choisissez l’option la plus proche — « Je ne sais pas encore » convient très bien.',
+  totalLabel: 'Total',
+  intro: 'Il ne nous faut que votre nom et un moyen de vous joindre — l’équipe vous répond sous 24 à 48 h.',
+  exempleNom: 'Camille Martin',
+  exempleEmail: 'vous@exemple.fr',
+  exempleTel: '06 12 34 56 78',
+  requis: 'requis',
+  unDesDeux: 'au moins l’un des deux',
+  optionnel: 'facultatif',
+  envoiEnCours: 'Envoi en cours…',
+};
+const TEXTES_WIZARD_EN = {
+  etapeSur: 'Step {n} of {total}',
+  lienModePrecis: 'I have exact dimensions →',
+  lienModeSimple: '← Back to quick estimate',
+  erreurPreset: 'Pick the closest option — “Not sure yet” is perfectly fine.',
+  totalLabel: 'Total',
+  intro: 'We only need your name and one way to reach you — the team replies within 24–48 hours.',
+  exempleNom: 'Alex Martin',
+  exempleEmail: 'you@example.com',
+  exempleTel: '+33 6 12 34 56 78',
+  requis: 'required',
+  unDesDeux: 'at least one of the two',
+  optionnel: 'optional',
+  envoiEnCours: 'Sending…',
+};
 
 const SEO_DEFAUT = {
   titre: 'Demande de devis · HGWF Cargo',
@@ -159,8 +213,11 @@ async function getContenu(locale: Locale) {
     imageUrl: data?.hero?.imageUrl ?? HERO_DEFAUT.imageUrl,
   };
 
+  const textes = locale === 'en' ? TEXTES_WIZARD_EN : TEXTES_WIZARD_FR;
+
   const wizard: DevisWizardContent = {
     etapeLabels: data?.etapeLabels?.length === 4 ? data.etapeLabels : WIZARD_DEFAUT.etapeLabels,
+    etapeSur: textes.etapeSur,
     etapeType: { titre: data?.etapeType?.titre ?? WIZARD_DEFAUT.etapeType.titre },
     etapeDestination: {
       titre: data?.etapeDestination?.titre ?? WIZARD_DEFAUT.etapeDestination.titre,
@@ -182,9 +239,21 @@ async function getContenu(locale: Locale) {
         locale === 'en'
           ? 'Nature of the goods, approximate weight, fragile, vehicle…'
           : WIZARD_DEFAUT.etapeVolume.commentairePlaceholder,
+      lienModePrecis: textes.lienModePrecis,
+      lienModeSimple: textes.lienModeSimple,
+      presets: locale === 'en' ? PRESETS_VOLUME_EN : PRESETS_VOLUME_FR,
+      erreurPreset: textes.erreurPreset,
+      totalLabel: textes.totalLabel,
     },
     etapeCoordonnees: {
       titre: data?.etapeCoordonnees?.titre ?? WIZARD_DEFAUT.etapeCoordonnees.titre,
+      intro: textes.intro,
+      exempleNom: textes.exempleNom,
+      exempleEmail: textes.exempleEmail,
+      exempleTel: textes.exempleTel,
+      requis: textes.requis,
+      unDesDeux: textes.unDesDeux,
+      optionnel: textes.optionnel,
       placeholderNom: data?.etapeCoordonnees?.placeholderNom ?? WIZARD_DEFAUT.etapeCoordonnees.placeholderNom,
       placeholderEmail: data?.etapeCoordonnees?.placeholderEmail ?? WIZARD_DEFAUT.etapeCoordonnees.placeholderEmail,
       placeholderTel: data?.etapeCoordonnees?.placeholderTel ?? WIZARD_DEFAUT.etapeCoordonnees.placeholderTel,
@@ -212,6 +281,7 @@ async function getContenu(locale: Locale) {
       precedent: data?.boutons?.precedent ?? WIZARD_DEFAUT.boutons.precedent,
       suivant: data?.boutons?.suivant ?? WIZARD_DEFAUT.boutons.suivant,
       envoyer: data?.boutons?.envoyer ?? WIZARD_DEFAUT.boutons.envoyer,
+      envoiEnCours: textes.envoiEnCours,
     },
     typesEnvoi: data?.typesEnvoi?.length
       ? data.typesEnvoi.map((t) => ({ label: t.label ?? '', description: t.description ?? '' }))
@@ -225,6 +295,7 @@ async function getContenu(locale: Locale) {
     sujetEmail: 'Demande de devis',
     mentionRgpd: locale === 'en' ? MENTION_RGPD_EN : MENTION_RGPD_FR,
     dimsAria: locale === 'en' ? DIMS_ARIA_EN : DIMS_ARIA_FR,
+    erreurNom: locale === 'en' ? ERREUR_NOM_EN : ERREUR_NOM_FR,
     erreurContact: locale === 'en' ? ERREUR_CONTACT_EN : ERREUR_CONTACT_FR,
   };
 

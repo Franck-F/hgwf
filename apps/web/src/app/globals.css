@@ -36,6 +36,16 @@ video,
 canvas {
   max-width: 100%;
 }
+/* Champ en erreur : le contour suit `aria-invalid`, pour que l'indice visuel
+   et l'annonce du lecteur d'écran ne puissent jamais diverger. Défini ici
+   (après les utilitaires) plutôt qu'en classe : deux `border-*` concurrentes
+   se départagent par l'ordre de la feuille, pas par l'ordre des classes. */
+input[aria-invalid='true'],
+select[aria-invalid='true'],
+textarea[aria-invalid='true'] {
+  border-color: var(--color-corail-texte);
+}
+
 /* Titres en Saira Condensed (charte), équilibrés sur plusieurs lignes. */
 h1,
 h2,
@@ -127,6 +137,17 @@ h3 {
 }
 .presse:active {
   transform: scale(0.97);
+}
+
+/* Roue d'attente du bouton d'envoi du devis — un état, pas un décor :
+   elle reste active en mouvement réduit (le libellé porte aussi l'info). */
+@keyframes roue-tourne {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animation-roue {
+  animation: roue-tourne 800ms linear infinite;
 }
 
 /* Zoom doux de l'image d'une carte au survol (l'élément parent porte .carte-zoom) */
@@ -222,6 +243,11 @@ h3 {
   /* Contenu d'un accordéon à l'ouverture */
   details[open] > :not(summary) {
     animation: reponse-ouvre 260ms var(--ease-out-quart) both;
+  }
+
+  /* Entrée d'une étape du formulaire de devis : même geste que l'accordéon. */
+  .etape-entre {
+    animation: reponse-ouvre 240ms var(--ease-out-quart) both;
   }
 
   /* ── Révélations au scroll — pilotées par IntersectionObserver ──────────
