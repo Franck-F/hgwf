@@ -10,4 +10,5 @@ RewriteCond %{HTTP_HOST} ^www\.hgwf-cargo\.fr$ [NC]
 RewriteRule ^ https://hgwf-cargo.fr%{REQUEST_URI} [R=301,L]
 
 # Racine -> locale par défaut (le meta refresh de index.html reste en secours).
-RewriteRule ^$ /fr/ [R=301,L]
+# Cible absolue : en relatif, Apache ajoute un « :443 » parasite à l'URL.
+RewriteRule ^$ https://hgwf-cargo.fr/fr/ [R=301,L]
