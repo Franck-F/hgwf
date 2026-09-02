@@ -19,6 +19,15 @@ export async function getService(locale: Locale, slug: string): Promise<ServiceS
   return sanityClient.fetch<ServiceSummary | null>(SERVICE_BY_SLUG, { locale, slug });
 }
 
+const SERVICES_LISTE = groq`*[_type == "service" && language == $locale && defined(slug.current)] | order(titre asc){
+  "slug": slug.current, titre, resume
+}`;
+
+export async function getServices(locale: Locale): Promise<ServiceSummary[]> {
+  if (!sanityClient) return [];
+  return sanityClient.fetch<ServiceSummary[]>(SERVICES_LISTE, { locale });
+}
+
 // ── Navigation / footer / paramètres du site ────────────────────────────────
 
 export type LienNav = { libelleFr?: string | null; libelleEn?: string | null; href?: string | null };

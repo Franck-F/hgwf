@@ -5,10 +5,9 @@ import { SITE_URL } from '@/seo/metadonnees';
 
 export const dynamic = 'force-static';
 
-// La liste /services est volontairement absente : page provisoire en noindex
-// tant que la liste des services n'est pas publiée.
 const CHEMINS = [
   '',
+  '/services',
   '/devis',
   '/contact',
   '/faq',
