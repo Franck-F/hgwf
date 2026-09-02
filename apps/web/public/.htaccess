@@ -1,0 +1,13 @@
+# Redirections SEO (hébergement OVH, Apache).
+RewriteEngine On
+
+# Forcer HTTPS.
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://hgwf-cargo.fr%{REQUEST_URI} [R=301,L]
+
+# www -> apex (une seule URL canonique).
+RewriteCond %{HTTP_HOST} ^www\.hgwf-cargo\.fr$ [NC]
+RewriteRule ^ https://hgwf-cargo.fr%{REQUEST_URI} [R=301,L]
+
+# Racine -> locale par défaut (le meta refresh de index.html reste en secours).
+RewriteRule ^$ /fr/ [R=301,L]

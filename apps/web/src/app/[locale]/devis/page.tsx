@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { setRequestLocale } from 'next-intl/server';
 import { defaultLocale, isLocale, type Locale } from '@hgwf/shared';
 import { getPageDevis, getSiteSettings } from '@/sanity/queries';
+import { metadonneesPage } from '@/seo/metadonnees';
 import { DevisWizard, type DevisWizardContent } from '@/components/devis/DevisWizard';
 
 export { generateStaticParams } from '@/i18n/staticParams';
@@ -303,9 +304,15 @@ async function getContenu(locale: Locale) {
     ? data.reassurance.map((r) => ({ valeur: r.valeur ?? '', titre: r.titre ?? '', texte: r.texte ?? '' }))
     : REASSURANCE_DEFAUT;
 
+  const seoEn = {
+    titre: 'Request a quote · HGWF Cargo',
+    description:
+      'Get a free quote in 4 steps: shipment type, destination, estimated volume and contact details. Personalised reply within 24–48 h.',
+  };
+  const seoDefaut = locale === 'en' ? seoEn : SEO_DEFAUT;
   const seo = {
-    titre: data?.seoTitre ?? SEO_DEFAUT.titre,
-    description: data?.seoDescription ?? SEO_DEFAUT.description,
+    titre: data?.seoTitre ?? seoDefaut.titre,
+    description: data?.seoDescription ?? seoDefaut.description,
   };
 
   return { hero, wizard, reassurance, seo };
@@ -317,8 +324,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const { seo } = await getContenu(resolveLocale(locale));
-  return { title: seo.titre, description: seo.description };
+  const l = resolveLocale(locale);
+  const { seo } = await getContenu(l);
+  return metadonneesPage({ locale: l, chemin: '/devis', titre: seo.titre, description: seo.description });
 }
 
 export default async function DevisPage({ params }: { params: Promise<{ locale: string }> }) {

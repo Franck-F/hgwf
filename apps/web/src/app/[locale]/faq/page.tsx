@@ -4,6 +4,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { defaultLocale, isLocale, type Locale } from '@hgwf/shared';
 import { getFaqItems, getPageFaq, type FaqItemData, type PortableBlock } from '@/sanity/queries';
+import { metadonneesPage } from '@/seo/metadonnees';
 
 export { generateStaticParams } from '@/i18n/staticParams';
 
@@ -35,6 +36,12 @@ const SEO_DEFAUT = {
   titre: 'Questions fréquentes (FAQ) · HGWF Cargo',
   description:
     'Expéditions, tarifs, délais, groupage, conteneurs d’occasion : toutes les réponses sur le transport de marchandises avec HGWF Cargo.',
+};
+
+const SEO_DEFAUT_EN = {
+  titre: 'Frequently asked questions (FAQ) · HGWF Cargo',
+  description:
+    'Shipping, rates, transit times, groupage, used containers: all the answers about freight transport with HGWF Cargo.',
 };
 
 function texte(bloc: PortableBlock): string {
@@ -105,8 +112,10 @@ async function getContenu(locale: Locale) {
       lien: data?.cta?.lien ?? CTA_DEFAUT.lien,
     },
     seo: {
-      titre: data?.seoTitre ?? SEO_DEFAUT.titre,
-      description: data?.seoDescription ?? SEO_DEFAUT.description,
+      titre: data?.seoTitre ?? (locale === 'en' ? SEO_DEFAUT_EN.titre : SEO_DEFAUT.titre),
+      description:
+        data?.seoDescription ??
+        (locale === 'en' ? SEO_DEFAUT_EN.description : SEO_DEFAUT.description),
     },
   };
 }
@@ -117,8 +126,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const { seo } = await getContenu(resolveLocale(locale));
-  return { title: seo.titre, description: seo.description };
+  const l = resolveLocale(locale);
+  const { seo } = await getContenu(l);
+  return metadonneesPage({ locale: l, chemin: '/faq', titre: seo.titre, description: seo.description });
 }
 
 export default async function FaqPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -128,8 +138,28 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
 
   const parCategorie = (cle: string): FaqItemData[] => items.filter((i) => (i.categorie ?? 'expeditions') === cle);
 
+  // Balisage FAQPage (schema.org) : rich results Google + citations moteurs IA.
+  // `<` neutralise tout `</script>` qui viendrait du contenu Sanity.
+  const jsonLdFaq = items.length
+    ? JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: items.map((q) => ({
+          '@type': 'Question',
+          name: q.question,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: (q.reponse ?? []).map(texte).join('\n'),
+          },
+        })),
+      }).replaceAll('<', '\\u003c')
+    : null;
+
   return (
     <main>
+      {jsonLdFaq ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdFaq }} />
+      ) : null}
       {/* En-tête */}
       <header>
         <div className="hero-photo relative isolate flex flex-wrap items-end justify-between gap-8 overflow-hidden px-5 sm:px-8 pt-32 sm:pt-[150px] pb-[72px] text-creme md:px-[72px]">

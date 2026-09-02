@@ -8,6 +8,7 @@ import { ConsentementCookies } from '@/components/consentement/ConsentementCooki
 import { routing } from '@/i18n/routing';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import { DonneesStructurees } from '@/components/DonneesStructurees';
 import { RevealScroll } from '@/components/RevealScroll';
 import { HeaderScroll } from '@/components/HeaderScroll';
 import { previewDynamique } from '@/sanity/preview-dynamic';
@@ -57,6 +58,7 @@ export default async function LocaleLayout({
           >
             {locale === 'en' ? 'Skip to content' : 'Aller au contenu'}
           </a>
+          <DonneesStructurees />
           <RevealScroll />
           <HeaderScroll />
           <Header locale={locale} />

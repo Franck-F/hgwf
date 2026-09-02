@@ -4,6 +4,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { defaultLocale, isLocale, type Locale } from '@hgwf/shared';
 import { getPageAccueil } from '@/sanity/queries';
+import { metadonneesPage } from '@/seo/metadonnees';
 import { HouleAnimee } from '@/components/HouleAnimee';
 import { GlobeDestinations } from '@/components/GlobeDestinations';
 
@@ -173,11 +174,17 @@ const DEFAUT = {
     imageUrl: null as string | null,
   },
   seo: {
-    // Titre d'onglet volontairement court : la description porte les mots-clés.
-    titre: 'HGWF Cargo',
+    titre: 'HGWF Cargo — Transport maritime, fret international & déménagement Outre-mer',
     description:
       'Transport maritime, aérien et terrestre vers les Amériques, les Caraïbes et l’Afrique : groupage, conteneur complet, véhicules et déménagement Outre-mer.',
   },
+};
+
+// Métadonnées de repli pour la version anglaise (le contenu Sanity EN prime).
+const SEO_EN = {
+  titre: 'HGWF Cargo — Sea freight, international shipping & overseas removals',
+  description:
+    'Sea, air and road freight to North & South America, the Caribbean and Africa: LCL groupage, full containers, vehicles and overseas removals.',
 };
 
 const COULEURS_BARRES: Record<string, string> = {
@@ -292,8 +299,11 @@ async function getContenu(locale: Locale) {
     },
     seo: {
       // Titre local forcé (prioritaire sur Sanity) — voir DEFAUT.seo.titre.
-      titre: DEFAUT.seo.titre,
-      description: d?.seoDescription ?? DEFAUT.seo.description,
+      titre: locale === 'en' ? SEO_EN.titre : DEFAUT.seo.titre,
+      description:
+        locale === 'en'
+          ? (d?.seoDescription ?? SEO_EN.description)
+          : (d?.seoDescription ?? DEFAUT.seo.description),
     },
   };
 }
@@ -304,8 +314,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const { seo } = await getContenu(resolveLocale(locale));
-  return { title: seo.titre, description: seo.description };
+  const l = resolveLocale(locale);
+  const { seo } = await getContenu(l);
+  return metadonneesPage({ locale: l, chemin: '', titre: seo.titre, description: seo.description });
 }
 
 function FlecheDroite({ taille = 14 }: { taille?: number }) {

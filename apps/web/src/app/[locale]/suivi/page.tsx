@@ -4,6 +4,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { defaultLocale, isLocale, type Locale } from '@hgwf/shared';
 import { getPageSuivi } from '@/sanity/queries';
+import { metadonneesPage } from '@/seo/metadonnees';
 import { SuiviTracker, type SuiviTrackerContent } from '@/components/suivi/SuiviTracker';
 
 export { generateStaticParams } from '@/i18n/staticParams';
@@ -274,9 +275,15 @@ async function getContenu(locale: Locale) {
     imageUrl: data?.cta?.imageUrl ?? CTA_DEFAUT.imageUrl,
   };
 
+  const seoEn = {
+    titre: 'Shipment tracking · HGWF Cargo',
+    description:
+      'Track your HGWF Cargo shipment: status, position, vessel and estimated arrival date, from departure to delivery.',
+  };
+  const seoDefaut = locale === 'en' ? seoEn : SEO_DEFAUT;
   const seo = {
-    titre: data?.seoTitre ?? SEO_DEFAUT.titre,
-    description: data?.seoDescription ?? SEO_DEFAUT.description,
+    titre: data?.seoTitre ?? seoDefaut.titre,
+    description: data?.seoDescription ?? seoDefaut.description,
   };
 
   return { tracker, voyage, cta, seo };
@@ -288,8 +295,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const { seo } = await getContenu(resolveLocale(locale));
-  return { title: seo.titre, description: seo.description };
+  const l = resolveLocale(locale);
+  const { seo } = await getContenu(l);
+  return metadonneesPage({ locale: l, chemin: '/suivi', titre: seo.titre, description: seo.description });
 }
 
 export default async function SuiviPage({ params }: { params: Promise<{ locale: string }> }) {

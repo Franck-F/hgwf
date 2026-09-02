@@ -4,6 +4,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { defaultLocale, isLocale, type Locale } from '@hgwf/shared';
 import { getPageContact, getSiteSettings } from '@/sanity/queries';
+import { metadonneesPage } from '@/seo/metadonnees';
 import { ContactForm, type ContactFormContent } from '@/components/contact/ContactForm';
 
 export { generateStaticParams } from '@/i18n/staticParams';
@@ -129,9 +130,15 @@ async function getContenu(locale: Locale) {
     imageUrl: data?.centre?.imageUrl ?? CENTRE_DEFAUT.imageUrl,
   };
 
+  const seoEn = {
+    titre: 'Contact us · HGWF Cargo',
+    description:
+      'Contact HGWF Cargo by email, phone or WhatsApp: free quote, shipment tracking, containers and overseas removals. Reply within 24–48 h.',
+  };
+  const seoDefaut = locale === 'en' ? seoEn : SEO_DEFAUT;
   const seo = {
-    titre: data?.seoTitre ?? SEO_DEFAUT.titre,
-    description: data?.seoDescription ?? SEO_DEFAUT.description,
+    titre: data?.seoTitre ?? seoDefaut.titre,
+    description: data?.seoDescription ?? seoDefaut.description,
   };
 
   return { hero, coordonnees, formulaire, centre, seo };
@@ -143,8 +150,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const { seo } = await getContenu(resolveLocale(locale));
-  return { title: seo.titre, description: seo.description };
+  const l = resolveLocale(locale);
+  const { seo } = await getContenu(l);
+  return metadonneesPage({ locale: l, chemin: '/contact', titre: seo.titre, description: seo.description });
 }
 
 function IconeEmail() {

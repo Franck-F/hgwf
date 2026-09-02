@@ -2,8 +2,8 @@ export default function RootPage() {
   return (
     <html lang="fr">
       <head>
-        <meta httpEquiv="refresh" content="0; url=/fr" />
-        <link rel="canonical" href="/fr" />
+        <meta httpEquiv="refresh" content="0; url=/fr/" />
+        <link rel="canonical" href="https://hgwf-cargo.fr/fr/" />
       </head>
       <body>
         <p>
