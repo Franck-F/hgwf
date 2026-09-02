@@ -180,11 +180,176 @@ const DEFAUT = {
   },
 };
 
-// Métadonnées de repli pour la version anglaise (le contenu Sanity EN prime).
-const SEO_EN = {
-  titre: 'HGWF Cargo — Sea freight, international shipping & overseas removals',
-  description:
-    'Sea, air and road freight to North & South America, the Caribbean and Africa: LCL groupage, full containers, vehicles and overseas removals.',
+// Version anglaise complète des contenus par défaut (le contenu Sanity EN prime).
+const DEFAUT_EN = {
+  hero: {
+    titre: 'Shipping that carries your cargo',
+    titreAccent: 'further',
+    description:
+      'Sea, air or road: from pick-up to delivery, we take care of every step so you can think about what comes next.',
+    boutonPrincipal: 'Contact us',
+    boutonPrincipalLien: '/devis',
+    boutonSecondaire: 'Track a container',
+    boutonSecondaireLien: '/suivi',
+    badge: 'NORTH & SOUTH AMERICA · CARIBBEAN · AFRICA · FROM LE HAVRE & FOS/MARSEILLE',
+    imageUrl: null as string | null,
+  },
+  services: [
+    {
+      titre: 'Groupage (LCL)',
+      texte: 'Billed by cubic metre, ideal for individuals & SMEs',
+      lien: '/devis',
+      imageUrl: '/photos/groupage.jpg' as string | null,
+    },
+    {
+      titre: 'Full container (FCL)',
+      texte: "20' or 40', dry or reefer, reserved for your shipment",
+      lien: '/devis',
+      imageUrl: '/photos/conteneur-complet.jpg' as string | null,
+    },
+    {
+      titre: 'Vehicles & boats',
+      texte: 'Running or not, in container or ro-ro',
+      lien: '/devis',
+      imageUrl: '/photos/vehicules-bateaux.jpg' as string | null,
+    },
+    {
+      titre: 'Removals',
+      texte: 'Overseas relocation, retirement, return home',
+      lien: '/#demenagement',
+      imageUrl: null as string | null,
+    },
+    {
+      titre: 'Container transport',
+      texte: 'Port-to-port or door-to-door haulage',
+      lien: '/devis',
+      imageUrl: '/photos/transport-conteneur.jpg' as string | null,
+    },
+    {
+      titre: 'Air freight',
+      texte: 'The fast lane for your urgent shipments',
+      lien: '/devis',
+      imageUrl: '/photos/fret-aerien.jpg' as string | null,
+    },
+    {
+      titre: 'Warehouse & storage boxes',
+      texte: 'Storage space for rent, short or long term',
+      lien: '/contact',
+      imageUrl: '/photos/entrepot.jpg' as string | null,
+    },
+  ],
+  promesse: {
+    titre: 'Because your goods',
+    titreAccent: 'matter',
+    texte:
+      'Whether you are a professional (trader, manufacturer) or an individual: we will find the best option for your goods, vehicles and personal effects.',
+  },
+  zones: {
+    titre: 'Where we',
+    titreAccent: 'deliver',
+    badge: 'REGULAR & SECURE SERVICES',
+    bouton: 'Get a free quote',
+    boutonLien: '/devis',
+    imageUrl: null as string | null,
+    cartes: [
+      {
+        titre: 'North America',
+        texte: 'United States and Canada, depending on rotation: contact us',
+      },
+      { titre: 'French Caribbean', texte: 'Martinique, Guadeloupe, Saint-Martin, Saint-Barthélemy' },
+      { titre: 'French Guiana', texte: 'Dégrad des Cannes and inland deliveries' },
+      { titre: 'Caribbean', texte: 'Haiti, Dominican Republic and all Caribbean destinations' },
+      { titre: 'Africa', texte: 'The main ports of French-speaking Africa' },
+      { titre: 'South America', texte: 'Main South American ports, other destinations on request' },
+    ],
+  },
+  demenagement: {
+    eyebrow: 'Overseas relocation',
+    titre: 'Move with',
+    titreAccent: 'peace of mind',
+    titreFin: ', we handle everything.',
+    texte:
+      'Military and civil servants, private-sector employees and executives, retirement or return home: we manage every step for a serene departure towards your new adventure.',
+    points: [
+      'Personal effects, furniture, appliances',
+      'Vehicles, motorbikes, boats, jet skis, trailers',
+      'Fast, secure, dedicated transport',
+    ],
+    bouton: 'Info and free quote',
+    boutonLien: '/devis',
+    imageUrl: null as string | null,
+    badgeValeur: '24–48 H',
+    badgeTexte: 'reply to your quote request',
+  },
+  delais: {
+    titre: 'Ship to the four corners of the',
+    titreAccent: 'globe',
+    texte:
+      'Average transit times with our partner shipping lines, departing from Le Havre or Fos/Marseille. Departure and cut-off dates provided with every quote.',
+    lienFaq: 'Everything about transit times',
+    barres: [
+      { destination: 'French Caribbean & Guiana', delai: '3–5 WEEKS', pourcentage: 34, couleur: 'corail' },
+      { destination: 'Caribbean (Haiti, Dominican Rep.)', delai: '4–6 WEEKS', pourcentage: 46, couleur: 'ciel' },
+      { destination: 'North America', delai: 'BY ROTATION', pourcentage: 58, couleur: 'ciel' },
+      { destination: 'South America', delai: 'BY ROTATION', pourcentage: 72, couleur: 'or' },
+      { destination: 'Africa & Indian Ocean', delai: 'BY DESTINATION', pourcentage: 50, couleur: 'marine' },
+    ],
+  },
+  conteneurs: {
+    eyebrow: 'Shipping containers for sale',
+    titre: 'One « last voyage » container, a thousand',
+    titreAccent: 'uses',
+    texte:
+      'Used containers at competitive prices, 20 and 40 foot formats. Ideal for storing goods or creating modular spaces: food truck, beach hut, site office…',
+    chips: ['20 FEET', '40 FEET', 'COMPETITIVE PRICES'],
+    bouton: 'Ask for a price',
+    boutonLien: '/contact',
+    imageUrl: '/photos/conteneurs.jpg' as string | null,
+  },
+  faqCourte: {
+    titre: 'Your questions, our',
+    titreAccent: 'answers',
+    texte: 'The essentials of long-distance shipping; the full FAQ is',
+    lienTexte: 'here',
+    bouton: 'See all the questions',
+    items: [
+      {
+        question: 'What kinds of goods can you ship?',
+        reponse:
+          'A wide range of goods, from personal parcels to professional equipment: personal effects, vehicles, pallets, groupage, full (FCL) or shared (LCL) containers.',
+      },
+      {
+        question: 'What is the difference between groupage and a full container?',
+        reponse:
+          'Groupage (LCL): several customers share one container, billed by volume (cubic metre). Full container (FCL): the whole container is reserved for your shipment.',
+      },
+      {
+        question: 'How is the price calculated for sea groupage (LCL)?',
+        reponse:
+          'By volume (cubic metre): add up the size of each of your parcels (length × width × height). Tip: measure at the widest point, such as bulging boxes or pallets.',
+      },
+      {
+        question: 'How do I track my shipment?',
+        reponse:
+          'Our teams provide personalised follow-up, and you can track your container at any time from the Tracking page.',
+      },
+    ],
+  },
+  ctaSuivi: {
+    eyebrow: 'Shipment tracking',
+    titre: 'Track every container, all the way to the',
+    titreAccent: 'lagoon',
+    texte:
+      'File reference or container number: status, position, vessel and ETA. A team you can reach at any time.',
+    boutonPrincipal: 'Track my shipment',
+    boutonSecondaire: 'Talk to the team',
+    imageUrl: null as string | null,
+  },
+  seo: {
+    titre: 'HGWF Cargo — Sea freight, international shipping & overseas removals',
+    description:
+      'Sea, air and road freight to North & South America, the Caribbean and Africa: LCL groupage, full containers, vehicles and overseas removals.',
+  },
 };
 
 const COULEURS_BARRES: Record<string, string> = {
@@ -200,63 +365,64 @@ function resolveLocale(locale: string): Locale {
 
 async function getContenu(locale: Locale) {
   const d = await getPageAccueil(locale);
+  const DEFAUT_L = locale === 'en' ? DEFAUT_EN : DEFAUT;
 
   return {
     hero: {
-      titre: d?.hero?.titre ?? DEFAUT.hero.titre,
-      titreAccent: d?.hero?.titreAccent ?? DEFAUT.hero.titreAccent,
-      description: d?.hero?.description ?? DEFAUT.hero.description,
-      boutonPrincipal: d?.hero?.boutonPrincipal ?? DEFAUT.hero.boutonPrincipal,
-      boutonPrincipalLien: d?.hero?.boutonPrincipalLien ?? DEFAUT.hero.boutonPrincipalLien,
-      boutonSecondaire: d?.hero?.boutonSecondaire ?? DEFAUT.hero.boutonSecondaire,
-      boutonSecondaireLien: d?.hero?.boutonSecondaireLien ?? DEFAUT.hero.boutonSecondaireLien,
-      badge: d?.hero?.badge ?? DEFAUT.hero.badge,
-      imageUrl: d?.hero?.imageUrl ?? DEFAUT.hero.imageUrl,
+      titre: d?.hero?.titre ?? DEFAUT_L.hero.titre,
+      titreAccent: d?.hero?.titreAccent ?? DEFAUT_L.hero.titreAccent,
+      description: d?.hero?.description ?? DEFAUT_L.hero.description,
+      boutonPrincipal: d?.hero?.boutonPrincipal ?? DEFAUT_L.hero.boutonPrincipal,
+      boutonPrincipalLien: d?.hero?.boutonPrincipalLien ?? DEFAUT_L.hero.boutonPrincipalLien,
+      boutonSecondaire: d?.hero?.boutonSecondaire ?? DEFAUT_L.hero.boutonSecondaire,
+      boutonSecondaireLien: d?.hero?.boutonSecondaireLien ?? DEFAUT_L.hero.boutonSecondaireLien,
+      badge: d?.hero?.badge ?? DEFAUT_L.hero.badge,
+      imageUrl: d?.hero?.imageUrl ?? DEFAUT_L.hero.imageUrl,
     },
     services: d?.services?.length
       ? d.services.map((s, i) => ({
-          titre: s.titre ?? DEFAUT.services[i]?.titre ?? '',
-          texte: s.texte ?? DEFAUT.services[i]?.texte ?? '',
-          lien: s.lien ?? DEFAUT.services[i]?.lien ?? '/devis',
-          // Images locales forcées (prioritaires sur Sanity) — voir DEFAUT.services.
+          titre: s.titre ?? DEFAUT_L.services[i]?.titre ?? '',
+          texte: s.texte ?? DEFAUT_L.services[i]?.texte ?? '',
+          lien: s.lien ?? DEFAUT_L.services[i]?.lien ?? '/devis',
+          // Images locales forcées (prioritaires sur Sanity) — voir DEFAUT_L.services.
           // À rebasculer sur Sanity (`s.imageUrl ?? …`) lors de la passe finale.
-          imageUrl: DEFAUT.services[i]?.imageUrl ?? s.imageUrl ?? null,
+          imageUrl: DEFAUT_L.services[i]?.imageUrl ?? s.imageUrl ?? null,
         }))
-      : DEFAUT.services,
+      : DEFAUT_L.services,
     promesse: {
-      titre: d?.promesse?.titre ?? DEFAUT.promesse.titre,
-      titreAccent: d?.promesse?.titreAccent ?? DEFAUT.promesse.titreAccent,
-      texte: d?.promesse?.texte ?? DEFAUT.promesse.texte,
+      titre: d?.promesse?.titre ?? DEFAUT_L.promesse.titre,
+      titreAccent: d?.promesse?.titreAccent ?? DEFAUT_L.promesse.titreAccent,
+      texte: d?.promesse?.texte ?? DEFAUT_L.promesse.texte,
     },
     zones: {
-      titre: d?.zones?.titre ?? DEFAUT.zones.titre,
-      titreAccent: d?.zones?.titreAccent ?? DEFAUT.zones.titreAccent,
-      badge: d?.zones?.badge ?? DEFAUT.zones.badge,
-      bouton: d?.zones?.bouton ?? DEFAUT.zones.bouton,
-      boutonLien: d?.zones?.boutonLien ?? DEFAUT.zones.boutonLien,
-      imageUrl: d?.zones?.imageUrl ?? DEFAUT.zones.imageUrl,
+      titre: d?.zones?.titre ?? DEFAUT_L.zones.titre,
+      titreAccent: d?.zones?.titreAccent ?? DEFAUT_L.zones.titreAccent,
+      badge: d?.zones?.badge ?? DEFAUT_L.zones.badge,
+      bouton: d?.zones?.bouton ?? DEFAUT_L.zones.bouton,
+      boutonLien: d?.zones?.boutonLien ?? DEFAUT_L.zones.boutonLien,
+      imageUrl: d?.zones?.imageUrl ?? DEFAUT_L.zones.imageUrl,
       cartes: d?.zones?.cartes?.length
         ? d.zones.cartes.map((c) => ({ titre: c.titre ?? '', texte: c.texte ?? '' }))
-        : DEFAUT.zones.cartes,
+        : DEFAUT_L.zones.cartes,
     },
     demenagement: {
-      eyebrow: d?.demenagement?.eyebrow ?? DEFAUT.demenagement.eyebrow,
-      titre: d?.demenagement?.titre ?? DEFAUT.demenagement.titre,
-      titreAccent: d?.demenagement?.titreAccent ?? DEFAUT.demenagement.titreAccent,
-      titreFin: d?.demenagement?.titreFin ?? DEFAUT.demenagement.titreFin,
-      texte: d?.demenagement?.texte ?? DEFAUT.demenagement.texte,
-      points: d?.demenagement?.points?.length ? d.demenagement.points : DEFAUT.demenagement.points,
-      bouton: d?.demenagement?.bouton ?? DEFAUT.demenagement.bouton,
-      boutonLien: d?.demenagement?.boutonLien ?? DEFAUT.demenagement.boutonLien,
-      imageUrl: d?.demenagement?.imageUrl ?? DEFAUT.demenagement.imageUrl,
-      badgeValeur: d?.demenagement?.badgeValeur ?? DEFAUT.demenagement.badgeValeur,
-      badgeTexte: d?.demenagement?.badgeTexte ?? DEFAUT.demenagement.badgeTexte,
+      eyebrow: d?.demenagement?.eyebrow ?? DEFAUT_L.demenagement.eyebrow,
+      titre: d?.demenagement?.titre ?? DEFAUT_L.demenagement.titre,
+      titreAccent: d?.demenagement?.titreAccent ?? DEFAUT_L.demenagement.titreAccent,
+      titreFin: d?.demenagement?.titreFin ?? DEFAUT_L.demenagement.titreFin,
+      texte: d?.demenagement?.texte ?? DEFAUT_L.demenagement.texte,
+      points: d?.demenagement?.points?.length ? d.demenagement.points : DEFAUT_L.demenagement.points,
+      bouton: d?.demenagement?.bouton ?? DEFAUT_L.demenagement.bouton,
+      boutonLien: d?.demenagement?.boutonLien ?? DEFAUT_L.demenagement.boutonLien,
+      imageUrl: d?.demenagement?.imageUrl ?? DEFAUT_L.demenagement.imageUrl,
+      badgeValeur: d?.demenagement?.badgeValeur ?? DEFAUT_L.demenagement.badgeValeur,
+      badgeTexte: d?.demenagement?.badgeTexte ?? DEFAUT_L.demenagement.badgeTexte,
     },
     delais: {
-      titre: d?.delais?.titre ?? DEFAUT.delais.titre,
-      titreAccent: d?.delais?.titreAccent ?? DEFAUT.delais.titreAccent,
-      texte: d?.delais?.texte ?? DEFAUT.delais.texte,
-      lienFaq: d?.delais?.lienFaq ?? DEFAUT.delais.lienFaq,
+      titre: d?.delais?.titre ?? DEFAUT_L.delais.titre,
+      titreAccent: d?.delais?.titreAccent ?? DEFAUT_L.delais.titreAccent,
+      texte: d?.delais?.texte ?? DEFAUT_L.delais.texte,
+      lienFaq: d?.delais?.lienFaq ?? DEFAUT_L.delais.lienFaq,
       barres: d?.delais?.barres?.length
         ? d.delais.barres.map((b) => ({
             destination: b.destination ?? '',
@@ -264,46 +430,43 @@ async function getContenu(locale: Locale) {
             pourcentage: b.pourcentage ?? 50,
             couleur: b.couleur ?? 'ciel',
           }))
-        : DEFAUT.delais.barres,
+        : DEFAUT_L.delais.barres,
     },
     conteneurs: {
-      eyebrow: d?.conteneurs?.eyebrow ?? DEFAUT.conteneurs.eyebrow,
-      titre: d?.conteneurs?.titre ?? DEFAUT.conteneurs.titre,
-      titreAccent: d?.conteneurs?.titreAccent ?? DEFAUT.conteneurs.titreAccent,
-      texte: d?.conteneurs?.texte ?? DEFAUT.conteneurs.texte,
-      chips: d?.conteneurs?.chips?.length ? d.conteneurs.chips : DEFAUT.conteneurs.chips,
-      bouton: d?.conteneurs?.bouton ?? DEFAUT.conteneurs.bouton,
-      boutonLien: d?.conteneurs?.boutonLien ?? DEFAUT.conteneurs.boutonLien,
-      // Image locale forcée (prioritaire sur Sanity) — voir DEFAUT.conteneurs.imageUrl.
+      eyebrow: d?.conteneurs?.eyebrow ?? DEFAUT_L.conteneurs.eyebrow,
+      titre: d?.conteneurs?.titre ?? DEFAUT_L.conteneurs.titre,
+      titreAccent: d?.conteneurs?.titreAccent ?? DEFAUT_L.conteneurs.titreAccent,
+      texte: d?.conteneurs?.texte ?? DEFAUT_L.conteneurs.texte,
+      chips: d?.conteneurs?.chips?.length ? d.conteneurs.chips : DEFAUT_L.conteneurs.chips,
+      bouton: d?.conteneurs?.bouton ?? DEFAUT_L.conteneurs.bouton,
+      boutonLien: d?.conteneurs?.boutonLien ?? DEFAUT_L.conteneurs.boutonLien,
+      // Image locale forcée (prioritaire sur Sanity) — voir DEFAUT_L.conteneurs.imageUrl.
       // À rebasculer sur Sanity (`d?.conteneurs?.imageUrl ?? …`) lors de la passe finale.
-      imageUrl: DEFAUT.conteneurs.imageUrl,
+      imageUrl: DEFAUT_L.conteneurs.imageUrl,
     },
     faqCourte: {
-      titre: d?.faqCourte?.titre ?? DEFAUT.faqCourte.titre,
-      titreAccent: d?.faqCourte?.titreAccent ?? DEFAUT.faqCourte.titreAccent,
-      texte: d?.faqCourte?.texte ?? DEFAUT.faqCourte.texte,
-      lienTexte: d?.faqCourte?.lienTexte ?? DEFAUT.faqCourte.lienTexte,
-      bouton: d?.faqCourte?.bouton ?? DEFAUT.faqCourte.bouton,
+      titre: d?.faqCourte?.titre ?? DEFAUT_L.faqCourte.titre,
+      titreAccent: d?.faqCourte?.titreAccent ?? DEFAUT_L.faqCourte.titreAccent,
+      texte: d?.faqCourte?.texte ?? DEFAUT_L.faqCourte.texte,
+      lienTexte: d?.faqCourte?.lienTexte ?? DEFAUT_L.faqCourte.lienTexte,
+      bouton: d?.faqCourte?.bouton ?? DEFAUT_L.faqCourte.bouton,
       items: d?.faqCourte?.items?.length
         ? d.faqCourte.items.map((i) => ({ question: i.question ?? '', reponse: i.reponse ?? '' }))
-        : DEFAUT.faqCourte.items,
+        : DEFAUT_L.faqCourte.items,
     },
     ctaSuivi: {
-      eyebrow: d?.ctaSuivi?.eyebrow ?? DEFAUT.ctaSuivi.eyebrow,
-      titre: d?.ctaSuivi?.titre ?? DEFAUT.ctaSuivi.titre,
-      titreAccent: d?.ctaSuivi?.titreAccent ?? DEFAUT.ctaSuivi.titreAccent,
-      texte: d?.ctaSuivi?.texte ?? DEFAUT.ctaSuivi.texte,
-      boutonPrincipal: d?.ctaSuivi?.boutonPrincipal ?? DEFAUT.ctaSuivi.boutonPrincipal,
-      boutonSecondaire: d?.ctaSuivi?.boutonSecondaire ?? DEFAUT.ctaSuivi.boutonSecondaire,
-      imageUrl: d?.ctaSuivi?.imageUrl ?? DEFAUT.ctaSuivi.imageUrl,
+      eyebrow: d?.ctaSuivi?.eyebrow ?? DEFAUT_L.ctaSuivi.eyebrow,
+      titre: d?.ctaSuivi?.titre ?? DEFAUT_L.ctaSuivi.titre,
+      titreAccent: d?.ctaSuivi?.titreAccent ?? DEFAUT_L.ctaSuivi.titreAccent,
+      texte: d?.ctaSuivi?.texte ?? DEFAUT_L.ctaSuivi.texte,
+      boutonPrincipal: d?.ctaSuivi?.boutonPrincipal ?? DEFAUT_L.ctaSuivi.boutonPrincipal,
+      boutonSecondaire: d?.ctaSuivi?.boutonSecondaire ?? DEFAUT_L.ctaSuivi.boutonSecondaire,
+      imageUrl: d?.ctaSuivi?.imageUrl ?? DEFAUT_L.ctaSuivi.imageUrl,
     },
     seo: {
-      // Titre local forcé (prioritaire sur Sanity) — voir DEFAUT.seo.titre.
-      titre: locale === 'en' ? SEO_EN.titre : DEFAUT.seo.titre,
-      description:
-        locale === 'en'
-          ? (d?.seoDescription ?? SEO_EN.description)
-          : (d?.seoDescription ?? DEFAUT.seo.description),
+      // Titre local forcé (prioritaire sur Sanity) — voir DEFAUT_L.seo.titre.
+      titre: DEFAUT_L.seo.titre,
+      description: d?.seoDescription ?? DEFAUT_L.seo.description,
     },
   };
 }

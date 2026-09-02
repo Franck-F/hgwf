@@ -78,6 +78,46 @@ const SEO_DEFAUT = {
     'Contactez HGWF Cargo par mail, téléphone ou WhatsApp : devis gratuit, suivi d’envoi, conteneurs et déménagement Outre-mer. Réponse sous 24 à 48 h.',
 };
 
+// Version anglaise des contenus par défaut (le contenu Sanity EN prime).
+const HERO_EN = {
+  eyebrow: 'By email, phone or WhatsApp',
+  titre: 'Contact us.',
+  description:
+    'Many of you get in touch with us, and we are delighted! Every request is handled with the greatest care. Quote requests usually receive a reply within 24 to 48 hours.',
+  imageUrl: null as string | null,
+};
+
+const FORMULAIRE_EN = {
+  titre: 'Write to us.',
+  placeholderNom: 'Full name',
+  placeholderTel: 'Phone / WhatsApp',
+  placeholderEmail: 'Email',
+  placeholderMessage: 'Your message: destination, nature of the goods, preferred dates…',
+  sujets: [
+    'Quote request',
+    'Shipment tracking',
+    'Used container',
+    'Overseas removal',
+    'Other question',
+  ],
+  boutonEnvoyer: 'Send the message',
+  confirmationTitre: 'Message sent.',
+  confirmationTexte:
+    'Thank you {nom}, your message is on its way. The team will reply within 24 to 48 hours, by email or phone.',
+  boutonReinitialiser: 'Send another message',
+};
+
+const CENTRE_EN = {
+  eyebrow: 'By appointment only',
+  titre: 'Visit us, or have your parcels delivered.',
+  texte:
+    'Our logistics centre welcomes you by appointment to drop off your parcels, boxes and personal effects.',
+  adresse: '10 RUE DIDEROT\n93110 ROSNY-SOUS-BOIS',
+  noteFaq: 'Questions about our services and long-distance shipping? The answers are in the',
+  noteFaqLien: 'FAQ',
+  imageUrl: null as string | null,
+};
+
 function resolveLocale(locale: string): Locale {
   return isLocale(locale) ? locale : defaultLocale;
 }
@@ -85,11 +125,16 @@ function resolveLocale(locale: string): Locale {
 async function getContenu(locale: Locale) {
   const [data, settings] = await Promise.all([getPageContact(locale), getSiteSettings()]);
 
+  const en = locale === 'en';
+  const HERO_D = en ? HERO_EN : HERO_DEFAUT;
+  const FORM_D = en ? FORMULAIRE_EN : FORMULAIRE_DEFAUT;
+  const CENTRE_D = en ? CENTRE_EN : CENTRE_DEFAUT;
+
   const hero = {
-    eyebrow: data?.hero?.eyebrow ?? HERO_DEFAUT.eyebrow,
-    titre: data?.hero?.titre ?? HERO_DEFAUT.titre,
-    description: data?.hero?.description ?? HERO_DEFAUT.description,
-    imageUrl: data?.hero?.imageUrl ?? HERO_DEFAUT.imageUrl,
+    eyebrow: data?.hero?.eyebrow ?? HERO_D.eyebrow,
+    titre: data?.hero?.titre ?? HERO_D.titre,
+    description: data?.hero?.description ?? HERO_D.description,
+    imageUrl: data?.hero?.imageUrl ?? HERO_D.imageUrl,
   };
 
   const coordonnees = data?.coordonnees?.length
@@ -101,16 +146,16 @@ async function getContenu(locale: Locale) {
     : COORDONNEES_DEFAUT;
 
   const formulaire: ContactFormContent = {
-    titre: data?.formulaire?.titre ?? FORMULAIRE_DEFAUT.titre,
-    placeholderNom: data?.formulaire?.placeholderNom ?? FORMULAIRE_DEFAUT.placeholderNom,
-    placeholderTel: data?.formulaire?.placeholderTel ?? FORMULAIRE_DEFAUT.placeholderTel,
-    placeholderEmail: data?.formulaire?.placeholderEmail ?? FORMULAIRE_DEFAUT.placeholderEmail,
-    placeholderMessage: data?.formulaire?.placeholderMessage ?? FORMULAIRE_DEFAUT.placeholderMessage,
-    sujets: data?.formulaire?.sujets?.length ? data.formulaire.sujets : FORMULAIRE_DEFAUT.sujets,
-    boutonEnvoyer: data?.formulaire?.boutonEnvoyer ?? FORMULAIRE_DEFAUT.boutonEnvoyer,
-    confirmationTitre: data?.formulaire?.confirmationTitre ?? FORMULAIRE_DEFAUT.confirmationTitre,
-    confirmationTexte: data?.formulaire?.confirmationTexte ?? FORMULAIRE_DEFAUT.confirmationTexte,
-    boutonReinitialiser: data?.formulaire?.boutonReinitialiser ?? FORMULAIRE_DEFAUT.boutonReinitialiser,
+    titre: data?.formulaire?.titre ?? FORM_D.titre,
+    placeholderNom: data?.formulaire?.placeholderNom ?? FORM_D.placeholderNom,
+    placeholderTel: data?.formulaire?.placeholderTel ?? FORM_D.placeholderTel,
+    placeholderEmail: data?.formulaire?.placeholderEmail ?? FORM_D.placeholderEmail,
+    placeholderMessage: data?.formulaire?.placeholderMessage ?? FORM_D.placeholderMessage,
+    sujets: data?.formulaire?.sujets?.length ? data.formulaire.sujets : FORM_D.sujets,
+    boutonEnvoyer: data?.formulaire?.boutonEnvoyer ?? FORM_D.boutonEnvoyer,
+    confirmationTitre: data?.formulaire?.confirmationTitre ?? FORM_D.confirmationTitre,
+    confirmationTexte: data?.formulaire?.confirmationTexte ?? FORM_D.confirmationTexte,
+    boutonReinitialiser: data?.formulaire?.boutonReinitialiser ?? FORM_D.boutonReinitialiser,
     emailDestinataire: settings?.email ?? 'contact@hgwf-cargo.fr',
     mentionRgpd: locale === 'en' ? MENTION_RGPD_EN : MENTION_RGPD_FR,
     libelleSujet: locale === 'en' ? 'Subject' : 'Sujet',
@@ -121,13 +166,13 @@ async function getContenu(locale: Locale) {
   };
 
   const centre = {
-    eyebrow: data?.centre?.eyebrow ?? CENTRE_DEFAUT.eyebrow,
-    titre: data?.centre?.titre ?? CENTRE_DEFAUT.titre,
-    texte: data?.centre?.texte ?? CENTRE_DEFAUT.texte,
-    adresse: data?.centre?.adresse ?? CENTRE_DEFAUT.adresse,
-    noteFaq: data?.centre?.noteFaq ?? CENTRE_DEFAUT.noteFaq,
-    noteFaqLien: data?.centre?.noteFaqLien ?? CENTRE_DEFAUT.noteFaqLien,
-    imageUrl: data?.centre?.imageUrl ?? CENTRE_DEFAUT.imageUrl,
+    eyebrow: data?.centre?.eyebrow ?? CENTRE_D.eyebrow,
+    titre: data?.centre?.titre ?? CENTRE_D.titre,
+    texte: data?.centre?.texte ?? CENTRE_D.texte,
+    adresse: data?.centre?.adresse ?? CENTRE_D.adresse,
+    noteFaq: data?.centre?.noteFaq ?? CENTRE_D.noteFaq,
+    noteFaqLien: data?.centre?.noteFaqLien ?? CENTRE_D.noteFaqLien,
+    imageUrl: data?.centre?.imageUrl ?? CENTRE_D.imageUrl,
   };
 
   const seoEn = {

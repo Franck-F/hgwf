@@ -183,6 +183,106 @@ const SEO_DEFAUT = {
     "Suivez votre envoi HGWF Cargo : statut, position, navire et date d'arrivée estimée, du départ à la livraison.",
 };
 
+// Version anglaise des contenus par défaut (le contenu Sanity EN prime).
+// Les trajets de démonstration restent partagés : noms de navires et
+// coordonnées identiques, seule la mention d'océan est traduite ci-dessous.
+const HERO_EN = {
+  eyebrow: 'Real-time shipment tracking',
+  titre: 'Where is your',
+  titreAccent: 'parcel',
+  description:
+    'File reference or container number: status, position, vessel and ETA, from the quay in Le Havre all the way to the lagoon.',
+  placeholderRecherche: 'HGWF-2026-4815 or MSKU 907 214 3',
+  boutonRecherche: 'Track',
+  noteDemo: 'DEMO DATA',
+  imageUrl: null as string | null,
+};
+
+const RESULTAT_EN = {
+  libelleLatitude: 'LATITUDE',
+  libelleLongitude: 'LONGITUDE',
+  libelleSignal: 'SIGNAL',
+  cartePosition: 'Position',
+  carteNavire: 'Vessel',
+  carteProgression: 'Progress',
+  carteEta: 'ETA',
+  noteContact: 'A question about this shipment?',
+  noteContactLien: 'Contact the team: personalised follow-up by phone or WhatsApp, at any time.',
+  positionAvantDepart: "LE HAVRE · QUAI DE L'EURE",
+  navireAttente: 'AWAITING LOADING',
+  suffixeDebarque: '(UNLOADED)',
+  libelleVitesse: 'SPEED',
+  libelleCap: 'HEADING',
+};
+
+const ETAPES_EN = [
+  {
+    jalon: 'Picked up',
+    statut: 'PICKED UP',
+    position: 'At the logistics centre, Rosny-sous-Bois',
+    chipA: 'STUFFING IN PROGRESS',
+    chipB: '10 RUE DIDEROT',
+  },
+  {
+    jalon: 'At the port of Le Havre',
+    statut: 'AT THE PORT',
+    position: 'At the quay, Le Havre',
+    chipA: 'AWAITING LOADING',
+    chipB: "QUAI DE L'EURE",
+  },
+  {
+    jalon: 'At sea',
+    statut: 'AT SEA',
+    position: 'Live position, at sea',
+    chipA: null,
+    chipB: null,
+  },
+  {
+    jalon: 'Port of arrival',
+    statut: 'ARRIVED AT PORT',
+    position: 'At the quay, port of arrival',
+    chipA: 'CUSTOMS CLEARANCE',
+    chipB: 'CONTAINER TERMINAL',
+  },
+  {
+    jalon: 'Delivered',
+    statut: 'DELIVERED',
+    position: 'Delivered to destination',
+    chipA: 'DELIVERED ON 11/07',
+    chipB: 'SIGNATURE RECEIVED',
+  },
+];
+
+const VOYAGE_EN = {
+  titre: 'The journey of your',
+  titreAccent: 'container',
+  etapes: [
+    {
+      titre: 'Pick-up',
+      texte: 'Drop-off in Rosny-sous-Bois or home collection, stuffing and customs file.',
+      imageUrl: null as string | null,
+    },
+    {
+      titre: 'At sea',
+      texte: 'Loading in Le Havre or Fos, crossing tracked position by position.',
+      imageUrl: null as string | null,
+    },
+    {
+      titre: 'Delivery',
+      texte: 'Unloading, customs clearance and hand-over at destination, all the way to the lagoon.',
+      imageUrl: null as string | null,
+    },
+  ],
+};
+
+const CTA_EN = {
+  titre: 'A shipment to prepare?',
+  sousTitre: 'FREE QUOTE · REPLY WITHIN 24–48 H',
+  bouton: 'Request a quote',
+  lien: '/contact',
+  imageUrl: null as string | null,
+};
+
 function resolveLocale(locale: string): Locale {
   return isLocale(locale) ? locale : defaultLocale;
 }
@@ -190,7 +290,21 @@ function resolveLocale(locale: string): Locale {
 async function getContenu(locale: Locale) {
   const data = await getPageSuivi(locale);
 
-  const etapes = ETAPES_DEFAUT.map((def, i) => {
+  const enL = locale === 'en';
+  const HERO_D = enL ? HERO_EN : HERO_DEFAUT;
+  const RESULTAT_D = enL ? RESULTAT_EN : RESULTAT_DEFAUT;
+  const VOYAGE_D = enL ? VOYAGE_EN : VOYAGE_DEFAUT;
+  const CTA_D = enL ? CTA_EN : CTA_DEFAUT;
+  const ETAPES_D = enL ? ETAPES_EN : ETAPES_DEFAUT;
+  // Trajets démo : données partagées, mention d'océan traduite à la volée.
+  const TRAJETS_D = enL
+    ? TRAJETS_DEFAUT.map((t) => ({
+        ...t,
+        positionMer: t.positionMer.replace('ATLANTIQUE', 'ATLANTIC').replace('PACIFIQUE', 'PACIFIC'),
+      }))
+    : TRAJETS_DEFAUT;
+
+  const etapes = ETAPES_D.map((def, i) => {
     const cms = data?.etapes?.[i];
     return {
       jalon: cms?.jalon ?? def.jalon,
@@ -205,7 +319,7 @@ async function getContenu(locale: Locale) {
   const trajets = data?.trajetsDemo?.length
     ? data.trajetsDemo.map((t, i) => {
         // Modulo borné par la longueur du tableau : l'entrée existe toujours.
-        const def = TRAJETS_DEFAUT[i % TRAJETS_DEFAUT.length]!;
+        const def = TRAJETS_D[i % TRAJETS_D.length]!;
         return {
           destination: t.destination ?? def.destination,
           destinationCourt: t.destinationCourt ?? def.destinationCourt,
@@ -218,34 +332,34 @@ async function getContenu(locale: Locale) {
           cap: t.cap ?? def.cap,
         };
       })
-    : TRAJETS_DEFAUT;
+    : TRAJETS_D;
 
   const tracker: SuiviTrackerContent = {
     hero: {
-      eyebrow: data?.hero?.eyebrow ?? HERO_DEFAUT.eyebrow,
-      titre: data?.hero?.titre ?? HERO_DEFAUT.titre,
-      titreAccent: data?.hero?.titreAccent ?? HERO_DEFAUT.titreAccent,
-      description: data?.hero?.description ?? HERO_DEFAUT.description,
-      placeholderRecherche: data?.hero?.placeholderRecherche ?? HERO_DEFAUT.placeholderRecherche,
-      boutonRecherche: data?.hero?.boutonRecherche ?? HERO_DEFAUT.boutonRecherche,
-      noteDemo: data?.hero?.noteDemo ?? HERO_DEFAUT.noteDemo,
-      imageUrl: data?.hero?.imageUrl ?? HERO_DEFAUT.imageUrl,
+      eyebrow: data?.hero?.eyebrow ?? HERO_D.eyebrow,
+      titre: data?.hero?.titre ?? HERO_D.titre,
+      titreAccent: data?.hero?.titreAccent ?? HERO_D.titreAccent,
+      description: data?.hero?.description ?? HERO_D.description,
+      placeholderRecherche: data?.hero?.placeholderRecherche ?? HERO_D.placeholderRecherche,
+      boutonRecherche: data?.hero?.boutonRecherche ?? HERO_D.boutonRecherche,
+      noteDemo: data?.hero?.noteDemo ?? HERO_D.noteDemo,
+      imageUrl: data?.hero?.imageUrl ?? HERO_D.imageUrl,
     },
     resultat: {
-      libelleLatitude: data?.resultat?.libelleLatitude ?? RESULTAT_DEFAUT.libelleLatitude,
-      libelleLongitude: data?.resultat?.libelleLongitude ?? RESULTAT_DEFAUT.libelleLongitude,
-      libelleSignal: data?.resultat?.libelleSignal ?? RESULTAT_DEFAUT.libelleSignal,
-      cartePosition: data?.resultat?.cartePosition ?? RESULTAT_DEFAUT.cartePosition,
-      carteNavire: data?.resultat?.carteNavire ?? RESULTAT_DEFAUT.carteNavire,
-      carteProgression: data?.resultat?.carteProgression ?? RESULTAT_DEFAUT.carteProgression,
-      carteEta: data?.resultat?.carteEta ?? RESULTAT_DEFAUT.carteEta,
-      noteContact: data?.resultat?.noteContact ?? RESULTAT_DEFAUT.noteContact,
-      noteContactLien: data?.resultat?.noteContactLien ?? RESULTAT_DEFAUT.noteContactLien,
-      positionAvantDepart: data?.resultat?.positionAvantDepart ?? RESULTAT_DEFAUT.positionAvantDepart,
-      navireAttente: data?.resultat?.navireAttente ?? RESULTAT_DEFAUT.navireAttente,
-      suffixeDebarque: data?.resultat?.suffixeDebarque ?? RESULTAT_DEFAUT.suffixeDebarque,
-      libelleVitesse: data?.resultat?.libelleVitesse ?? RESULTAT_DEFAUT.libelleVitesse,
-      libelleCap: data?.resultat?.libelleCap ?? RESULTAT_DEFAUT.libelleCap,
+      libelleLatitude: data?.resultat?.libelleLatitude ?? RESULTAT_D.libelleLatitude,
+      libelleLongitude: data?.resultat?.libelleLongitude ?? RESULTAT_D.libelleLongitude,
+      libelleSignal: data?.resultat?.libelleSignal ?? RESULTAT_D.libelleSignal,
+      cartePosition: data?.resultat?.cartePosition ?? RESULTAT_D.cartePosition,
+      carteNavire: data?.resultat?.carteNavire ?? RESULTAT_D.carteNavire,
+      carteProgression: data?.resultat?.carteProgression ?? RESULTAT_D.carteProgression,
+      carteEta: data?.resultat?.carteEta ?? RESULTAT_D.carteEta,
+      noteContact: data?.resultat?.noteContact ?? RESULTAT_D.noteContact,
+      noteContactLien: data?.resultat?.noteContactLien ?? RESULTAT_D.noteContactLien,
+      positionAvantDepart: data?.resultat?.positionAvantDepart ?? RESULTAT_D.positionAvantDepart,
+      navireAttente: data?.resultat?.navireAttente ?? RESULTAT_D.navireAttente,
+      suffixeDebarque: data?.resultat?.suffixeDebarque ?? RESULTAT_D.suffixeDebarque,
+      libelleVitesse: data?.resultat?.libelleVitesse ?? RESULTAT_D.libelleVitesse,
+      libelleCap: data?.resultat?.libelleCap ?? RESULTAT_D.libelleCap,
     },
     etapes,
     trajets,
@@ -255,9 +369,9 @@ async function getContenu(locale: Locale) {
   };
 
   const voyage = {
-    titre: data?.voyage?.titre ?? VOYAGE_DEFAUT.titre,
-    titreAccent: data?.voyage?.titreAccent ?? VOYAGE_DEFAUT.titreAccent,
-    etapes: VOYAGE_DEFAUT.etapes.map((def, i) => {
+    titre: data?.voyage?.titre ?? VOYAGE_D.titre,
+    titreAccent: data?.voyage?.titreAccent ?? VOYAGE_D.titreAccent,
+    etapes: VOYAGE_D.etapes.map((def, i) => {
       const cms = data?.voyage?.etapes?.[i];
       return {
         titre: cms?.titre ?? def.titre,
@@ -268,11 +382,11 @@ async function getContenu(locale: Locale) {
   };
 
   const cta = {
-    titre: data?.cta?.titre ?? CTA_DEFAUT.titre,
-    sousTitre: data?.cta?.sousTitre ?? CTA_DEFAUT.sousTitre,
-    bouton: data?.cta?.bouton ?? CTA_DEFAUT.bouton,
-    lien: data?.cta?.lien ?? CTA_DEFAUT.lien,
-    imageUrl: data?.cta?.imageUrl ?? CTA_DEFAUT.imageUrl,
+    titre: data?.cta?.titre ?? CTA_D.titre,
+    sousTitre: data?.cta?.sousTitre ?? CTA_D.sousTitre,
+    bouton: data?.cta?.bouton ?? CTA_D.bouton,
+    lien: data?.cta?.lien ?? CTA_D.lien,
+    imageUrl: data?.cta?.imageUrl ?? CTA_D.imageUrl,
   };
 
   const seoEn = {

@@ -58,7 +58,7 @@ export default async function LocaleLayout({
           >
             {locale === 'en' ? 'Skip to content' : 'Aller au contenu'}
           </a>
-          <DonneesStructurees />
+          <DonneesStructurees locale={locale} />
           <RevealScroll />
           <HeaderScroll />
           <Header locale={locale} />

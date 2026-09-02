@@ -44,6 +44,29 @@ const SEO_DEFAUT_EN = {
     'Shipping, rates, transit times, groupage, used containers: all the answers about freight transport with HGWF Cargo.',
 };
 
+// Version anglaise des contenus par défaut (le contenu Sanity EN prime).
+const HERO_EN = {
+  eyebrow: 'Frequently asked questions',
+  titre: 'Common questions.',
+  description:
+    'All the answers about our services and long-distance freight transport. Another question?',
+  lienContact: 'Contact us',
+  imageUrl: null as string | null,
+};
+
+const CATEGORIES_EN = [
+  { cle: 'expeditions', titre: 'Shipping' },
+  { cle: 'tarifs', titre: 'Rates & transit times' },
+  { cle: 'conteneurs', titre: 'Used containers' },
+];
+
+const CTA_EN = {
+  titre: 'Didn’t find your answer?',
+  sousTitre: 'REPLY WITHIN 24–48 H',
+  bouton: 'Contact us',
+  lien: '/contact',
+};
+
 function texte(bloc: PortableBlock): string {
   return (bloc.children ?? []).map((c) => c.text ?? '').join('');
 }
@@ -93,23 +116,28 @@ function resolveLocale(locale: string): Locale {
 async function getContenu(locale: Locale) {
   const [data, items] = await Promise.all([getPageFaq(locale), getFaqItems(locale)]);
 
+  const enL = locale === 'en';
+  const HERO_D = enL ? HERO_EN : HERO_DEFAUT;
+  const CATEGORIES_D = enL ? CATEGORIES_EN : CATEGORIES_DEFAUT;
+  const CTA_D = enL ? CTA_EN : CTA_DEFAUT;
+
   return {
     hero: {
-      eyebrow: data?.hero?.eyebrow ?? HERO_DEFAUT.eyebrow,
-      titre: data?.hero?.titre ?? HERO_DEFAUT.titre,
-      description: data?.hero?.description ?? HERO_DEFAUT.description,
-      lienContact: data?.hero?.lienContact ?? HERO_DEFAUT.lienContact,
-      imageUrl: data?.hero?.imageUrl ?? HERO_DEFAUT.imageUrl,
+      eyebrow: data?.hero?.eyebrow ?? HERO_D.eyebrow,
+      titre: data?.hero?.titre ?? HERO_D.titre,
+      description: data?.hero?.description ?? HERO_D.description,
+      lienContact: data?.hero?.lienContact ?? HERO_D.lienContact,
+      imageUrl: data?.hero?.imageUrl ?? HERO_D.imageUrl,
     },
     categories: data?.categories?.length
       ? data.categories.map((c) => ({ cle: c.cle ?? '', titre: c.titre ?? '' }))
-      : CATEGORIES_DEFAUT,
+      : CATEGORIES_D,
     items,
     cta: {
-      titre: data?.cta?.titre ?? CTA_DEFAUT.titre,
-      sousTitre: data?.cta?.sousTitre ?? CTA_DEFAUT.sousTitre,
-      bouton: data?.cta?.bouton ?? CTA_DEFAUT.bouton,
-      lien: data?.cta?.lien ?? CTA_DEFAUT.lien,
+      titre: data?.cta?.titre ?? CTA_D.titre,
+      sousTitre: data?.cta?.sousTitre ?? CTA_D.sousTitre,
+      bouton: data?.cta?.bouton ?? CTA_D.bouton,
+      lien: data?.cta?.lien ?? CTA_D.lien,
     },
     seo: {
       titre: data?.seoTitre ?? (locale === 'en' ? SEO_DEFAUT_EN.titre : SEO_DEFAUT.titre),

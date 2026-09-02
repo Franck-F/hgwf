@@ -199,6 +199,100 @@ const SEO_DEFAUT = {
     'Obtenez un devis gratuit en 4 étapes : type d’envoi, destination, volume estimé et coordonnées. Réponse personnalisée sous 24 à 48 h.',
 };
 
+// Version anglaise des contenus par défaut (le contenu Sanity EN prime).
+const HERO_EN = {
+  eyebrow: 'Free quote · Reply within 24–48 h',
+  titre: 'Your quote in 4',
+  titreAccent: 'steps',
+  description:
+    'Shipment type, destination, volume, contact details: the team replies with a personalised price and the next departure dates.',
+  imageUrl: null as string | null,
+};
+
+const WIZARD_EN = {
+  etapeLabels: ['Service', 'Destination', 'Volume', 'Contact details'],
+  etapeType: { titre: 'Which service do you need?' },
+  etapeDestination: {
+    titre: 'Where are you shipping to?',
+    libelleDestination: 'Destination',
+    libelleDepart: 'Port of departure',
+    libelleDelai: 'AVERAGE TRANSIT TIME',
+  },
+  etapeVolume: {
+    titre: 'Estimate your volume.',
+    texte:
+      'Measure each parcel at its widest point, in centimetres (cm). Groupage is billed by cubic metre (m³).',
+    boutonAjouter: '+ Add a parcel',
+    legendeDims: 'Length × width × height in cm, then quantity',
+    commentaireLabel: 'Comments about your parcels (optional)',
+    commentairePlaceholder: 'Nature of the goods, approximate weight, fragile, vehicle…',
+  },
+  etapeCoordonnees: {
+    titre: 'Your contact details.',
+    placeholderNom: 'Full name',
+    placeholderEmail: 'Email',
+    placeholderTel: 'Phone / WhatsApp',
+    placeholderMessage: 'Details: nature of the goods, vehicle, preferred dates…',
+    preferenceLabel: 'How would you like to be contacted?',
+    preferences: ['Email', 'Phone', 'WhatsApp'],
+  },
+  recap: {
+    titre: 'Your shipment',
+    libelleType: 'Type',
+    libelleDestination: 'Destination',
+    libelleDepart: 'Departure',
+    libelleVolume: 'Estimated volume',
+  },
+  confirmation: {
+    titre: 'Request sent.',
+    texte:
+      'Thank you {nom}, your request is in the team’s hands. Replies usually take 24 to 48 hours. Your reference:',
+    boutonContact: 'Talk to the team',
+    boutonAccueil: 'Back to home',
+  },
+  boutons: { precedent: '← Previous', suivant: 'Next →', envoyer: 'Send the request' },
+  typesEnvoi: [
+    { label: 'Groupage (LCL)', description: 'Boxes, pallets, personal effects: billed by cubic metre.' },
+    { label: 'Full container (FCL)', description: "A 20' or 40' container reserved for your shipment, dry or reefer." },
+    { label: 'Vehicle / boat', description: 'Car, motorbike, boat, jet ski, trailer: container or ro-ro.' },
+    { label: 'Removal', description: 'Overseas relocation, retirement, return home: your whole household.' },
+    { label: 'Container transport', description: 'Haulage of your container, port-to-port or door-to-door.' },
+    { label: 'Air freight', description: 'Your urgent shipments by plane, shorter transit times.' },
+    { label: 'Warehouse & storage boxes', description: 'Storage space rental, short or long term.' },
+  ],
+  destinations: [
+    { nom: 'Guadeloupe', delai: '3 TO 5 WEEKS' },
+    { nom: 'Martinique', delai: '3 TO 5 WEEKS' },
+    { nom: 'French Guiana', delai: '3 TO 5 WEEKS' },
+    { nom: 'Saint-Martin / Saint-Barthélemy', delai: '3 TO 5 WEEKS' },
+    { nom: 'Haiti', delai: '4 TO 6 WEEKS' },
+    { nom: 'Dominican Republic', delai: '4 TO 6 WEEKS' },
+    { nom: 'United States / Canada', delai: 'DEPENDING ON ROTATION, CONTACT US' },
+    { nom: 'South America', delai: 'DEPENDING ON ROTATION, CONTACT US' },
+    { nom: 'French-speaking Africa', delai: 'VARIES BY DESTINATION' },
+    { nom: 'Other destination', delai: 'CONTACT US' },
+  ],
+  portsDepart: ['Le Havre', 'Fos / Marseille', 'Home pick-up', 'Drop-off in Rosny-sous-Bois'],
+};
+
+const REASSURANCE_EN = [
+  {
+    valeur: '24–48 H',
+    titre: 'Fast reply',
+    texte: 'Every request is handled with care: personalised price and the next departure dates.',
+  },
+  {
+    valeur: 'PER M³',
+    titre: 'Volume-based price',
+    texte: 'With groupage, you only pay for the space you use in the container.',
+  },
+  {
+    valeur: '€0',
+    titre: 'Free quote',
+    texte: 'No commitment: the team also helps you put together the full customs file.',
+  },
+];
+
 function resolveLocale(locale: string): Locale {
   return isLocale(locale) ? locale : defaultLocale;
 }
@@ -206,40 +300,44 @@ function resolveLocale(locale: string): Locale {
 async function getContenu(locale: Locale) {
   const [data, settings] = await Promise.all([getPageDevis(locale), getSiteSettings()]);
 
+  const enL = locale === 'en';
+  const HERO_D = enL ? HERO_EN : HERO_DEFAUT;
+  const WIZ_D = enL ? WIZARD_EN : WIZARD_DEFAUT;
+
   const hero = {
-    eyebrow: data?.hero?.eyebrow ?? HERO_DEFAUT.eyebrow,
-    titre: data?.hero?.titre ?? HERO_DEFAUT.titre,
-    titreAccent: data?.hero?.titreAccent ?? HERO_DEFAUT.titreAccent,
-    description: data?.hero?.description ?? HERO_DEFAUT.description,
-    imageUrl: data?.hero?.imageUrl ?? HERO_DEFAUT.imageUrl,
+    eyebrow: data?.hero?.eyebrow ?? HERO_D.eyebrow,
+    titre: data?.hero?.titre ?? HERO_D.titre,
+    titreAccent: data?.hero?.titreAccent ?? HERO_D.titreAccent,
+    description: data?.hero?.description ?? HERO_D.description,
+    imageUrl: data?.hero?.imageUrl ?? HERO_D.imageUrl,
   };
 
   const textes = locale === 'en' ? TEXTES_WIZARD_EN : TEXTES_WIZARD_FR;
 
   const wizard: DevisWizardContent = {
-    etapeLabels: data?.etapeLabels?.length === 4 ? data.etapeLabels : WIZARD_DEFAUT.etapeLabels,
+    etapeLabels: data?.etapeLabels?.length === 4 ? data.etapeLabels : WIZ_D.etapeLabels,
     etapeSur: textes.etapeSur,
-    etapeType: { titre: data?.etapeType?.titre ?? WIZARD_DEFAUT.etapeType.titre },
+    etapeType: { titre: data?.etapeType?.titre ?? WIZ_D.etapeType.titre },
     etapeDestination: {
-      titre: data?.etapeDestination?.titre ?? WIZARD_DEFAUT.etapeDestination.titre,
+      titre: data?.etapeDestination?.titre ?? WIZ_D.etapeDestination.titre,
       libelleDestination:
-        data?.etapeDestination?.libelleDestination ?? WIZARD_DEFAUT.etapeDestination.libelleDestination,
-      libelleDepart: data?.etapeDestination?.libelleDepart ?? WIZARD_DEFAUT.etapeDestination.libelleDepart,
-      libelleDelai: data?.etapeDestination?.libelleDelai ?? WIZARD_DEFAUT.etapeDestination.libelleDelai,
+        data?.etapeDestination?.libelleDestination ?? WIZ_D.etapeDestination.libelleDestination,
+      libelleDepart: data?.etapeDestination?.libelleDepart ?? WIZ_D.etapeDestination.libelleDepart,
+      libelleDelai: data?.etapeDestination?.libelleDelai ?? WIZ_D.etapeDestination.libelleDelai,
     },
     etapeVolume: {
-      titre: data?.etapeVolume?.titre ?? WIZARD_DEFAUT.etapeVolume.titre,
-      texte: data?.etapeVolume?.texte ?? WIZARD_DEFAUT.etapeVolume.texte,
-      boutonAjouter: data?.etapeVolume?.boutonAjouter ?? WIZARD_DEFAUT.etapeVolume.boutonAjouter,
+      titre: data?.etapeVolume?.titre ?? WIZ_D.etapeVolume.titre,
+      texte: data?.etapeVolume?.texte ?? WIZ_D.etapeVolume.texte,
+      boutonAjouter: data?.etapeVolume?.boutonAjouter ?? WIZ_D.etapeVolume.boutonAjouter,
       // Champs absents du CMS : traduits ici même, selon la locale de la page.
       legendeDims:
-        locale === 'en' ? 'Length × width × height in cm, then quantity' : WIZARD_DEFAUT.etapeVolume.legendeDims,
+        locale === 'en' ? 'Length × width × height in cm, then quantity' : WIZ_D.etapeVolume.legendeDims,
       commentaireLabel:
-        locale === 'en' ? 'Comments about your parcels (optional)' : WIZARD_DEFAUT.etapeVolume.commentaireLabel,
+        locale === 'en' ? 'Comments about your parcels (optional)' : WIZ_D.etapeVolume.commentaireLabel,
       commentairePlaceholder:
         locale === 'en'
           ? 'Nature of the goods, approximate weight, fragile, vehicle…'
-          : WIZARD_DEFAUT.etapeVolume.commentairePlaceholder,
+          : WIZ_D.etapeVolume.commentairePlaceholder,
       lienModePrecis: textes.lienModePrecis,
       lienModeSimple: textes.lienModeSimple,
       presets: locale === 'en' ? PRESETS_VOLUME_EN : PRESETS_VOLUME_FR,
@@ -247,7 +345,7 @@ async function getContenu(locale: Locale) {
       totalLabel: textes.totalLabel,
     },
     etapeCoordonnees: {
-      titre: data?.etapeCoordonnees?.titre ?? WIZARD_DEFAUT.etapeCoordonnees.titre,
+      titre: data?.etapeCoordonnees?.titre ?? WIZ_D.etapeCoordonnees.titre,
       intro: textes.intro,
       exempleNom: textes.exempleNom,
       exempleEmail: textes.exempleEmail,
@@ -255,42 +353,42 @@ async function getContenu(locale: Locale) {
       requis: textes.requis,
       unDesDeux: textes.unDesDeux,
       optionnel: textes.optionnel,
-      placeholderNom: data?.etapeCoordonnees?.placeholderNom ?? WIZARD_DEFAUT.etapeCoordonnees.placeholderNom,
-      placeholderEmail: data?.etapeCoordonnees?.placeholderEmail ?? WIZARD_DEFAUT.etapeCoordonnees.placeholderEmail,
-      placeholderTel: data?.etapeCoordonnees?.placeholderTel ?? WIZARD_DEFAUT.etapeCoordonnees.placeholderTel,
+      placeholderNom: data?.etapeCoordonnees?.placeholderNom ?? WIZ_D.etapeCoordonnees.placeholderNom,
+      placeholderEmail: data?.etapeCoordonnees?.placeholderEmail ?? WIZ_D.etapeCoordonnees.placeholderEmail,
+      placeholderTel: data?.etapeCoordonnees?.placeholderTel ?? WIZ_D.etapeCoordonnees.placeholderTel,
       placeholderMessage:
-        data?.etapeCoordonnees?.placeholderMessage ?? WIZARD_DEFAUT.etapeCoordonnees.placeholderMessage,
+        data?.etapeCoordonnees?.placeholderMessage ?? WIZ_D.etapeCoordonnees.placeholderMessage,
       preferenceLabel:
-        locale === 'en' ? 'How would you like to be contacted?' : WIZARD_DEFAUT.etapeCoordonnees.preferenceLabel,
+        locale === 'en' ? 'How would you like to be contacted?' : WIZ_D.etapeCoordonnees.preferenceLabel,
       preferences:
-        locale === 'en' ? ['Email', 'Phone', 'WhatsApp'] : WIZARD_DEFAUT.etapeCoordonnees.preferences,
+        locale === 'en' ? ['Email', 'Phone', 'WhatsApp'] : WIZ_D.etapeCoordonnees.preferences,
     },
     recap: {
-      titre: data?.recap?.titre ?? WIZARD_DEFAUT.recap.titre,
-      libelleType: data?.recap?.libelleType ?? WIZARD_DEFAUT.recap.libelleType,
-      libelleDestination: data?.recap?.libelleDestination ?? WIZARD_DEFAUT.recap.libelleDestination,
-      libelleDepart: data?.recap?.libelleDepart ?? WIZARD_DEFAUT.recap.libelleDepart,
-      libelleVolume: data?.recap?.libelleVolume ?? WIZARD_DEFAUT.recap.libelleVolume,
+      titre: data?.recap?.titre ?? WIZ_D.recap.titre,
+      libelleType: data?.recap?.libelleType ?? WIZ_D.recap.libelleType,
+      libelleDestination: data?.recap?.libelleDestination ?? WIZ_D.recap.libelleDestination,
+      libelleDepart: data?.recap?.libelleDepart ?? WIZ_D.recap.libelleDepart,
+      libelleVolume: data?.recap?.libelleVolume ?? WIZ_D.recap.libelleVolume,
     },
     confirmation: {
-      titre: data?.confirmation?.titre ?? WIZARD_DEFAUT.confirmation.titre,
-      texte: data?.confirmation?.texte ?? WIZARD_DEFAUT.confirmation.texte,
-      boutonContact: data?.confirmation?.boutonContact ?? WIZARD_DEFAUT.confirmation.boutonContact,
-      boutonAccueil: data?.confirmation?.boutonAccueil ?? WIZARD_DEFAUT.confirmation.boutonAccueil,
+      titre: data?.confirmation?.titre ?? WIZ_D.confirmation.titre,
+      texte: data?.confirmation?.texte ?? WIZ_D.confirmation.texte,
+      boutonContact: data?.confirmation?.boutonContact ?? WIZ_D.confirmation.boutonContact,
+      boutonAccueil: data?.confirmation?.boutonAccueil ?? WIZ_D.confirmation.boutonAccueil,
     },
     boutons: {
-      precedent: data?.boutons?.precedent ?? WIZARD_DEFAUT.boutons.precedent,
-      suivant: data?.boutons?.suivant ?? WIZARD_DEFAUT.boutons.suivant,
-      envoyer: data?.boutons?.envoyer ?? WIZARD_DEFAUT.boutons.envoyer,
+      precedent: data?.boutons?.precedent ?? WIZ_D.boutons.precedent,
+      suivant: data?.boutons?.suivant ?? WIZ_D.boutons.suivant,
+      envoyer: data?.boutons?.envoyer ?? WIZ_D.boutons.envoyer,
       envoiEnCours: textes.envoiEnCours,
     },
     typesEnvoi: data?.typesEnvoi?.length
       ? data.typesEnvoi.map((t) => ({ label: t.label ?? '', description: t.description ?? '' }))
-      : WIZARD_DEFAUT.typesEnvoi,
+      : WIZ_D.typesEnvoi,
     destinations: data?.destinations?.length
       ? data.destinations.map((d) => ({ nom: d.nom ?? '', delai: d.delai ?? '…' }))
-      : WIZARD_DEFAUT.destinations,
-    portsDepart: data?.portsDepart?.length ? data.portsDepart : WIZARD_DEFAUT.portsDepart,
+      : WIZ_D.destinations,
+    portsDepart: data?.portsDepart?.length ? data.portsDepart : WIZ_D.portsDepart,
     imagesEtapes: data?.imagesEtapesUrls?.length ? data.imagesEtapesUrls : [null, null, null, null],
     emailDestinataire: settings?.email ?? 'contact@hgwf-cargo.fr',
     sujetEmail: 'Demande de devis',
@@ -302,7 +400,9 @@ async function getContenu(locale: Locale) {
 
   const reassurance = data?.reassurance?.length
     ? data.reassurance.map((r) => ({ valeur: r.valeur ?? '', titre: r.titre ?? '', texte: r.texte ?? '' }))
-    : REASSURANCE_DEFAUT;
+    : locale === 'en'
+      ? REASSURANCE_EN
+      : REASSURANCE_DEFAUT;
 
   const seoEn = {
     titre: 'Request a quote · HGWF Cargo',
