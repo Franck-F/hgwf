@@ -404,6 +404,13 @@ export function BackOffice() {
   const [pec, setPec] = useState<FormPec>(FORM_PEC_VIDE);
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
   const [envoiMessage, setEnvoiMessage] = useState<string | null>(null);
+  // Fenêtre de relecture avant envoi. `null` = fermée.
+  const [apercu, setApercu] = useState<{
+    demande: Demande;
+    destinataire: string;
+    objet: string;
+    texte: string;
+  } | null>(null);
   // Verrou d'écriture : protège du double clic et des tentatives concurrentes.
   const [pecEnCours, setPecEnCours] = useState(false);
 
@@ -688,32 +695,91 @@ export function BackOffice() {
   // La clé partagée est demandée une fois puis conservée dans le navigateur.
   // Ce n'est pas une authentification forte — c'est ce qui empêche un tiers
   // d'appeler l'endpoint. Le Studio exige déjà une connexion Sanity.
+  // Étape 1 : on demande à l'API le message tel qu'il partirait, et on l'ouvre
+  // dans une fenêtre de relecture. Le texte n'est pas rédigé ici : il vient du
+  // serveur, seule source de la formulation, pour qu'aperçu et envoi ne
+  // puissent pas diverger.
+  const ouvrirApercuDevis = async (d: Demande) => {
+    if (envoiEnCours) return;
+    const cle = await obtenirCleApi();
+    if (!cle) return;
+    setEnvoiEnCours(true);
+    setEnvoiMessage(null);
+    try {
+      const rep = await appelerApi('/api/envoi-devis', cle, { reference: d.reference, apercu: true });
+      if (!rep) return;
+      const data = (await rep.json().catch(() => ({}))) as {
+        ok?: boolean;
+        erreur?: string;
+        destinataire?: string;
+        objet?: string;
+        texte?: string;
+      };
+      if (rep.status === 401) {
+        localStorage.removeItem('hgwf-cle-api');
+        setEnvoiMessage('Clé refusée. Relancez pour la saisir à nouveau.');
+        return;
+      }
+      if (!rep.ok || !data.ok) {
+        setEnvoiMessage(`Aperçu impossible : ${data.erreur ?? 'erreur ' + rep.status}`);
+        return;
+      }
+      setApercu({
+        demande: d,
+        destinataire: data.destinataire ?? '',
+        objet: data.objet ?? '',
+        texte: data.texte ?? '',
+      });
+    } catch (e) {
+      setEnvoiMessage(`Aperçu impossible : ${e instanceof Error ? e.message : 'erreur inattendue'}`);
+    } finally {
+      setEnvoiEnCours(false);
+    }
+  };
+
+  const obtenirCleApi = async (): Promise<string | null> => {
+    let cle = localStorage.getItem('hgwf-cle-api');
+    if (!cle) {
+      cle = window.prompt("Clé d'envoi du back-office (demandée une seule fois) :");
+      if (!cle) return null;
+      localStorage.setItem('hgwf-cle-api', cle);
+    }
+    return cle;
+  };
+
+  const appelerApi = async (chemin: string, cle: string, corps: unknown) => {
+    const api = process.env.SANITY_STUDIO_HGWF_API_URL;
+    if (!api) {
+      setEnvoiMessage("URL de l'API absente (SANITY_STUDIO_HGWF_API_URL).");
+      return null;
+    }
+    return fetch(`${api}${chemin}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-hgwf-cle': cle },
+      body: JSON.stringify(corps),
+    });
+  };
+
+  // Étape 2 : envoi effectif, avec l'objet et le texte éventuellement retouchés.
   const envoyerDevisParEmail = async (d: Demande) => {
     if (envoiEnCours) return;
     // Même convention que sanity.config.ts : la CLI Sanity injecte les
     // variables préfixées SANITY_STUDIO_ dans process.env au build.
-    const api = process.env.SANITY_STUDIO_HGWF_API_URL;
-    if (!api) {
-      setEnvoiMessage("URL de l'API absente (SANITY_STUDIO_HGWF_API_URL).");
-      return;
-    }
-    let cle = localStorage.getItem('hgwf-cle-api');
-    if (!cle) {
-      cle = window.prompt("Clé d'envoi du back-office (demandée une seule fois) :");
-      if (!cle) return;
-      localStorage.setItem('hgwf-cle-api', cle);
-    }
+    const cle = await obtenirCleApi();
+    if (!cle) return;
 
     setEnvoiEnCours(true);
     setEnvoiMessage(null);
     try {
       const doc = await construireDevisPdf(d);
       const pdfBase64 = (doc.output('datauristring') as string).split(',')[1] ?? '';
-      const rep = await fetch(`${api}/api/envoi-devis`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-hgwf-cle': cle },
-        body: JSON.stringify({ reference: d.reference, pdfBase64 }),
+      const rep = await appelerApi('/api/envoi-devis', cle, {
+        reference: d.reference,
+        pdfBase64,
+        objet: apercu?.objet,
+        texte: apercu?.texte,
       });
+      if (!rep) return;
       const data = (await rep.json().catch(() => ({}))) as { ok?: boolean; erreur?: string; destinataire?: string };
       if (rep.status === 401) {
         // Clé refusée : on l'oublie, pour que la prochaine tentative redemande.
@@ -726,6 +792,7 @@ export function BackOffice() {
         return;
       }
       setEnvoiMessage(`Devis envoyé à ${data.destinataire}.`);
+      setApercu(null);
       // L'envoi réussi fait avancer la demande : c'est le geste métier attendu.
       if (clampDemande(d.statut) < 2) await changerStatut(d, 2);
     } catch (e) {
@@ -1372,7 +1439,7 @@ export function BackOffice() {
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {extraireEmail(sel.contact) && selPourEnvoi && (
                             <button
-                              onClick={() => envoyerDevisParEmail(selPourEnvoi)}
+                              onClick={() => ouvrirApercuDevis(selPourEnvoi)}
                               disabled={envoiEnCours || !selPourEnvoi.montantDevis}
                               title={
                                 selPourEnvoi.montantDevis
@@ -2300,6 +2367,108 @@ export function BackOffice() {
                   {!clients.length && <p style={{ margin: 0, padding: '18px 24px', fontSize: 13, color: ENCRE }}>Aucune fiche client.</p>}
                 </div>
               </>
+            )}
+
+            {/* Relecture avant envoi : on voit ce qui part, on peut le
+                retoucher, et l'envoi ne se déclenche qu'ici. Le destinataire
+                est affiché mais non modifiable — il vient de la fiche, jamais
+                d'une saisie. */}
+            {apercu && (
+              <div
+                onClick={() => !envoiEnCours && setApercu(null)}
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  zIndex: 1300,
+                  background: 'rgba(6,20,34,0.55)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 20,
+                }}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    background: IVOIRE,
+                    borderRadius: 18,
+                    padding: 24,
+                    width: 'min(680px, 100%)',
+                    maxHeight: '88vh',
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 14,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ fontWeight: 700, fontSize: 17, color: MARINE }}>Relire avant envoi</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: ENCRE }}>{apercu.demande.reference}</span>
+                  </div>
+
+                  <div style={{ background: CREME, borderRadius: 12, padding: '10px 14px', fontSize: 13, color: ENCRE }}>
+                    <div>
+                      <strong style={{ color: MARINE }}>De :</strong> contact@hgwf-cargo.fr
+                    </div>
+                    <div>
+                      <strong style={{ color: MARINE }}>À :</strong> {apercu.destinataire}
+                    </div>
+                    <div>
+                      <strong style={{ color: MARINE }}>Pièce jointe :</strong> Devis-{apercu.demande.reference}.pdf
+                    </div>
+                  </div>
+
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                    Objet
+                    <input
+                      value={apercu.objet}
+                      onChange={(e) => setApercu({ ...apercu, objet: e.target.value })}
+                      style={champ}
+                    />
+                  </label>
+
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                    Message
+                    <textarea
+                      value={apercu.texte}
+                      onChange={(e) => setApercu({ ...apercu, texte: e.target.value })}
+                      rows={16}
+                      style={{ ...champ, resize: 'vertical', fontFamily: MONO, fontSize: 12, lineHeight: 1.6 }}
+                    />
+                  </label>
+
+                  <span style={{ fontSize: 11, color: ENCRE }}>
+                    Les lignes vides séparent les paragraphes de la version mise en forme. Le devis PDF est joint
+                    automatiquement, et la demande passera à « Devis envoyé ».
+                  </span>
+
+                  {envoiMessage && (
+                    <span style={{ fontSize: 12, color: ROUGE, fontWeight: 600 }}>{envoiMessage}</span>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={() => setApercu(null)}
+                      disabled={envoiEnCours}
+                      style={{ ...boutonContour, fontSize: 13, padding: '9px 18px' }}
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={() => envoyerDevisParEmail(apercu.demande)}
+                      disabled={envoiEnCours || !apercu.objet.trim() || !apercu.texte.trim()}
+                      style={{
+                        ...boutonPlein,
+                        fontSize: 13,
+                        padding: '9px 22px',
+                        opacity: envoiEnCours || !apercu.objet.trim() || !apercu.texte.trim() ? 0.45 : 1,
+                      }}
+                    >
+                      {envoiEnCours ? 'Envoi…' : 'Envoyer maintenant'}
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
 
             {vue === 'conteneurs' && (

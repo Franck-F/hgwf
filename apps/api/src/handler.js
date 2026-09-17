@@ -196,7 +196,11 @@ async function envoyerDevis(req, res, cors) {
 
   const reference = nettoyer(corps.reference, 60);
   const pdfBase64 = String(corps.pdfBase64 ?? '');
-  if (!reference || !pdfBase64) {
+  // Mode aperçu : renvoie le message tel qu'il partirait, sans rien envoyer.
+  // C'est ce qui alimente la fenêtre de relecture du back-office, sans
+  // dupliquer la rédaction des deux côtés — le texte n'a qu'une seule source.
+  const apercu = corps.apercu === true;
+  if (!reference || (!apercu && !pdfBase64)) {
     return json(res, 422, { ok: false, erreur: 'reference et pdfBase64 sont requis' }, cors);
   }
 
@@ -217,7 +221,7 @@ async function envoyerDevis(req, res, cors) {
     d.delaiEstime ? ['Délai estimé', d.delaiEstime] : null,
   ].filter(Boolean);
 
-  const texte = [
+  const texteDefaut = [
     `Bonjour${prenom ? ' ' + prenom : ''},`,
     '',
     `Voici votre devis${d.destination ? ' pour ' + d.destination : ''}, référence ${d.reference}.`,
@@ -233,19 +237,33 @@ async function envoyerDevis(req, res, cors) {
     'Bien cordialement,',
     "L'équipe HGWF Cargo",
   ].join('\n');
+  const objetDefaut = `Votre devis HGWF Cargo — ${d.montantDevis}`;
+
+  // L'opérateur peut relire et retoucher avant l'envoi. Le destinataire, lui,
+  // reste celui de la fiche Sanity : c'est la garantie que cet endpoint ne
+  // puisse jamais expédier vers une adresse choisie par l'appelant.
+  const objet = nettoyer(corps.objet, 200) || objetDefaut;
+  const texte = String(corps.texte ?? '').trim().slice(0, 20_000) || texteDefaut;
+
+  if (apercu) {
+    return json(res, 200, { ok: true, destinataire: email, objet: objetDefaut, texte: texteDefaut }, cors);
+  }
+
+  // La version HTML est construite à partir du texte relu, découpé sur les
+  // lignes vides. Le gabarit échappe tout : un opérateur ne peut pas injecter
+  // de balises, volontairement ou par copier-coller.
+  const paragraphes = texte
+    .split(/\n\s*\n/)
+    .map((p) => p.trim().replace(/\s*\n\s*/g, ' '))
+    .filter(Boolean);
 
   const r = await envoyerEmail({
     to: email,
-    subject: `Votre devis HGWF Cargo — ${d.montantDevis}`,
+    subject: objet,
     text: texte,
     html: gabaritHtml({
       titre: 'Votre devis est prêt',
-      paragraphes: [
-        `Bonjour${prenom ? ' ' + prenom : ''},`,
-        `Voici votre devis${d.destination ? ' pour ' + d.destination : ''}, référence ${d.reference}. Le document détaillé est en pièce jointe.`,
-        "Pour l'accepter, répondez simplement « je valide » à cet e-mail. Nous ouvrons alors votre dossier et vous transmettons les prochaines dates de départ.",
-        'Une question, un ajustement ? Répondez ici ou appelez-nous au 09 62 03 80 13.',
-      ],
+      paragraphes,
       lignes,
     }),
     replyTo: process.env.EMAIL_INTERNE || undefined,
