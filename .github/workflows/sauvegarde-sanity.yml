@@ -1,0 +1,80 @@
+name: Sauvegarde Sanity
+
+# Les données du back-office (demandes de devis, expéditions) et le contenu du
+# site vivent uniquement chez Sanity. Ce workflow en prend une copie complète
+# chaque nuit et la dépose en pièce jointe du run.
+#
+# Une sauvegarde jamais restaurée n'est pas une sauvegarde : la procédure de
+# restauration est décrite dans scale-up/audit/sauvegardes.md et a été testée.
+#
+# Deux limites à connaître :
+#   - les pièces jointes GitHub expirent au bout de 90 jours ;
+#   - GitHub désactive les tâches planifiées d'un dépôt resté 60 jours sans
+#     aucune activité. Un run manuel suffit à les relancer.
+
+on:
+  schedule:
+    # 03h00 UTC, soit 05h00 à Paris l'été et 04h00 l'hiver.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Date du jour
+        id: horodatage
+        run: echo "jour=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      # L'export tourne depuis apps/studio : sanity.cli.ts y lit l'identifiant
+      # de projet dans l'environnement. Le jeu de données est passé en argument,
+      # donc les deux exports ne dépendent pas de la variable par défaut.
+      - name: Export des deux jeux de données
+        working-directory: apps/studio
+        env:
+          SANITY_STUDIO_PROJECT_ID: ${{ secrets.SANITY_PROJECT_ID }}
+          SANITY_AUTH_TOKEN: ${{ secrets.SANITY_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sauvegarde"
+          for jeu in production operations; do
+            npx --yes sanity@3 dataset export "$jeu" \
+              "$RUNNER_TEMP/sauvegarde/$jeu.tar.gz" --overwrite
+          done
+          ls -lh "$RUNNER_TEMP/sauvegarde"
+
+      # Un export qui réussit en ne sauvegardant rien est le piège classique.
+      # On ouvre chaque archive et on compte les documents ; « production »
+      # contient toujours le contenu du site, donc zéro document est une panne.
+      - name: Contrôle du contenu des archives
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/sauvegarde"
+          for jeu in production operations; do
+            mkdir -p "verif-$jeu"
+            tar -xzf "$jeu.tar.gz" -C "verif-$jeu"
+            nombre=$(grep -c '' "verif-$jeu"/*/data.ndjson)
+            echo "$jeu : $nombre documents"
+            rm -rf "verif-$jeu"
+            if [ "$jeu" = "production" ] && [ "$nombre" -lt 1 ]; then
+              echo "::error::L'export de production est vide. Sauvegarde non valide."
+              exit 1
+            fi
+          done
+
+      - name: Dépôt de l'archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: sauvegarde-sanity-${{ steps.horodatage.outputs.jour }}-${{ github.run_number }}
+          path: ${{ runner.temp }}/sauvegarde/*.tar.gz
+          retention-days: 90
+          if-no-files-found: error
