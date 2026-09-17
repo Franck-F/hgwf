@@ -235,15 +235,18 @@ export function SuiviTracker({ content }: { content: SuiviTrackerContent }) {
     ? reel.trajet.toUpperCase()
     : `${portDepart.toUpperCase()} → ${trajet.destinationCourt}`;
 
-  const chercher = async () => {
-    setAffiche(numero);
+  // La référence est passée explicitement plutôt que lue dans l'état : le
+  // préremplissage par l'URL doit pouvoir lancer la recherche immédiatement,
+  // sans attendre le re-rendu qui suivrait un setNumero.
+  const chercherReference = async (ref: string) => {
+    setAffiche(ref);
     // Recherche d'une expédition réelle via l'API ; sinon, démonstration.
     if (!API_URL) {
       setReel(null);
       return;
     }
     try {
-      const rep = await fetch(`${API_URL}/api/suivi?ref=${encodeURIComponent(numero)}`);
+      const rep = await fetch(`${API_URL}/api/suivi?ref=${encodeURIComponent(ref)}`);
       if (rep.ok) {
         const data = (await rep.json()) as ExpeditionReelle & { ok: boolean };
         if (data.ok) {
@@ -256,6 +259,27 @@ export function SuiviTracker({ content }: { content: SuiviTrackerContent }) {
     }
     setReel(null);
   };
+
+  const chercher = () => chercherReference(numero);
+
+  // Préremplissage depuis l'URL : /suivi/?ref=HGWF-2026-1234 remplit le champ
+  // et lance la recherche. C'est ce qui rend cliquables les liens de suivi
+  // envoyés par e-mail ou WhatsApp — sans quoi le client doit ressaisir sa
+  // référence à la main. Le site étant exporté en statique, le paramètre se
+  // lit côté navigateur, après le montage.
+  useEffect(() => {
+    const brut = new URLSearchParams(window.location.search).get('ref');
+    if (!brut) return;
+    // Même tolérance que l'API : on accepte les espaces et la casse, on borne
+    // la longueur pour ne pas relayer une URL fabriquée.
+    const ref = brut.trim().slice(0, 60);
+    if (!ref) return;
+    setNumero(ref);
+    void chercherReference(ref);
+    // Au montage uniquement : une modification ultérieure du champ ne doit pas
+    // relancer une recherche à chaque frappe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Marqueurs du globe : Le Havre (hub de départ, or) + toutes les destinations
   // (réseau en ciel), la destination suivie ressortant en corail plus gros.
