@@ -11,6 +11,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { createClient } from '@sanity/client';
+import { envoiConfigure, envoyerEmail, gabaritHtml } from './email.js';
 
 // ── Chargement .env (sans dépendance) : dev local uniquement ─────────────────
 try {
@@ -154,7 +155,86 @@ async function creerDemande(req, res, cors) {
   });
 
   console.log(`[demande] ${reference} — ${nom} → ${corps.destination ?? '?'}`);
+
+  // Accusé de réception et alerte interne. Volontairement après l'écriture
+  // dans Sanity et sans `await` bloquant le succès : une demande enregistrée
+  // ne doit jamais être perdue parce qu'un e-mail a échoué. Le client reçoit
+  // 201 quoi qu'il arrive.
+  notifierDemande({ reference, nom, email, destination: nettoyer(corps.destination, 80), typeEnvoi: nettoyer(corps.typeEnvoi, 80), volume: nettoyer(corps.volume, 40) });
+
   return json(res, 201, { ok: true, reference }, cors);
+}
+
+// ── Notifications e-mail ──────────────────────────────────────────────────────
+// Deux messages partent à la création d'une demande : l'accusé de réception au
+// client, et l'alerte à l'équipe. Le second est le plus important : sans lui,
+// personne n'est prévenu qu'une demande est arrivée — c'est ce qui a laissé
+// deux demandes réelles sans réponse pendant treize jours.
+function notifierDemande({ reference, nom, email, destination, typeEnvoi, volume }) {
+  if (!envoiConfigure()) {
+    console.log(`[email] envoi non configuré, aucun message pour ${reference}`);
+    return;
+  }
+
+  const lignes = [
+    typeEnvoi ? ["Type d'envoi", typeEnvoi] : null,
+    destination ? ['Destination', destination] : null,
+    volume ? ['Volume estimé', volume] : null,
+  ].filter(Boolean);
+
+  // Client : accusé de réception. Rien à faire de sa part, on annonce le délai.
+  if (email) {
+    const prenom = (nom || '').trim().split(/\s+/)[0] || '';
+    const texte = [
+      `Bonjour${prenom ? ' ' + prenom : ''},`,
+      '',
+      `Votre demande de transport${destination ? ' vers ' + destination : ''} est bien enregistrée sous la référence ${reference}.`,
+      '',
+      "Un membre de l'équipe l'étudie et vous transmet votre devis sous 24 heures ouvrées.",
+      '',
+      ...(lignes.length ? ['Récapitulatif de votre demande :', ...lignes.map(([l, v]) => `- ${l} : ${v}`), ''] : []),
+      'Si une information est inexacte, répondez simplement à cet e-mail.',
+      '',
+      'Bien cordialement,',
+      "L'équipe HGWF Cargo",
+    ].join('\n');
+
+    envoyerEmail({
+      to: email,
+      subject: `Votre demande est bien reçue — ${reference}`,
+      text: texte,
+      html: gabaritHtml({
+        titre: 'Votre demande est bien reçue',
+        paragraphes: [
+          `Bonjour${prenom ? ' ' + prenom : ''},`,
+          `Votre demande de transport${destination ? ' vers ' + destination : ''} est bien enregistrée sous la référence ${reference}.`,
+          "Un membre de l'équipe l'étudie et vous transmet votre devis sous 24 heures ouvrées.",
+          'Si une information est inexacte, répondez simplement à cet e-mail.',
+        ],
+        lignes,
+      }),
+      replyTo: process.env.EMAIL_INTERNE || undefined,
+    }).then((r) => console.log(`[email] accusé ${reference} : ${r.ok ? 'envoyé' : 'échec — ' + r.raison}`));
+  }
+
+  // Équipe : alerte interne, en texte brut. Elle doit être lisible d'un coup
+  // d'œil sur un téléphone, pas jolie.
+  const interne = process.env.EMAIL_INTERNE;
+  if (interne) {
+    envoyerEmail({
+      to: interne,
+      subject: `Nouvelle demande de devis — ${reference}`,
+      text: [
+        `Référence : ${reference}`,
+        `Client : ${nom || '?'}`,
+        `Contact : ${email || 'téléphone uniquement'}`,
+        ...lignes.map(([l, v]) => `${l} : ${v}`),
+        '',
+        'À traiter dans le back-office.',
+      ].join('\n'),
+      replyTo: email || undefined,
+    }).then((r) => console.log(`[email] alerte interne ${reference} : ${r.ok ? 'envoyée' : 'échec — ' + r.raison}`));
+  }
 }
 
 async function chercherSuivi(req, res, cors, url) {
