@@ -67,7 +67,10 @@ function corsHeaders(req) {
     'Access-Control-Allow-Origin': origin && ORIGINS.includes(origin) ? origin : ORIGINS[0],
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, x-hgwf-cle',
-    'Access-Control-Max-Age': '86400',
+    // 10 minutes, pas 24 h. Un préflight en échec est mis en cache par le
+    // navigateur pendant toute cette durée : avec une journée, une erreur de
+    // configuration CORS reste invisible et non corrigeable côté visiteur.
+    'Access-Control-Max-Age': '600',
   };
 }
 

@@ -142,6 +142,7 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
   const [preference, setPreference] = useState(c.etapeCoordonnees.preferences[0] ?? '');
   const [message, setMessage] = useState('');
   const [envoye, setEnvoye] = useState(false);
+  const [echecEnvoi, setEchecEnvoi] = useState(false);
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
   const [referenceApi, setReferenceApi] = useState<string | null>(null);
   const [erreurPreset, setErreurPreset] = useState(false);
@@ -350,11 +351,21 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
           return;
         }
       } catch {
-        // API injoignable : on retombe sur le mail
+        // API injoignable : traité juste en dessous, comme une réponse en échec.
       } finally {
         setEnvoiEnCours(false);
       }
+
+      // L'appel a échoué. On ne montre surtout pas l'écran de confirmation :
+      // afficher « votre demande est entre les mains de l'équipe » alors que
+      // rien n'est parti est le pire des mensonges, et c'est ce qui a laissé
+      // passer des demandes sans que personne ne s'en aperçoive. On le dit, et
+      // on laisse le visiteur choisir d'écrire lui-même.
+      setEchecEnvoi(true);
+      return;
     }
+
+    // Aucune API configurée : le courrier reste le seul canal possible.
     envoyerParMail();
     setEnvoye(true);
     try { sessionStorage.removeItem(BROUILLON_CLE); } catch { /* sans conséquence */ }
@@ -791,6 +802,42 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
                 </button>
               )}
             </div>
+            {/* Échec d'envoi : message honnête plutôt qu'une fausse confirmation.
+                Le visiteur garde sa saisie, peut réessayer, ou écrire lui-même. */}
+            {echecEnvoi && (
+              <div
+                role="alert"
+                className="flex flex-col gap-2 rounded-2xl border border-corail-texte/30 bg-corail/10 p-4 text-sm leading-[1.5] text-corail-texte"
+              >
+                <strong className="font-semibold">Votre demande n’a pas pu être envoyée.</strong>
+                <span className="text-encre">
+                  Vos informations sont conservées ci-dessus : réessayez dans un instant. Si le problème persiste,
+                  écrivez-nous directement, nous traiterons votre demande de la même façon.
+                </span>
+                <span className="flex flex-wrap gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEchecEnvoi(false);
+                      void envoyer();
+                    }}
+                    className="presse rounded-full bg-corail px-5 py-2 text-sm font-medium text-marine hover:bg-or"
+                  >
+                    Réessayer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      envoyerParMail();
+                      setEchecEnvoi(false);
+                    }}
+                    className="rounded-full border border-encre/30 px-5 py-2 text-sm font-medium text-encre"
+                  >
+                    Nous écrire par e-mail
+                  </button>
+                </span>
+              </div>
+            )}
             {/* Mention RGPD : sous le bouton d'envoi de la dernière étape, celle qui déclenche réellement l'envoi. */}
             {step === totalEtapes && (
               <p className="m-0 text-xs leading-[1.5] text-encre-douce">
