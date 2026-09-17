@@ -10,7 +10,7 @@ import * as XLSX from 'xlsx';
 import { STATUTS_DEMANDE } from '../../schemaTypes/backoffice/demandeDevis';
 import { ETAPES_EXPEDITION } from '../../schemaTypes/backoffice/expedition';
 import { STATUTS_CONTENEUR } from '../../schemaTypes/backoffice/conteneurOccasion';
-import { genererDevisPdf, genererEmlDevis, lireDetail, messageLibre } from './devisPdf';
+import { genererDevisPdf, lireDetail, messageLibre } from './devisPdf';
 
 // ── Palette HGWF ──────────────────────────────────────────────────────────────
 const MARINE = '#12395B';
@@ -55,6 +55,27 @@ type Expedition = {
   trajet?: string;
   etape?: number;
   eta?: string;
+  // ── Prise en charge (exploitation) ──────────────────────────────────────
+  statutPriseEnCharge?: number;
+  mode?: string;
+  expediteurNom?: string;
+  expediteurAdresse?: string;
+  expediteurTel?: string;
+  destinataireNom?: string;
+  destinataireAdresse?: string;
+  destinataireTel?: string;
+  colisNombre?: number;
+  colisPoids?: number;
+  colisVolume?: number;
+  colisNature?: string;
+  valeurDeclaree?: number;
+  reglementRecu?: boolean;
+  derogationDepart?: boolean;
+  derogationMotif?: string;
+  numeroReservation?: string;
+  numeroConteneur?: string;
+  notesExploitation?: string;
+  priseEnChargeLe?: string;
 };
 type ClientFiche = {
   _id: string;
@@ -93,6 +114,18 @@ const ACTIONS_DEMANDE = [
   'Rouvrir la demande',
 ];
 const ACTIONS_CONTENEUR = ['Réserver', 'Marquer vendu', 'Remettre en stock'];
+
+// Prise en charge : états d'exploitation, distincts des étapes vues par le
+// client. Les index sont stockés en base — ne jamais réordonner.
+const STATUTS_PEC = ['À préparer', 'Prêt', 'Expédié', 'Livré', 'Incident', 'Annulé'] as const;
+const TONES_PEC = [CORAIL, CIEL, MARINE, MARINE, ROUGE, ENCRE] as const;
+const MODES_ENVOI = [
+  'Groupage maritime',
+  'Conteneur complet',
+  'Fret aérien',
+  'Véhicule',
+  'Routier',
+] as const;
 const TITRES: Record<Vue, string> = {
   dashboard: 'Tableau de bord.',
   devis: 'Demandes de devis.',
@@ -329,6 +362,48 @@ export function BackOffice() {
   const [filtreExp, setFiltreExp] = useState(-1);
   const [trajetEdit, setTrajetEdit] = useState('');
   const [etaEdit, setEtaEdit] = useState('');
+  // Formulaire de prise en charge : un seul objet, remis à zéro quand on
+  // change d'expédition. Les nombres restent des chaînes tant qu'on saisit —
+  // un champ vide n'est pas un zéro.
+  type FormPec = {
+    mode: string;
+    expediteurNom: string;
+    expediteurAdresse: string;
+    expediteurTel: string;
+    destinataireNom: string;
+    destinataireAdresse: string;
+    destinataireTel: string;
+    colisNombre: string;
+    colisPoids: string;
+    colisVolume: string;
+    colisNature: string;
+    valeurDeclaree: string;
+    numeroReservation: string;
+    numeroConteneur: string;
+    notesExploitation: string;
+    derogationMotif: string;
+  };
+  const FORM_PEC_VIDE: FormPec = {
+    mode: '',
+    expediteurNom: '',
+    expediteurAdresse: '',
+    expediteurTel: '',
+    destinataireNom: '',
+    destinataireAdresse: '',
+    destinataireTel: '',
+    colisNombre: '',
+    colisPoids: '',
+    colisVolume: '',
+    colisNature: '',
+    valeurDeclaree: '',
+    numeroReservation: '',
+    numeroConteneur: '',
+    notesExploitation: '',
+    derogationMotif: '',
+  };
+  const [pec, setPec] = useState<FormPec>(FORM_PEC_VIDE);
+  // Verrou d'écriture : protège du double clic et des tentatives concurrentes.
+  const [pecEnCours, setPecEnCours] = useState(false);
 
   const charger = useCallback(async () => {
     const data = await client.fetch<{
@@ -340,7 +415,7 @@ export function BackOffice() {
       stats: Stats | null;
     }>(`{
       "demandes": *[_type == "demandeDevis"] | order(_createdAt desc){_id, _createdAt, _updatedAt, reference, clientNom, contact, typeEnvoi, destination, volume, recueLe, statut, message, montantDevis, descriptionPrestation, delaiEstime, devisEnvoyeLe, notes, expeditionRef},
-      "expeditions": *[_type == "expedition"] | order(_updatedAt desc){_id, _updatedAt, reference, clientNom, contact, demandeRef, trajet, etape, eta},
+      "expeditions": *[_type == "expedition"] | order(_updatedAt desc){_id, _updatedAt, reference, clientNom, contact, demandeRef, trajet, etape, eta, statutPriseEnCharge, mode, expediteurNom, expediteurAdresse, expediteurTel, destinataireNom, destinataireAdresse, destinataireTel, colisNombre, colisPoids, colisVolume, colisNature, valeurDeclaree, reglementRecu, derogationDepart, derogationMotif, numeroReservation, numeroConteneur, notesExploitation, priseEnChargeLe},
       "clients": *[_type == "clientFiche"] | order(nom asc){_id, nom, contact, destination, envois, volume},
       "conteneurs": *[_type == "conteneurOccasion"] | order(reference asc){_id, _updatedAt, reference, taille, etat, lieu, prix, statut},
       "rotations": *[_type == "rotation"] | order(cloture asc){_id, nom, cloture, depart, remplissage},
@@ -425,6 +500,28 @@ export function BackOffice() {
     const x = selExpId ? expeditions.find((e) => e._id === selExpId) : null;
     setTrajetEdit(x?.trajet ?? '');
     setEtaEdit(x?.eta ?? '');
+    const nombre = (v?: number) => (v === undefined || v === null ? '' : String(v));
+    setPec({
+      mode: x?.mode ?? '',
+      expediteurNom: x?.expediteurNom ?? '',
+      expediteurAdresse: x?.expediteurAdresse ?? '',
+      expediteurTel: x?.expediteurTel ?? '',
+      // Par défaut le destinataire est le client : c'est le cas courant, et
+      // cela évite de resaisir ce que le dossier sait déjà.
+      destinataireNom: x?.destinataireNom ?? x?.clientNom ?? '',
+      destinataireAdresse: x?.destinataireAdresse ?? '',
+      destinataireTel: x?.destinataireTel ?? extraireTel(x?.contact) ?? '',
+      colisNombre: nombre(x?.colisNombre),
+      colisPoids: nombre(x?.colisPoids),
+      colisVolume: nombre(x?.colisVolume),
+      colisNature: x?.colisNature ?? '',
+      valeurDeclaree: nombre(x?.valeurDeclaree),
+      numeroReservation: x?.numeroReservation ?? '',
+      numeroConteneur: x?.numeroConteneur ?? '',
+      notesExploitation: x?.notesExploitation ?? '',
+      derogationMotif: x?.derogationMotif ?? '',
+    });
+    setPecEnCours(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selExpId]);
 
@@ -578,6 +675,113 @@ export function BackOffice() {
   const enregistrerExpedition = async (x: Expedition, trajet: string, eta: string) => {
     setExpeditions((prev) => prev.map((e) => (e._id === x._id ? { ...e, trajet, eta } : e)));
     await client.patch(x._id).set({ trajet, eta }).commit();
+  };
+
+  // ── Prise en charge ───────────────────────────────────────────────────────
+  // Un nombre saisi vide reste vide : on n'écrit pas 0 à la place, sinon un
+  // poids non renseigné deviendrait un poids nul, ce qui n'est pas la même
+  // chose et fausserait les contrôles d'éligibilité.
+  const nombreOuRien = (v: string): number | undefined => {
+    const t = v.trim().replace(',', '.');
+    if (!t) return undefined;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
+  const champsPec = (f: FormPec) => ({
+    mode: f.mode || undefined,
+    expediteurNom: f.expediteurNom.trim() || undefined,
+    expediteurAdresse: f.expediteurAdresse.trim() || undefined,
+    expediteurTel: f.expediteurTel.trim() || undefined,
+    destinataireNom: f.destinataireNom.trim() || undefined,
+    destinataireAdresse: f.destinataireAdresse.trim() || undefined,
+    destinataireTel: f.destinataireTel.trim() || undefined,
+    colisNombre: nombreOuRien(f.colisNombre),
+    colisPoids: nombreOuRien(f.colisPoids),
+    colisVolume: nombreOuRien(f.colisVolume),
+    colisNature: f.colisNature.trim() || undefined,
+    valeurDeclaree: nombreOuRien(f.valeurDeclaree),
+    numeroReservation: f.numeroReservation.trim() || undefined,
+    numeroConteneur: f.numeroConteneur.trim() || undefined,
+    notesExploitation: f.notesExploitation.trim() || undefined,
+    derogationMotif: f.derogationMotif.trim() || undefined,
+  });
+
+  const enregistrerPec = async (x: Expedition) => {
+    if (pecEnCours) return;
+    setPecEnCours(true);
+    try {
+      const champs = champsPec(pec);
+      setExpeditions((prev) => prev.map((e) => (e._id === x._id ? { ...e, ...champs } : e)));
+      await client.patch(x._id).set(champs).commit();
+    } finally {
+      setPecEnCours(false);
+    }
+  };
+
+  // Ce qui manque pour que le dossier puisse être déclaré prêt. La liste est
+  // affichée telle quelle à l'opérateur : un bouton désactivé sans explication
+  // est la première cause d'appel au support interne.
+  const manquesPec = (f: FormPec): string[] => {
+    const m: string[] = [];
+    if (!f.expediteurAdresse.trim()) m.push("l'adresse d'enlèvement");
+    if (!f.destinataireNom.trim()) m.push('le nom du destinataire');
+    if (!f.destinataireAdresse.trim()) m.push("l'adresse de destination");
+    if (!f.colisNature.trim()) m.push('la nature de la marchandise');
+    if (nombreOuRien(f.colisNombre) === undefined) m.push('le nombre de colis');
+    if (nombreOuRien(f.colisPoids) === undefined && nombreOuRien(f.colisVolume) === undefined) {
+      m.push('le poids ou le volume');
+    }
+    if (!f.mode) m.push("le mode d'acheminement");
+    return m;
+  };
+
+  // Passage « À préparer » → « Prêt ». Enregistre le formulaire au passage :
+  // l'opérateur ne doit pas avoir à sauvegarder puis déclencher.
+  const declencherPriseEnCharge = async (x: Expedition) => {
+    if (pecEnCours || manquesPec(pec).length > 0) return;
+    setPecEnCours(true);
+    try {
+      const champs = {
+        ...champsPec(pec),
+        statutPriseEnCharge: 1,
+        priseEnChargeLe: x.priseEnChargeLe ?? dateFR(),
+      };
+      setExpeditions((prev) => prev.map((e) => (e._id === x._id ? { ...e, ...champs } : e)));
+      await client.patch(x._id).set(champs).commit();
+    } finally {
+      setPecEnCours(false);
+    }
+  };
+
+  // Départ de la marchandise. Règle validée le 17/09/2026 : pas de départ sans
+  // règlement, sauf dérogation explicite et motivée.
+  const departAutorise = (x: Expedition, f: FormPec) =>
+    x.reglementRecu === true || (x.derogationDepart === true && f.derogationMotif.trim().length > 0);
+
+  const marquerExpedie = async (x: Expedition) => {
+    if (pecEnCours || !departAutorise(x, pec)) return;
+    setPecEnCours(true);
+    try {
+      const champs = { ...champsPec(pec), statutPriseEnCharge: 2 };
+      setExpeditions((prev) => prev.map((e) => (e._id === x._id ? { ...e, ...champs } : e)));
+      await client.patch(x._id).set(champs).commit();
+    } finally {
+      setPecEnCours(false);
+    }
+  };
+
+  // Bascules booléennes : écrites immédiatement, sans passer par le formulaire.
+  const basculerPec = async (x: Expedition, cle: 'reglementRecu' | 'derogationDepart', valeur: boolean) => {
+    setExpeditions((prev) => prev.map((e) => (e._id === x._id ? { ...e, [cle]: valeur } : e)));
+    await client.patch(x._id).set({ [cle]: valeur }).commit();
+  };
+
+  const changerStatutPec = async (x: Expedition, statut: number) => {
+    setExpeditions((prev) =>
+      prev.map((e) => (e._id === x._id ? { ...e, statutPriseEnCharge: statut } : e)),
+    );
+    await client.patch(x._id).set({ statutPriseEnCharge: statut }).commit();
   };
 
   const enregistrerClient = async () => {
@@ -1102,9 +1306,9 @@ export function BackOffice() {
                         )}
                       </div>
 
-                      {/* Réponse au client : e-mail complet (.eml) avec le devis
-                          PDF déjà joint, ou canaux séparés. Tout part avec les
-                          valeurs du chiffrage ci-dessus, même non enregistrées. */}
+                      {/* Réponse au client : canaux séparés — messagerie, PDF,
+                          WhatsApp. Tout part avec les valeurs du chiffrage
+                          ci-dessus, même non enregistrées. */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <span style={eyebrow}>Répondre au client</span>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1125,17 +1329,6 @@ export function BackOffice() {
                             <IconeExport />
                             Devis PDF
                           </button>
-                          {extraireEmail(sel.contact) && selPourEnvoi && (
-                            <button
-                              onClick={() =>
-                                genererEmlDevis(selPourEnvoi, extraireEmail(sel.contact) as string, templateReponse(selPourEnvoi))
-                              }
-                              style={{ ...boutonContour, fontSize: 13, padding: '8px 16px' }}
-                              title="Télécharge un fichier e-mail (.eml) prêt à envoyer, avec le devis PDF déjà en pièce jointe"
-                            >
-                              ✉ E-mail + PDF joint (.eml)
-                            </button>
-                          )}
                           {extraireTel(sel.contact) && selPourEnvoi && (
                             <a
                               href={`https://wa.me/${extraireTel(sel.contact)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(templateReponse(selPourEnvoi))}`}
@@ -1156,7 +1349,7 @@ export function BackOffice() {
                         </div>
                         <span style={{ fontSize: 11, color: ENCRE }}>
                           « Envoyer par e-mail » ouvre votre messagerie avec le message pré-rempli : joignez-y le « Devis
-                          PDF » téléchargé. L'option « .eml » prépare l'e-mail avec le PDF déjà en pièce jointe.
+                          PDF » téléchargé.
                           {!selPourEnvoi?.montantDevis &&
                             ' Renseignez le chiffrage ci-dessus : il s’insère automatiquement dans le message et le PDF.'}
                         </span>
@@ -1375,6 +1568,196 @@ export function BackOffice() {
                           </button>
                         )}
                       </div>
+
+                      {/* ── Prise en charge ─────────────────────────────────
+                          Le dossier d'exploitation : qui expédie, vers qui,
+                          quoi, et à quelles conditions la marchandise part.
+                          Volontairement séparé des étapes vues par le client. */}
+                      {(() => {
+                        const statutPec = Math.min(5, Math.max(0, selExp.statutPriseEnCharge ?? 0));
+                        const manques = manquesPec(pec);
+                        const peutPartir = departAutorise(selExp, pec);
+                        const ligne = (
+                          libelle: string,
+                          cle: keyof FormPec,
+                          placeholder = '',
+                          multi = false,
+                        ) => (
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <span style={{ fontSize: 11, color: ENCRE }}>{libelle}</span>
+                            {multi ? (
+                              <textarea
+                                rows={2}
+                                value={pec[cle]}
+                                placeholder={placeholder}
+                                onChange={(e) => setPec((p) => ({ ...p, [cle]: e.target.value }))}
+                                style={{ ...champ, resize: 'vertical' }}
+                              />
+                            ) : (
+                              <input
+                                value={pec[cle]}
+                                placeholder={placeholder}
+                                onChange={(e) => setPec((p) => ({ ...p, [cle]: e.target.value }))}
+                                style={champ}
+                              />
+                            )}
+                          </label>
+                        );
+                        return (
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 12,
+                              borderTop: '1px solid rgba(18,57,91,0.1)',
+                              paddingTop: 14,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                              <span style={eyebrow}>Prise en charge</span>
+                              <span style={{ ...badgeBase, background: TONES_PEC[statutPec], color: CREME }}>
+                                {STATUTS_PEC[statutPec]}
+                              </span>
+                              {selExp.priseEnChargeLe && (
+                                <span style={{ fontFamily: MONO, fontSize: 11, color: ENCRE }}>
+                                  déclenchée le {selExp.priseEnChargeLe}
+                                </span>
+                              )}
+                            </div>
+
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              <span style={{ fontSize: 11, color: ENCRE }}>Mode d’acheminement</span>
+                              <select
+                                value={pec.mode}
+                                onChange={(e) => setPec((p) => ({ ...p, mode: e.target.value }))}
+                                style={champ}
+                              >
+                                <option value="">— à choisir —</option>
+                                {MODES_ENVOI.map((m) => (
+                                  <option key={m} value={m}>
+                                    {m}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 }}>
+                              {ligne('Expéditeur — nom', 'expediteurNom')}
+                              {ligne('Expéditeur — téléphone', 'expediteurTel')}
+                              {ligne('Adresse d’enlèvement', 'expediteurAdresse', 'Rue, code postal, ville, pays', true)}
+                              {ligne('Destinataire — nom', 'destinataireNom')}
+                              {ligne('Destinataire — téléphone', 'destinataireTel')}
+                              {ligne('Adresse de destination', 'destinataireAdresse', 'Rue, code postal, ville, pays', true)}
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
+                              {ligne('Nombre de colis', 'colisNombre', 'ex. 12')}
+                              {ligne('Poids total (kg)', 'colisPoids', 'ex. 480')}
+                              {ligne('Volume (m³)', 'colisVolume', 'ex. 3,5')}
+                              {ligne('Valeur déclarée (€)', 'valeurDeclaree', 'ex. 4000')}
+                            </div>
+                            {ligne('Nature de la marchandise', 'colisNature', 'Effets personnels, mobilier, véhicule…', true)}
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 10 }}>
+                              {ligne('N° de réservation (booking)', 'numeroReservation', 'Saisi à la main')}
+                              {ligne('N° de conteneur ou de LTA', 'numeroConteneur')}
+                            </div>
+                            {ligne('Notes d’exploitation', 'notesExploitation', 'Jamais visibles du client', true)}
+
+                            {/* Condition de départ */}
+                            <div style={{ background: CREME, borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={selExp.reglementRecu === true}
+                                  onChange={(e) => basculerPec(selExp, 'reglementRecu', e.target.checked)}
+                                />
+                                Règlement reçu
+                              </label>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: ROUGE }}>
+                                <input
+                                  type="checkbox"
+                                  checked={selExp.derogationDepart === true}
+                                  onChange={(e) => basculerPec(selExp, 'derogationDepart', e.target.checked)}
+                                />
+                                Autoriser le départ sans règlement
+                              </label>
+                              {selExp.derogationDepart && ligne('Motif de la dérogation — obligatoire', 'derogationMotif', 'Qui autorise, et pourquoi')}
+                              {!peutPartir && (
+                                <span style={{ fontSize: 11, color: ENCRE }}>
+                                  La marchandise ne part pas tant que le règlement n’est pas encaissé. Une dérogation
+                                  reste possible, à condition d’être motivée.
+                                </span>
+                              )}
+                            </div>
+
+                            {manques.length > 0 && statutPec === 0 && (
+                              <span style={{ fontSize: 11, color: ROUGE }}>
+                                Pour déclencher la prise en charge, il manque : {manques.join(', ')}.
+                              </span>
+                            )}
+
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => enregistrerPec(selExp)}
+                                disabled={pecEnCours}
+                                style={{ ...boutonContour, fontSize: 13, padding: '9px 18px', opacity: pecEnCours ? 0.5 : 1 }}
+                              >
+                                {pecEnCours ? 'Enregistrement…' : 'Enregistrer'}
+                              </button>
+                              {statutPec === 0 && (
+                                <button
+                                  onClick={() => declencherPriseEnCharge(selExp)}
+                                  disabled={pecEnCours || manques.length > 0}
+                                  title={manques.length > 0 ? `Il manque : ${manques.join(', ')}` : undefined}
+                                  style={{
+                                    ...boutonPlein,
+                                    fontSize: 13,
+                                    padding: '9px 18px',
+                                    opacity: pecEnCours || manques.length > 0 ? 0.45 : 1,
+                                    cursor: manques.length > 0 ? 'not-allowed' : 'pointer',
+                                  }}
+                                >
+                                  Déclencher la prise en charge
+                                </button>
+                              )}
+                              {statutPec === 1 && (
+                                <button
+                                  onClick={() => marquerExpedie(selExp)}
+                                  disabled={pecEnCours || !peutPartir}
+                                  title={peutPartir ? undefined : 'Règlement non encaissé et aucune dérogation motivée'}
+                                  style={{
+                                    ...boutonPlein,
+                                    background: MARINE,
+                                    fontSize: 13,
+                                    padding: '9px 18px',
+                                    opacity: pecEnCours || !peutPartir ? 0.45 : 1,
+                                    cursor: peutPartir ? 'pointer' : 'not-allowed',
+                                  }}
+                                >
+                                  Marquer expédié
+                                </button>
+                              )}
+                              {statutPec < 4 && (
+                                <button
+                                  onClick={() => changerStatutPec(selExp, 4)}
+                                  style={{ ...boutonContour, borderColor: 'rgba(255,111,94,0.5)', color: ROUGE, fontSize: 13, padding: '9px 18px' }}
+                                >
+                                  Signaler un incident
+                                </button>
+                              )}
+                              {statutPec >= 4 && (
+                                <button
+                                  onClick={() => changerStatutPec(selExp, 0)}
+                                  style={{ ...boutonContour, fontSize: 13, padding: '9px 18px' }}
+                                >
+                                  Reprendre le dossier
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* ── Focus client ── */}
                       <div style={{ background: CREME, borderRadius: 16, padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
