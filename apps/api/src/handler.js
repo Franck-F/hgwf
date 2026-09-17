@@ -156,11 +156,15 @@ async function creerDemande(req, res, cors) {
 
   console.log(`[demande] ${reference} — ${nom} → ${corps.destination ?? '?'}`);
 
-  // Accusé de réception et alerte interne. Volontairement après l'écriture
-  // dans Sanity et sans `await` bloquant le succès : une demande enregistrée
-  // ne doit jamais être perdue parce qu'un e-mail a échoué. Le client reçoit
-  // 201 quoi qu'il arrive.
-  notifierDemande({ reference, nom, email, destination: nettoyer(corps.destination, 80), typeEnvoi: nettoyer(corps.typeEnvoi, 80), volume: nettoyer(corps.volume, 40) });
+  // Accusé de réception et alerte interne, après l'écriture dans Sanity.
+  //
+  // L'attente est délibérée : sur une fonction serverless, l'exécution est
+  // gelée dès la réponse HTTP renvoyée, et tout envoi laissé en arrière-plan
+  // est tué avant d'aboutir. Il faut donc attendre.
+  //
+  // `notifierDemande` ne rejette jamais : un e-mail raté n'empêche pas la
+  // demande d'être enregistrée ni le client de recevoir son 201.
+  await notifierDemande({ reference, nom, email, destination: nettoyer(corps.destination, 80), typeEnvoi: nettoyer(corps.typeEnvoi, 80), volume: nettoyer(corps.volume, 40) });
 
   return json(res, 201, { ok: true, reference }, cors);
 }
@@ -170,11 +174,12 @@ async function creerDemande(req, res, cors) {
 // client, et l'alerte à l'équipe. Le second est le plus important : sans lui,
 // personne n'est prévenu qu'une demande est arrivée — c'est ce qui a laissé
 // deux demandes réelles sans réponse pendant treize jours.
-function notifierDemande({ reference, nom, email, destination, typeEnvoi, volume }) {
+async function notifierDemande({ reference, nom, email, destination, typeEnvoi, volume }) {
   if (!envoiConfigure()) {
     console.log(`[email] envoi non configuré, aucun message pour ${reference}`);
     return;
   }
+  const envois = [];
 
   const lignes = [
     typeEnvoi ? ["Type d'envoi", typeEnvoi] : null,
@@ -199,7 +204,7 @@ function notifierDemande({ reference, nom, email, destination, typeEnvoi, volume
       "L'équipe HGWF Cargo",
     ].join('\n');
 
-    envoyerEmail({
+    envois.push(envoyerEmail({
       to: email,
       subject: `Votre demande est bien reçue — ${reference}`,
       text: texte,
@@ -214,14 +219,14 @@ function notifierDemande({ reference, nom, email, destination, typeEnvoi, volume
         lignes,
       }),
       replyTo: process.env.EMAIL_INTERNE || undefined,
-    }).then((r) => console.log(`[email] accusé ${reference} : ${r.ok ? 'envoyé' : 'échec — ' + r.raison}`));
+    }).then((r) => console.log(`[email] accusé ${reference} : ${r.ok ? 'envoyé' : 'échec — ' + r.raison}`)));
   }
 
   // Équipe : alerte interne, en texte brut. Elle doit être lisible d'un coup
   // d'œil sur un téléphone, pas jolie.
   const interne = process.env.EMAIL_INTERNE;
   if (interne) {
-    envoyerEmail({
+    envois.push(envoyerEmail({
       to: interne,
       subject: `Nouvelle demande de devis — ${reference}`,
       text: [
@@ -233,8 +238,11 @@ function notifierDemande({ reference, nom, email, destination, typeEnvoi, volume
         'À traiter dans le back-office.',
       ].join('\n'),
       replyTo: email || undefined,
-    }).then((r) => console.log(`[email] alerte interne ${reference} : ${r.ok ? 'envoyée' : 'échec — ' + r.raison}`));
+    }).then((r) => console.log(`[email] alerte interne ${reference} : ${r.ok ? 'envoyée' : 'échec — ' + r.raison}`)));
   }
+
+  // allSettled : un envoi raté n'empêche pas l'autre d'aboutir.
+  await Promise.allSettled(envois);
 }
 
 async function chercherSuivi(req, res, cors, url) {
