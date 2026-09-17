@@ -10,7 +10,7 @@ import * as XLSX from 'xlsx';
 import { STATUTS_DEMANDE } from '../../schemaTypes/backoffice/demandeDevis';
 import { ETAPES_EXPEDITION } from '../../schemaTypes/backoffice/expedition';
 import { STATUTS_CONTENEUR } from '../../schemaTypes/backoffice/conteneurOccasion';
-import { genererDevisPdf, lireDetail, messageLibre } from './devisPdf';
+import { construireDevisPdf, genererDevisPdf, lireDetail, messageLibre } from './devisPdf';
 
 // ── Palette HGWF ──────────────────────────────────────────────────────────────
 const MARINE = '#12395B';
@@ -402,6 +402,8 @@ export function BackOffice() {
     derogationMotif: '',
   };
   const [pec, setPec] = useState<FormPec>(FORM_PEC_VIDE);
+  const [envoiEnCours, setEnvoiEnCours] = useState(false);
+  const [envoiMessage, setEnvoiMessage] = useState<string | null>(null);
   // Verrou d'écriture : protège du double clic et des tentatives concurrentes.
   const [pecEnCours, setPecEnCours] = useState(false);
 
@@ -675,6 +677,62 @@ export function BackOffice() {
   const enregistrerExpedition = async (x: Expedition, trajet: string, eta: string) => {
     setExpeditions((prev) => prev.map((e) => (e._id === x._id ? { ...e, trajet, eta } : e)));
     await client.patch(x._id).set({ trajet, eta }).commit();
+  };
+
+  // ── Envoi du devis par e-mail ─────────────────────────────────────────────
+  // Le PDF est fabriqué ici, dans le navigateur, puis transmis à l'API qui
+  // seule connaît la clé Resend. Le back-office n'envoie que la référence et
+  // le fichier : le destinataire et le texte sont reconstruits côté serveur à
+  // partir de Sanity, pour que cet appel ne puisse jamais servir de relais.
+  //
+  // La clé partagée est demandée une fois puis conservée dans le navigateur.
+  // Ce n'est pas une authentification forte — c'est ce qui empêche un tiers
+  // d'appeler l'endpoint. Le Studio exige déjà une connexion Sanity.
+  const envoyerDevisParEmail = async (d: Demande) => {
+    if (envoiEnCours) return;
+    // Même convention que sanity.config.ts : la CLI Sanity injecte les
+    // variables préfixées SANITY_STUDIO_ dans process.env au build.
+    const api = process.env.SANITY_STUDIO_HGWF_API_URL;
+    if (!api) {
+      setEnvoiMessage("URL de l'API absente (SANITY_STUDIO_HGWF_API_URL).");
+      return;
+    }
+    let cle = localStorage.getItem('hgwf-cle-api');
+    if (!cle) {
+      cle = window.prompt("Clé d'envoi du back-office (demandée une seule fois) :");
+      if (!cle) return;
+      localStorage.setItem('hgwf-cle-api', cle);
+    }
+
+    setEnvoiEnCours(true);
+    setEnvoiMessage(null);
+    try {
+      const doc = await construireDevisPdf(d);
+      const pdfBase64 = (doc.output('datauristring') as string).split(',')[1] ?? '';
+      const rep = await fetch(`${api}/api/envoi-devis`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-hgwf-cle': cle },
+        body: JSON.stringify({ reference: d.reference, pdfBase64 }),
+      });
+      const data = (await rep.json().catch(() => ({}))) as { ok?: boolean; erreur?: string; destinataire?: string };
+      if (rep.status === 401) {
+        // Clé refusée : on l'oublie, pour que la prochaine tentative redemande.
+        localStorage.removeItem('hgwf-cle-api');
+        setEnvoiMessage('Clé refusée. Relancez pour la saisir à nouveau.');
+        return;
+      }
+      if (!rep.ok || !data.ok) {
+        setEnvoiMessage(`Échec de l'envoi : ${data.erreur ?? 'erreur ' + rep.status}`);
+        return;
+      }
+      setEnvoiMessage(`Devis envoyé à ${data.destinataire}.`);
+      // L'envoi réussi fait avancer la demande : c'est le geste métier attendu.
+      if (clampDemande(d.statut) < 2) await changerStatut(d, 2);
+    } catch (e) {
+      setEnvoiMessage(`Échec de l'envoi : ${e instanceof Error ? e.message : 'erreur inattendue'}`);
+    } finally {
+      setEnvoiEnCours(false);
+    }
   };
 
   // ── Prise en charge ───────────────────────────────────────────────────────
@@ -1313,12 +1371,35 @@ export function BackOffice() {
                         <span style={eyebrow}>Répondre au client</span>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {extraireEmail(sel.contact) && selPourEnvoi && (
+                            <button
+                              onClick={() => envoyerDevisParEmail(selPourEnvoi)}
+                              disabled={envoiEnCours || !selPourEnvoi.montantDevis}
+                              title={
+                                selPourEnvoi.montantDevis
+                                  ? `Envoie le devis et le PDF à ${extraireEmail(sel.contact)}`
+                                  : 'Renseignez le montant du devis avant de l’envoyer'
+                              }
+                              style={{
+                                ...boutonPlein,
+                                fontSize: 13,
+                                padding: '8px 16px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                opacity: envoiEnCours || !selPourEnvoi.montantDevis ? 0.45 : 1,
+                                cursor: selPourEnvoi.montantDevis ? 'pointer' : 'not-allowed',
+                              }}
+                            >
+                              {envoiEnCours ? '⏳ Envoi…' : '✉ Envoyer le devis'}
+                            </button>
+                          )}
+                          {extraireEmail(sel.contact) && selPourEnvoi && (
                             <a
                               href={`mailto:${extraireEmail(sel.contact)}?subject=${encodeURIComponent(`Votre devis HGWF Cargo · ${sel.reference}`)}&body=${encodeURIComponent(templateReponse(selPourEnvoi))}`}
-                              style={{ ...boutonPlein, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}
-                              title="Ouvre votre messagerie avec le message pré-rempli ; joignez le devis PDF téléchargé"
+                              style={{ ...boutonContour, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}
+                              title="Repli : ouvre votre messagerie avec le message pré-rempli, sans trace ni pièce jointe"
                             >
-                              ✉ Envoyer par e-mail
+                              Ouvrir ma messagerie
                             </a>
                           )}
                           <button
@@ -1347,9 +1428,20 @@ export function BackOffice() {
                             ⧉ Copier le modèle
                           </button>
                         </div>
+                        {envoiMessage && (
+                          <span
+                            style={{
+                              fontSize: 12,
+                              color: envoiMessage.startsWith('Devis envoyé') ? MARINE : ROUGE,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {envoiMessage}
+                          </span>
+                        )}
                         <span style={{ fontSize: 11, color: ENCRE }}>
-                          « Envoyer par e-mail » ouvre votre messagerie avec le message pré-rempli : joignez-y le « Devis
-                          PDF » téléchargé.
+                          « Envoyer le devis » part directement depuis contact@hgwf-cargo.fr, avec le PDF en pièce
+                          jointe, et fait passer la demande à « Devis envoyé ».
                           {!selPourEnvoi?.montantDevis &&
                             ' Renseignez le chiffrage ci-dessus : il s’insère automatiquement dans le message et le PDF.'}
                         </span>

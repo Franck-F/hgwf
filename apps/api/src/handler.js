@@ -66,7 +66,7 @@ function corsHeaders(req) {
   return {
     'Access-Control-Allow-Origin': origin && ORIGINS.includes(origin) ? origin : ORIGINS[0],
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, x-hgwf-cle',
     'Access-Control-Max-Age': '86400',
   };
 }
@@ -77,12 +77,12 @@ function json(res, status, corps, extra = {}) {
   res.end(data);
 }
 
-function lireCorps(req) {
+function lireCorps(req, max = 50_000) {
   return new Promise((resolve, reject) => {
     let data = '';
     req.on('data', (chunk) => {
       data += chunk;
-      if (data.length > 50_000) {
+      if (data.length > max) {
         reject(new Error('corps trop volumineux'));
         req.destroy();
       }
@@ -167,6 +167,92 @@ async function creerDemande(req, res, cors) {
   await notifierDemande({ reference, nom, email, destination: nettoyer(corps.destination, 80), typeEnvoi: nettoyer(corps.typeEnvoi, 80), volume: nettoyer(corps.volume, 40) });
 
   return json(res, 201, { ok: true, reference }, cors);
+}
+
+// ── Envoi du devis au client ──────────────────────────────────────────────────
+// Remplace le `mailto:` du back-office, qui ouvrait la messagerie de l'opérateur
+// sans laisser la moindre trace ni preuve d'envoi.
+//
+// Choix de conception important : le back-office n'envoie que la **référence**
+// et le **PDF**. Le destinataire, l'objet et le corps sont reconstruits ici, à
+// partir du document Sanity. L'endpoint ne peut donc pas servir à expédier un
+// contenu arbitraire vers une adresse arbitraire — ce serait un relais ouvert
+// sous l'identité de l'entreprise.
+async function envoyerDevis(req, res, cors) {
+  const cle = process.env.BACKOFFICE_API_CLE;
+  if (!cle) return json(res, 503, { ok: false, erreur: 'envoi non configuré' }, cors);
+  if (req.headers['x-hgwf-cle'] !== cle) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
+
+  let corps;
+  try {
+    // Un devis PDF avec logo rastérisé dépasse la limite par défaut.
+    corps = JSON.parse((await lireCorps(req, 3_000_000)) || '{}');
+  } catch {
+    return json(res, 400, { ok: false, erreur: 'JSON invalide' }, cors);
+  }
+
+  const reference = nettoyer(corps.reference, 60);
+  const pdfBase64 = String(corps.pdfBase64 ?? '');
+  if (!reference || !pdfBase64) {
+    return json(res, 422, { ok: false, erreur: 'reference et pdfBase64 sont requis' }, cors);
+  }
+
+  const d = await sanity.fetch(
+    `*[_type == "demandeDevis" && reference == $ref][0]{reference, clientNom, contact, destination, montantDevis, descriptionPrestation, delaiEstime}`,
+    { ref: reference },
+  );
+  if (!d) return json(res, 404, { ok: false, erreur: 'demande introuvable' }, cors);
+
+  const email = (d.contact ?? '').match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0];
+  if (!email) return json(res, 422, { ok: false, erreur: 'aucune adresse e-mail sur cette demande' }, cors);
+  if (!d.montantDevis) return json(res, 422, { ok: false, erreur: 'montant du devis absent' }, cors);
+
+  const prenom = (d.clientNom ?? '').trim().split(/\s+/)[0] || '';
+  const lignes = [
+    ['Montant', d.montantDevis],
+    d.descriptionPrestation ? ['Prestation', d.descriptionPrestation] : null,
+    d.delaiEstime ? ['Délai estimé', d.delaiEstime] : null,
+  ].filter(Boolean);
+
+  const texte = [
+    `Bonjour${prenom ? ' ' + prenom : ''},`,
+    '',
+    `Voici votre devis${d.destination ? ' pour ' + d.destination : ''}, référence ${d.reference}.`,
+    '',
+    ...lignes.map(([l, v]) => `  ${l} : ${v}`),
+    '',
+    'Le devis détaillé est en pièce jointe.',
+    '',
+    "Pour l'accepter, répondez simplement « je valide » à cet e-mail. Nous ouvrons alors votre dossier et vous transmettons les prochaines dates de départ.",
+    '',
+    'Une question, un ajustement ? Répondez ici ou appelez-nous au 09 62 03 80 13.',
+    '',
+    'Bien cordialement,',
+    "L'équipe HGWF Cargo",
+  ].join('\n');
+
+  const r = await envoyerEmail({
+    to: email,
+    subject: `Votre devis HGWF Cargo — ${d.montantDevis}`,
+    text: texte,
+    html: gabaritHtml({
+      titre: 'Votre devis est prêt',
+      paragraphes: [
+        `Bonjour${prenom ? ' ' + prenom : ''},`,
+        `Voici votre devis${d.destination ? ' pour ' + d.destination : ''}, référence ${d.reference}. Le document détaillé est en pièce jointe.`,
+        "Pour l'accepter, répondez simplement « je valide » à cet e-mail. Nous ouvrons alors votre dossier et vous transmettons les prochaines dates de départ.",
+        'Une question, un ajustement ? Répondez ici ou appelez-nous au 09 62 03 80 13.',
+      ],
+      lignes,
+    }),
+    replyTo: process.env.EMAIL_INTERNE || undefined,
+    attachments: [{ filename: `Devis-${d.reference}.pdf`, content: pdfBase64 }],
+  });
+
+  if (!r.ok) return json(res, 502, { ok: false, erreur: r.raison }, cors);
+
+  console.log(`[devis] ${reference} envoyé à ${email}`);
+  return json(res, 200, { ok: true, destinataire: email }, cors);
 }
 
 // ── Notifications e-mail ──────────────────────────────────────────────────────
@@ -283,6 +369,9 @@ export async function handler(req, res) {
 
     if (req.method === 'POST' && url.pathname === '/api/demande-devis') {
       return await creerDemande(req, res, cors);
+    }
+    if (req.method === 'POST' && url.pathname === '/api/envoi-devis') {
+      return await envoyerDevis(req, res, cors);
     }
     if (req.method === 'GET' && url.pathname === '/api/suivi') {
       return await chercherSuivi(req, res, cors, url);

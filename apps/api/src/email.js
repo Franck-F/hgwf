@@ -32,7 +32,7 @@ export function envoiConfigure() {
  *
  * @returns {Promise<{ok: boolean, id?: string, raison?: string}>}
  */
-export async function envoyerEmail({ to, subject, text, html, replyTo }) {
+export async function envoyerEmail({ to, subject, text, html, replyTo, attachments }) {
   if (!envoiConfigure()) {
     return { ok: false, raison: 'envoi non configuré (RESEND_API_KEY ou EMAIL_EXPEDITEUR absent)' };
   }
@@ -48,6 +48,11 @@ export async function envoyerEmail({ to, subject, text, html, replyTo }) {
     // Les réponses doivent atterrir dans la boîte de l'équipe, jamais dans le
     // vide d'une adresse technique.
     ...(replyTo ? { reply_to: replyTo } : {}),
+    // Pièces jointes : `content` en base64, sans préfixe « data: ». Le devis et
+    // la facture voyagent en pièce jointe et non en lien — le client doit
+    // pouvoir les archiver, les imprimer et les transmettre sans dépendre
+    // d'une URL qui vivra moins longtemps que sa comptabilité.
+    ...(attachments?.length ? { attachments } : {}),
   };
 
   try {
