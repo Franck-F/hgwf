@@ -404,6 +404,14 @@ export function BackOffice() {
   const [pec, setPec] = useState<FormPec>(FORM_PEC_VIDE);
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
   const [envoiMessage, setEnvoiMessage] = useState<string | null>(null);
+  // Le message de succès s'efface seul au bout de trois secondes. Les messages
+  // d'erreur, eux, restent : ils demandent une action.
+  useEffect(() => {
+    if (!envoiMessage?.startsWith('Devis envoyé')) return;
+    const t = setTimeout(() => setEnvoiMessage(null), 3000);
+    return () => clearTimeout(t);
+  }, [envoiMessage]);
+
   // Fenêtre de relecture avant envoi. `null` = fermée.
   const [apercu, setApercu] = useState<{
     demande: Demande;
