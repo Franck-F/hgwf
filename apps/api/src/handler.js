@@ -276,6 +276,97 @@ async function envoyerDevis(req, res, cors) {
   return json(res, 200, { ok: true, destinataire: email }, cors);
 }
 
+// ── Notification d'expédition ─────────────────────────────────────────────────
+const ETAPES = ['Pris en charge', 'Au port du Havre', 'En mer', "Port d'arrivée", 'Livré'];
+
+async function notifierExpedition(req, res, cors) {
+  const cle = process.env.BACKOFFICE_API_CLE;
+  if (!cle) return json(res, 503, { ok: false, erreur: 'envoi non configuré' }, cors);
+  if (req.headers['x-hgwf-cle'] !== cle) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
+
+  let corps;
+  try {
+    corps = JSON.parse((await lireCorps(req)) || '{}');
+  } catch {
+    return json(res, 400, { ok: false, erreur: 'JSON invalide' }, cors);
+  }
+
+  const reference = nettoyer(corps.reference, 60);
+  if (!reference) return json(res, 422, { ok: false, erreur: 'reference requise' }, cors);
+
+  const x = await sanity.fetch(
+    `*[_type == "expedition" && reference == $ref][0]{_id, reference, clientNom, contact, trajet, etape, eta, derniereEtapeNotifiee}`,
+    { ref: reference },
+  );
+  if (!x) return json(res, 404, { ok: false, erreur: 'expédition introuvable' }, cors);
+
+  const email = (x.contact ?? '').match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0];
+  if (!email) return json(res, 422, { ok: false, erreur: 'aucune adresse e-mail sur cette expédition' }, cors);
+
+  const etape = Math.min(4, Math.max(0, x.etape ?? 0));
+
+  // Garde-fou central : on ne prévient jamais deux fois de la même étape. Sans
+  // lui, une correction de saisie ou un double clic renverrait un message au
+  // client — c'est ce qui ruine la confiance dans un suivi automatique.
+  if (corps.forcer !== true && x.derniereEtapeNotifiee === etape) {
+    return json(res, 200, { ok: true, ignore: true, raison: 'étape déjà notifiée' }, cors);
+  }
+
+  const prenom = (x.clientNom ?? '').trim().split(/\s+/)[0] || '';
+  const bonjour = `Bonjour${prenom ? ' ' + prenom : ''},`;
+  const suivi = `https://hgwf-cargo.fr/fr/suivi/?ref=${encodeURIComponent(x.reference)}`;
+  const eta = x.eta && x.eta !== 'À PLANIFIER' ? x.eta : 'en cours de confirmation';
+
+  let objet;
+  let paragraphes;
+  if (etape === 0) {
+    objet = `Votre expédition ${x.reference} est en route`;
+    paragraphes = [
+      bonjour,
+      `Votre expédition ${x.reference}${x.trajet ? ' — ' + x.trajet : ''} est prise en charge.`,
+      `Arrivée estimée : ${eta}. Vous pouvez suivre son avancement à tout moment : ${suivi}`,
+    ];
+  } else if (etape === 4) {
+    objet = `Votre expédition ${x.reference} est livrée`;
+    paragraphes = [
+      bonjour,
+      `Votre expédition ${x.reference} a bien été livrée.`,
+      "Si quelque chose ne va pas — retard, avarie, manquant — répondez à cet e-mail ou appelez-nous au 09 62 03 80 13. Nous traiterons la réclamation.",
+      'Merci de votre confiance.',
+    ];
+  } else {
+    objet = `${x.reference} — ${ETAPES[etape]}`;
+    paragraphes = [
+      bonjour,
+      `Votre expédition ${x.reference} est maintenant à l'étape : ${ETAPES[etape]}.`,
+      `Arrivée estimée : ${eta}. Suivi détaillé : ${suivi}`,
+    ];
+  }
+
+  const r = await envoyerEmail({
+    to: email,
+    subject: objet,
+    text: [...paragraphes, '', 'Bien cordialement,', "L'équipe HGWF Cargo"].join('\n\n'),
+    html: gabaritHtml({
+      titre: objet,
+      paragraphes,
+      lignes: [
+        ['Référence', x.reference],
+        x.trajet ? ['Trajet', x.trajet] : null,
+        ['Étape', ETAPES[etape]],
+        ['Arrivée estimée', eta],
+      ].filter(Boolean),
+    }),
+    replyTo: process.env.EMAIL_INTERNE || undefined,
+  });
+
+  if (!r.ok) return json(res, 502, { ok: false, erreur: r.raison }, cors);
+
+  await sanity.patch(x._id).set({ derniereEtapeNotifiee: etape }).commit();
+  console.log(`[expedition] ${reference} étape ${etape} notifiée à ${email}`);
+  return json(res, 200, { ok: true, destinataire: email, etape: ETAPES[etape] }, cors);
+}
+
 // ── Notifications e-mail ──────────────────────────────────────────────────────
 // Deux messages partent à la création d'une demande : l'accusé de réception au
 // client, et l'alerte à l'équipe. Le second est le plus important : sans lui,
@@ -390,6 +481,9 @@ export async function handler(req, res) {
 
     if (req.method === 'POST' && url.pathname === '/api/demande-devis') {
       return await creerDemande(req, res, cors);
+    }
+    if (req.method === 'POST' && url.pathname === '/api/envoi-expedition') {
+      return await notifierExpedition(req, res, cors);
     }
     if (req.method === 'POST' && url.pathname === '/api/envoi-devis') {
       return await envoyerDevis(req, res, cors);

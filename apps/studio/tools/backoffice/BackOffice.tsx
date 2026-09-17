@@ -407,10 +407,22 @@ export function BackOffice() {
   // Le message de succès s'efface seul au bout de trois secondes. Les messages
   // d'erreur, eux, restent : ils demandent une action.
   useEffect(() => {
-    if (!envoiMessage?.startsWith('Devis envoyé')) return;
+    // Les messages de succès sont préfixés d'une coche ; eux seuls s'effacent.
+    if (!envoiMessage?.startsWith('✓')) return;
     const t = setTimeout(() => setEnvoiMessage(null), 3000);
     return () => clearTimeout(t);
   }, [envoiMessage]);
+
+  // Confirmation générique. Toute action irréversible ou visible du client
+  // passe par là : un e-mail parti ne se rattrape pas, et un clic de travers
+  // dans une liste est vite arrivé.
+  const [confirmation, setConfirmation] = useState<{
+    titre: string;
+    texte: string;
+    libelle: string;
+    danger?: boolean;
+    action: () => void | Promise<void>;
+  } | null>(null);
 
   // Fenêtre de relecture avant envoi. `null` = fermée.
   const [apercu, setApercu] = useState<{
@@ -688,6 +700,45 @@ export function BackOffice() {
     await client.patch(x._id).set({ etape }).commit();
   };
 
+  // Prévient le client de l'étape courante. L'API refuse de notifier deux fois
+  // la même étape : une correction de saisie ne renverra pas de message.
+  const notifierClientExpedition = async (x: Expedition) => {
+    if (envoiEnCours) return;
+    const cle = await obtenirCleApi();
+    if (!cle) return;
+    setEnvoiEnCours(true);
+    setEnvoiMessage(null);
+    try {
+      const rep = await appelerApi('/api/envoi-expedition', cle, { reference: x.reference });
+      if (!rep) return;
+      const data = (await rep.json().catch(() => ({}))) as {
+        ok?: boolean;
+        erreur?: string;
+        destinataire?: string;
+        etape?: string;
+        ignore?: boolean;
+      };
+      if (rep.status === 401) {
+        localStorage.removeItem('hgwf-cle-api');
+        setEnvoiMessage('Clé refusée. Relancez pour la saisir à nouveau.');
+        return;
+      }
+      if (!rep.ok || !data.ok) {
+        setEnvoiMessage(`Échec : ${data.erreur ?? 'erreur ' + rep.status}`);
+        return;
+      }
+      setEnvoiMessage(
+        data.ignore
+          ? '✓ Client déjà prévenu de cette étape — aucun message renvoyé.'
+          : `✓ Client prévenu (${data.etape}) — ${data.destinataire}.`,
+      );
+    } catch (e) {
+      setEnvoiMessage(`Échec : ${e instanceof Error ? e.message : 'erreur inattendue'}`);
+    } finally {
+      setEnvoiEnCours(false);
+    }
+  };
+
   // Édition du trajet et de l'ETA depuis le panneau focus.
   const enregistrerExpedition = async (x: Expedition, trajet: string, eta: string) => {
     setExpeditions((prev) => prev.map((e) => (e._id === x._id ? { ...e, trajet, eta } : e)));
@@ -799,7 +850,7 @@ export function BackOffice() {
         setEnvoiMessage(`Échec de l'envoi : ${data.erreur ?? 'erreur ' + rep.status}`);
         return;
       }
-      setEnvoiMessage(`Devis envoyé à ${data.destinataire}.`);
+      setEnvoiMessage(`✓ Devis envoyé à ${data.destinataire}.`);
       setApercu(null);
       // L'envoi réussi fait avancer la demande : c'est le geste métier attendu.
       if (clampDemande(d.statut) < 2) await changerStatut(d, 2);
@@ -1507,7 +1558,7 @@ export function BackOffice() {
                           <span
                             style={{
                               fontSize: 12,
-                              color: envoiMessage.startsWith('Devis envoyé') ? MARINE : ROUGE,
+                              color: envoiMessage.startsWith('✓') ? MARINE : ROUGE,
                               fontWeight: 600,
                             }}
                           >
@@ -1711,9 +1762,41 @@ export function BackOffice() {
                           </button>
                         )}
                         {clampEtape(selExp.etape) < 4 ? (
-                          <button onClick={() => bougerExpedition(selExp, 1)} style={{ ...boutonPlein, background: MARINE, fontSize: 13, padding: '9px 18px' }}>
+                          <>
+                          <button
+                            onClick={() =>
+                              setConfirmation({
+                                titre: 'Faire avancer l’expédition ?',
+                                texte: `L’étape passera à « ${ETAPES_EXPEDITION[Math.min(4, clampEtape(selExp.etape) + 1)]} ». Le client verra ce changement sur la page de suivi. Prévenez-le ensuite par e-mail si nécessaire.`,
+                                libelle: 'Faire avancer',
+                                action: () => bougerExpedition(selExp, 1),
+                              })
+                            }
+                            style={{ ...boutonPlein, background: MARINE, fontSize: 13, padding: '9px 18px' }}
+                          >
                             Étape suivante →
                           </button>
+                          <button
+                            onClick={() =>
+                              setConfirmation({
+                                titre: 'Prévenir le client par e-mail ?',
+                                texte: `Un message partira à ${extraireEmail(selExp.contact) ?? 'son adresse'} pour l’étape « ${ETAPES_EXPEDITION[clampEtape(selExp.etape)]} ». Un e-mail envoyé ne se rattrape pas.`,
+                                libelle: 'Envoyer',
+                                action: () => notifierClientExpedition(selExp),
+                              })
+                            }
+                            disabled={envoiEnCours || !extraireEmail(selExp.contact)}
+                            title={extraireEmail(selExp.contact) ? undefined : 'Aucune adresse e-mail sur cette expédition'}
+                            style={{
+                              ...boutonContour,
+                              fontSize: 13,
+                              padding: '9px 18px',
+                              opacity: envoiEnCours || !extraireEmail(selExp.contact) ? 0.45 : 1,
+                            }}
+                          >
+                            {envoiEnCours ? '⏳ Envoi…' : '✉ Prévenir le client'}
+                          </button>
+                          </>
                         ) : (
                           <span style={{ ...badgeBase, background: MARINE, color: CREME }}>Livré ✓</span>
                         )}
@@ -1874,7 +1957,14 @@ export function BackOffice() {
                               </button>
                               {statutPec === 0 && (
                                 <button
-                                  onClick={() => declencherPriseEnCharge(selExp)}
+                                  onClick={() =>
+                                    setConfirmation({
+                                      titre: 'Déclencher la prise en charge ?',
+                                      texte: 'Le dossier passera à « Prêt » et la date sera horodatée. Cette action n’envoie pas de message au client.',
+                                      libelle: 'Déclencher',
+                                      action: () => declencherPriseEnCharge(selExp),
+                                    })
+                                  }
                                   disabled={pecEnCours || manques.length > 0}
                                   title={manques.length > 0 ? `Il manque : ${manques.join(', ')}` : undefined}
                                   style={{
@@ -1890,7 +1980,14 @@ export function BackOffice() {
                               )}
                               {statutPec === 1 && (
                                 <button
-                                  onClick={() => marquerExpedie(selExp)}
+                                  onClick={() =>
+                                    setConfirmation({
+                                      titre: 'Marquer le dossier expédié ?',
+                                      texte: 'La marchandise est considérée comme partie. Vérifiez que le règlement est encaissé, ou que la dérogation est motivée.',
+                                      libelle: 'Marquer expédié',
+                                      action: () => marquerExpedie(selExp),
+                                    })
+                                  }
                                   disabled={pecEnCours || !peutPartir}
                                   title={peutPartir ? undefined : 'Règlement non encaissé et aucune dérogation motivée'}
                                   style={{
@@ -2377,6 +2474,63 @@ export function BackOffice() {
               </>
             )}
 
+            {/* Confirmation : dernier filet avant une action qui part chez le
+                client ou qui ne se défait pas. */}
+            {confirmation && (
+              <div
+                onClick={() => setConfirmation(null)}
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  zIndex: 1400,
+                  background: 'rgba(6,20,34,0.55)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 20,
+                }}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    background: IVOIRE,
+                    borderRadius: 18,
+                    padding: 24,
+                    width: 'min(440px, 100%)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 14,
+                  }}
+                >
+                  <span style={{ fontWeight: 700, fontSize: 16, color: MARINE }}>{confirmation.titre}</span>
+                  <span style={{ fontSize: 13, lineHeight: 1.5, color: ENCRE }}>{confirmation.texte}</span>
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => setConfirmation(null)}
+                      style={{ ...boutonContour, fontSize: 13, padding: '9px 18px' }}
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={() => {
+                        const agir = confirmation.action;
+                        setConfirmation(null);
+                        void agir();
+                      }}
+                      style={{
+                        ...boutonPlein,
+                        ...(confirmation.danger ? { background: ROUGE, color: CREME } : {}),
+                        fontSize: 13,
+                        padding: '9px 20px',
+                      }}
+                    >
+                      {confirmation.libelle}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Relecture avant envoi : on voit ce qui part, on peut le
                 retoucher, et l'envoi ne se déclenche qu'ici. Le destinataire
                 est affiché mais non modifiable — il vient de la fiche, jamais
@@ -2451,7 +2605,9 @@ export function BackOffice() {
                   </span>
 
                   {envoiMessage && (
-                    <span style={{ fontSize: 12, color: ROUGE, fontWeight: 600 }}>{envoiMessage}</span>
+                    <span style={{ fontSize: 12, color: envoiMessage.startsWith('✓') ? MARINE : ROUGE, fontWeight: 600 }}>
+                      {envoiMessage}
+                    </span>
                   )}
 
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -2463,7 +2619,14 @@ export function BackOffice() {
                       Annuler
                     </button>
                     <button
-                      onClick={() => envoyerDevisParEmail(apercu.demande)}
+                      onClick={() =>
+                        setConfirmation({
+                          titre: 'Envoyer le devis maintenant ?',
+                          texte: `Le message et le PDF partiront à ${apercu.destinataire}. Un e-mail envoyé ne se rattrape pas.`,
+                          libelle: 'Envoyer',
+                          action: () => envoyerDevisParEmail(apercu.demande),
+                        })
+                      }
                       disabled={envoiEnCours || !apercu.objet.trim() || !apercu.texte.trim()}
                       style={{
                         ...boutonPlein,

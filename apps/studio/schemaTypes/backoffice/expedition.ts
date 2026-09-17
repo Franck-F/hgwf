@@ -238,6 +238,15 @@ export const expedition = defineType({
       description: 'Jamais visibles du client : incidents, particularités, consignes.',
     }),
     defineField({
+      name: 'derniereEtapeNotifiee',
+      title: 'Dernière étape notifiée au client',
+      type: 'number',
+      group: 'exploitation',
+      readOnly: true,
+      description:
+        'Posé automatiquement à chaque notification. Empêche de prévenir deux fois de la même étape.',
+    }),
+    defineField({
       name: 'priseEnChargeLe',
       title: 'Prise en charge déclenchée le (JJ/MM/AAAA)',
       type: 'string',
