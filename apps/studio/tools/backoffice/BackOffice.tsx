@@ -44,6 +44,9 @@ type Demande = {
   devisEnvoyeLe?: string;
   notes?: string;
   expeditionRef?: string;
+  accuseReceptionLe?: string;
+  devisEnvoyeA?: string;
+  relanceEnvoyeeLe?: string;
 };
 type Expedition = {
   _id: string;
@@ -76,6 +79,8 @@ type Expedition = {
   numeroConteneur?: string;
   notesExploitation?: string;
   priseEnChargeLe?: string;
+  derniereEtapeNotifiee?: number;
+  derniereNotificationLe?: string;
 };
 type ClientFiche = {
   _id: string;
@@ -443,8 +448,8 @@ export function BackOffice() {
       rotations: Rotation[];
       stats: Stats | null;
     }>(`{
-      "demandes": *[_type == "demandeDevis"] | order(_createdAt desc){_id, _createdAt, _updatedAt, reference, clientNom, contact, typeEnvoi, destination, volume, recueLe, statut, message, montantDevis, descriptionPrestation, delaiEstime, devisEnvoyeLe, notes, expeditionRef},
-      "expeditions": *[_type == "expedition"] | order(_updatedAt desc){_id, _updatedAt, reference, clientNom, contact, demandeRef, trajet, etape, eta, statutPriseEnCharge, mode, expediteurNom, expediteurAdresse, expediteurTel, destinataireNom, destinataireAdresse, destinataireTel, colisNombre, colisPoids, colisVolume, colisNature, valeurDeclaree, reglementRecu, derogationDepart, derogationMotif, numeroReservation, numeroConteneur, notesExploitation, priseEnChargeLe},
+      "demandes": *[_type == "demandeDevis"] | order(_createdAt desc){_id, _createdAt, _updatedAt, reference, clientNom, contact, typeEnvoi, destination, volume, recueLe, statut, message, montantDevis, descriptionPrestation, delaiEstime, devisEnvoyeLe, notes, expeditionRef, accuseReceptionLe, devisEnvoyeA, relanceEnvoyeeLe},
+      "expeditions": *[_type == "expedition"] | order(_updatedAt desc){_id, _updatedAt, reference, clientNom, contact, demandeRef, trajet, etape, eta, statutPriseEnCharge, mode, expediteurNom, expediteurAdresse, expediteurTel, destinataireNom, destinataireAdresse, destinataireTel, colisNombre, colisPoids, colisVolume, colisNature, valeurDeclaree, reglementRecu, derogationDepart, derogationMotif, numeroReservation, numeroConteneur, notesExploitation, priseEnChargeLe, derniereEtapeNotifiee, derniereNotificationLe},
       "clients": *[_type == "clientFiche"] | order(nom asc){_id, nom, contact, destination, envois, volume},
       "conteneurs": *[_type == "conteneurOccasion"] | order(reference asc){_id, _updatedAt, reference, taille, etat, lieu, prix, statut},
       "rotations": *[_type == "rotation"] | order(cloture asc){_id, nom, cloture, depart, remplissage},
@@ -1554,6 +1559,49 @@ export function BackOffice() {
                             ⧉ Copier le modèle
                           </button>
                         </div>
+                        {/* Traçabilité : ce que le client a réellement reçu, et
+                            quand. Sans cet encart, il fallait fouiller les
+                            journaux du serveur pour le savoir. */}
+                        <div
+                          style={{
+                            background: CREME,
+                            borderRadius: 10,
+                            padding: '8px 12px',
+                            fontSize: 11,
+                            color: ENCRE,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 3,
+                          }}
+                        >
+                          <span>
+                            Accusé de réception :{' '}
+                            {sel.accuseReceptionLe ? (
+                              <strong style={{ color: MARINE }}>envoyé le {sel.accuseReceptionLe}</strong>
+                            ) : (
+                              <span style={{ color: ROUGE }}>non envoyé</span>
+                            )}
+                          </span>
+                          <span>
+                            Devis :{' '}
+                            {sel.devisEnvoyeLe ? (
+                              <strong style={{ color: MARINE }}>
+                                envoyé le {sel.devisEnvoyeLe}
+                                {sel.devisEnvoyeA ? ` à ${sel.devisEnvoyeA}` : ''}
+                              </strong>
+                            ) : (
+                              'pas encore envoyé'
+                            )}
+                          </span>
+                          <span>
+                            Relance automatique :{' '}
+                            {sel.relanceEnvoyeeLe ? (
+                              <strong style={{ color: MARINE }}>envoyée le {sel.relanceEnvoyeeLe}</strong>
+                            ) : (
+                              'aucune'
+                            )}
+                          </span>
+                        </div>
                         {envoiMessage && (
                           <span
                             style={{
@@ -1871,6 +1919,14 @@ export function BackOffice() {
                               {selExp.priseEnChargeLe && (
                                 <span style={{ fontFamily: MONO, fontSize: 11, color: ENCRE }}>
                                   déclenchée le {selExp.priseEnChargeLe}
+                                </span>
+                              )}
+                              {selExp.derniereNotificationLe && (
+                                <span style={{ fontFamily: MONO, fontSize: 11, color: MARINE }}>
+                                  client prévenu le {selExp.derniereNotificationLe}
+                                  {typeof selExp.derniereEtapeNotifiee === 'number'
+                                    ? ` (${ETAPES_EXPEDITION[clampEtape(selExp.derniereEtapeNotifiee)]})`
+                                    : ''}
                                 </span>
                               )}
                             </div>

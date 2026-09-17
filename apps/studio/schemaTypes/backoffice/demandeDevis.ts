@@ -69,6 +69,29 @@ export const demandeDevis = defineType({
       type: 'string',
       description: 'Posé automatiquement quand la demande passe à « Devis envoyé ».',
     }),
+    // ── Traçabilité des envois ──────────────────────────────────────────────
+    // Posés automatiquement par l'API. Sans eux, savoir si un client a reçu
+    // quelque chose obligeait à fouiller les journaux du serveur.
+    defineField({
+      name: 'accuseReceptionLe',
+      title: 'Accusé de réception envoyé le',
+      type: 'string',
+      readOnly: true,
+      description: 'Horodatage de l’accusé automatique envoyé à la réception de la demande.',
+    }),
+    defineField({
+      name: 'devisEnvoyeA',
+      title: 'Devis envoyé à (adresse)',
+      type: 'string',
+      readOnly: true,
+    }),
+    defineField({
+      name: 'relanceEnvoyeeLe',
+      title: 'Relance envoyée le',
+      type: 'string',
+      readOnly: true,
+      description: 'Une seule relance automatique par devis. Renseigné, elle ne repartira pas.',
+    }),
     defineField({
       name: 'notes',
       title: 'Notes internes',

@@ -247,6 +247,13 @@ export const expedition = defineType({
         'Posé automatiquement à chaque notification. Empêche de prévenir deux fois de la même étape.',
     }),
     defineField({
+      name: 'derniereNotificationLe',
+      title: 'Dernière notification client le',
+      type: 'string',
+      group: 'exploitation',
+      readOnly: true,
+    }),
+    defineField({
       name: 'priseEnChargeLe',
       title: 'Prise en charge déclenchée le (JJ/MM/AAAA)',
       type: 'string',

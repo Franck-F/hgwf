@@ -66,7 +66,7 @@ function corsHeaders(req) {
   return {
     'Access-Control-Allow-Origin': origin && ORIGINS.includes(origin) ? origin : ORIGINS[0],
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, x-hgwf-cle',
+    'Access-Control-Allow-Headers': 'Content-Type, x-hgwf-cle, Authorization',
     // 10 minutes, pas 24 h. Un préflight en échec est mis en cache par le
     // navigateur pendant toute cette durée : avec une journée, une erreur de
     // configuration CORS reste invisible et non corrigeable côté visiteur.
@@ -96,6 +96,14 @@ function lireCorps(req, max = 50_000) {
 }
 
 const nettoyer = (v, max = 300) => String(v ?? '').trim().slice(0, max);
+
+// Horodatage lisible par un humain dans le back-office : la date et l'heure,
+// pas un ISO 8601 que personne ne lit d'un coup d'oeil.
+function horodatage() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} a ${p(d.getHours())}h${p(d.getMinutes())}`;
+}
 
 // ── Référence unique HGWF-AAAA-NNNN ──────────────────────────────────────────
 async function genererReference() {
@@ -144,7 +152,7 @@ async function creerDemande(req, res, cors) {
     .filter(Boolean)
     .join('\n');
 
-  await sanity.create({
+  const doc = await sanity.create({
     _type: 'demandeDevis',
     reference,
     clientNom: nom,
@@ -167,7 +175,12 @@ async function creerDemande(req, res, cors) {
   //
   // `notifierDemande` ne rejette jamais : un e-mail raté n'empêche pas la
   // demande d'être enregistrée ni le client de recevoir son 201.
-  await notifierDemande({ reference, nom, email, destination: nettoyer(corps.destination, 80), typeEnvoi: nettoyer(corps.typeEnvoi, 80), volume: nettoyer(corps.volume, 40) });
+  const accuseEnvoye = await notifierDemande({ reference, nom, email, destination: nettoyer(corps.destination, 80), typeEnvoi: nettoyer(corps.typeEnvoi, 80), volume: nettoyer(corps.volume, 40) });
+  if (accuseEnvoye) {
+    // Trace visible dans le back-office : sans elle, savoir si le client a
+    // recu quelque chose obligeait a fouiller les journaux du serveur.
+    await sanity.patch(doc._id).set({ accuseReceptionLe: horodatage() }).commit().catch(() => {});
+  }
 
   return json(res, 201, { ok: true, reference }, cors);
 }
@@ -205,7 +218,7 @@ async function envoyerDevis(req, res, cors) {
   }
 
   const d = await sanity.fetch(
-    `*[_type == "demandeDevis" && reference == $ref][0]{reference, clientNom, contact, destination, montantDevis, descriptionPrestation, delaiEstime}`,
+    `*[_type == "demandeDevis" && reference == $ref][0]{_id, reference, clientNom, contact, destination, montantDevis, descriptionPrestation, delaiEstime}`,
     { ref: reference },
   );
   if (!d) return json(res, 404, { ok: false, erreur: 'demande introuvable' }, cors);
@@ -272,8 +285,80 @@ async function envoyerDevis(req, res, cors) {
 
   if (!r.ok) return json(res, 502, { ok: false, erreur: r.raison }, cors);
 
+  await sanity
+    .patch(d._id)
+    .set({ devisEnvoyeLe: horodatage(), devisEnvoyeA: email })
+    .commit()
+    .catch(() => {});
+
   console.log(`[devis] ${reference} envoyé à ${email}`);
   return json(res, 200, { ok: true, destinataire: email }, cors);
+}
+
+// ── Relance des devis sans réponse ────────────────────────────────────────────
+// Déclenchée une fois par jour par la tâche planifiée Vercel. Trois garde-fous,
+// et ils comptent plus que la fonction elle-même :
+//   1. une seule relance par devis, jamais deux — `relanceEnvoyeeLe` le garantit ;
+//   2. uniquement les devis encore au statut « Devis envoyé » : un client qui a
+//      répondu, accepté ou refusé ne doit surtout pas être relancé ;
+//   3. un délai minimum de six jours, calculé sur la date d'envoi réelle.
+//
+// Le texte reste procédural — une échéance qui arrive, pas une offre. C'est ce
+// qui le garde du côté transactionnel plutôt que prospection, et donc licite
+// sans consentement préalable.
+const DELAI_RELANCE_JOURS = 6;
+
+function joursDepuis(horo) {
+  // Format posé par horodatage() : « JJ/MM/AAAA a HHhMM », ou l'ancien « JJ/MM/AAAA ».
+  const m = String(horo ?? '').match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!m) return null;
+  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  return Math.floor((Date.now() - d.getTime()) / 86_400_000);
+}
+
+async function relancerDevis(req, res, cors) {
+  // Vercel signe ses appels planifiés ; on accepte aussi la clé du back-office
+  // pour pouvoir déclencher une passe à la main.
+  const secret = process.env.CRON_SECRET;
+  const parCron = secret && req.headers.authorization === `Bearer ${secret}`;
+  const parCle = process.env.BACKOFFICE_API_CLE && req.headers['x-hgwf-cle'] === process.env.BACKOFFICE_API_CLE;
+  if (!parCron && !parCle) return json(res, 401, { ok: false, erreur: 'non autorisé' }, cors);
+
+  const candidats = await sanity.fetch(
+    `*[_type == "demandeDevis" && statut == 2 && !defined(relanceEnvoyeeLe) && defined(devisEnvoyeLe)]{_id, reference, clientNom, contact, destination, montantDevis, devisEnvoyeLe}`,
+  );
+
+  const traites = [];
+  for (const d of candidats) {
+    const age = joursDepuis(d.devisEnvoyeLe);
+    if (age === null || age < DELAI_RELANCE_JOURS) continue;
+    const email = (d.contact ?? '').match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0];
+    if (!email) continue;
+
+    const prenom = (d.clientNom ?? '').trim().split(/\s+/)[0] || '';
+    const paragraphes = [
+      `Bonjour${prenom ? ' ' + prenom : ''},`,
+      `Votre devis ${d.reference}${d.destination ? ' pour ' + d.destination : ''}${d.montantDevis ? ' (' + d.montantDevis + ')' : ''} arrive à échéance.`,
+      'Souhaitez-vous que nous le prolongions, que nous l’ajustions, ou préférez-vous ne pas donner suite ? Une réponse d’un mot nous suffit.',
+      'Si le projet est reporté ou abandonné, dites-le simplement : nous arrêterons là.',
+    ];
+
+    const r = await envoyerEmail({
+      to: email,
+      subject: `Votre devis ${d.reference} arrive à échéance`,
+      text: [...paragraphes, '', 'Bien cordialement,', "L'équipe HGWF Cargo"].join('\n\n'),
+      html: gabaritHtml({ titre: 'Votre devis arrive à échéance', paragraphes, lignes: [] }),
+      replyTo: process.env.EMAIL_INTERNE || undefined,
+    });
+
+    // L'horodatage est posé même en cas d'échec d'envoi : sans cela, un client
+    // dont l'adresse rejette nos messages serait relancé tous les jours.
+    await sanity.patch(d._id).set({ relanceEnvoyeeLe: horodatage() }).commit().catch(() => {});
+    traites.push({ reference: d.reference, envoye: r.ok });
+  }
+
+  console.log(`[relance] ${traites.length} devis traité(s) sur ${candidats.length} candidat(s)`);
+  return json(res, 200, { ok: true, traites }, cors);
 }
 
 // ── Notification d'expédition ─────────────────────────────────────────────────
@@ -362,7 +447,7 @@ async function notifierExpedition(req, res, cors) {
 
   if (!r.ok) return json(res, 502, { ok: false, erreur: r.raison }, cors);
 
-  await sanity.patch(x._id).set({ derniereEtapeNotifiee: etape }).commit();
+  await sanity.patch(x._id).set({ derniereEtapeNotifiee: etape, derniereNotificationLe: horodatage() }).commit();
   console.log(`[expedition] ${reference} étape ${etape} notifiée à ${email}`);
   return json(res, 200, { ok: true, destinataire: email, etape: ETAPES[etape] }, cors);
 }
@@ -440,7 +525,10 @@ async function notifierDemande({ reference, nom, email, destination, typeEnvoi, 
   }
 
   // allSettled : un envoi raté n'empêche pas l'autre d'aboutir.
-  await Promise.allSettled(envois);
+  const resultats = await Promise.allSettled(envois);
+  // Le premier envoi est l'accusé client (poussé en premier s'il y a un e-mail).
+  const accuse = email && resultats[0];
+  return accuse && accuse.status === 'fulfilled' && accuse.value?.ok === true;
 }
 
 async function chercherSuivi(req, res, cors, url) {
@@ -481,6 +569,9 @@ export async function handler(req, res) {
 
     if (req.method === 'POST' && url.pathname === '/api/demande-devis') {
       return await creerDemande(req, res, cors);
+    }
+    if (url.pathname === '/api/relances' && (req.method === 'POST' || req.method === 'GET')) {
+      return await relancerDevis(req, res, cors);
     }
     if (req.method === 'POST' && url.pathname === '/api/envoi-expedition') {
       return await notifierExpedition(req, res, cors);

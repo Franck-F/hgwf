@@ -12,3 +12,21 @@ RewriteRule ^ https://hgwf-cargo.fr%{REQUEST_URI} [R=301,L]
 # Racine -> locale par défaut (le meta refresh de index.html reste en secours).
 # Cible absolue : en relatif, Apache ajoute un « :443 » parasite à l'URL.
 RewriteRule ^$ https://hgwf-cargo.fr/fr/ [R=301,L]
+
+# ── En-têtes de sécurité ──────────────────────────────────────────────────────
+# Le site est un export statique sans script tiers : ces en-têtes ne coûtent
+# rien et ferment des portes ouvertes par défaut.
+<IfModule mod_headers.c>
+  # HTTPS obligatoire pendant un an, y compris sur les sous-domaines.
+  # Posé après la redirection ci-dessus, qui garantit déjà le HTTPS.
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  # Interdit l'affichage du site dans un cadre chez un tiers (clickjacking).
+  Header always set X-Frame-Options "SAMEORIGIN"
+  # Empêche le navigateur de deviner un type de contenu autre que celui déclaré.
+  Header always set X-Content-Type-Options "nosniff"
+  # Ne transmet l'URL complète qu'aux pages du même site.
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  # Aucune de ces fonctions n'est utilisée : on les refuse explicitement.
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+</IfModule>
+
