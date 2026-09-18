@@ -27,9 +27,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+
+      # La commande « dataset » du CLI Sanity n'existe qu'à l'intérieur d'un
+      # projet installé : lancée via npx sur un dossier sans node_modules, elle
+      # répond « not available outside of a Sanity project context ».
+      - run: pnpm install --frozen-lockfile
 
       - name: Date du jour
         id: horodatage
@@ -47,7 +55,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/sauvegarde"
           for jeu in production operations; do
-            npx --yes sanity@3 dataset export "$jeu" \
+            pnpm exec sanity dataset export "$jeu" \
               "$RUNNER_TEMP/sauvegarde/$jeu.tar.gz" --overwrite
           done
           ls -lh "$RUNNER_TEMP/sauvegarde"
