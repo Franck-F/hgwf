@@ -52,9 +52,35 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/sauvegarde"
+
+          # La boîte « Connect » de Supabase affiche la ligne complète
+          # psql "postgresql://…". Collée telle quelle, pg_dump prend tout pour
+          # un nom de base et se rabat sur la socket locale, avec un message qui
+          # ne dit pas la vraie cause. On normalise, et on refuse clairement.
+          url="$BOX_DB_URL"
+          url="${url#psql }"
+          url="${url%\"}"; url="${url#\"}"
+          url="${url%\'}"; url="${url#\'}"
+
+          if [ -z "$url" ]; then
+            echo "::error::Le secret BOX_DB_URL est vide."
+            exit 1
+          fi
+          case "$url" in
+            postgresql://*|postgres://*) ;;
+            *)
+              echo "::error::BOX_DB_URL ne commence pas par postgresql://. Coller l'URI seule, sans le prefixe psql ni les guillemets."
+              exit 1
+              ;;
+          esac
+          if printf '%s' "$url" | grep -qi 'YOUR-PASSWORD'; then
+            echo "::error::Le mot de passe n'a pas ete remplace dans BOX_DB_URL."
+            exit 1
+          fi
+
           # --no-owner et --no-privileges : le dump se restaure sur n'importe
           # quel projet Supabase, sans dépendre des rôles de celui d'origine.
-          pg_dump "$BOX_DB_URL" \
+          pg_dump "$url" \
             --schema=public \
             --no-owner \
             --no-privileges \
