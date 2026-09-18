@@ -1,0 +1,88 @@
+name: Sauvegarde base box
+
+# La base des box vit chez Supabase, sur l'offre gratuite : aucune sauvegarde
+# automatique, et pas de restauration à un instant donné. Ce workflow tient ce
+# rôle, sur le même principe que sauvegarde-sanity.yml.
+#
+# Ce qui est sauvegardé : le schéma « public » complet — tables, contraintes,
+# déclencheurs, données. Ce qui ne l'est pas : les comptes d'accès, gérés par
+# Supabase Auth dans le schéma « auth ». Ils se recréent, les contrats non.
+#
+# Le secret BOX_DB_URL contient la chaîne de connexion « Session pooler » du
+# projet, celle affichée par le bouton Connect du tableau de bord Supabase.
+# Le pooler de session est indispensable : la connexion directe n'est joignable
+# qu'en IPv6, et les machines GitHub n'ont que de l'IPv4.
+
+on:
+  schedule:
+    # 03h20 UTC, vingt minutes après la sauvegarde Sanity : les deux ne se
+    # marchent pas dessus dans la liste des runs.
+    - cron: '20 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      # La base tourne en PostgreSQL 17 : un pg_dump plus ancien refuse de
+      # s'exécuter contre un serveur plus récent. Le client vient donc du dépôt
+      # officiel PostgreSQL, pas de celui d'Ubuntu.
+      - name: Client PostgreSQL 17
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          pg_dump --version
+
+      - name: Date du jour
+        id: horodatage
+        run: echo "jour=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Export de la base
+        env:
+          BOX_DB_URL: ${{ secrets.BOX_DB_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sauvegarde"
+          # --no-owner et --no-privileges : le dump se restaure sur n'importe
+          # quel projet Supabase, sans dépendre des rôles de celui d'origine.
+          pg_dump "$BOX_DB_URL" \
+            --schema=public \
+            --no-owner \
+            --no-privileges \
+            --file="$RUNNER_TEMP/sauvegarde/box.sql"
+          gzip -9 "$RUNNER_TEMP/sauvegarde/box.sql"
+          ls -lh "$RUNNER_TEMP/sauvegarde"
+
+      # Un dump qui réussit en ne sauvegardant rien est le piège classique.
+      # On vérifie que les sept tables du socle sont bien dans le fichier.
+      - name: Contrôle du contenu
+        run: |
+          set -euo pipefail
+          contenu=$(gunzip -c "$RUNNER_TEMP/sauvegarde/box.sql.gz")
+          manquantes=""
+          for table in site categorie_box tarif box client contrat mouvement; do
+            echo "$contenu" | grep -q "CREATE TABLE public.$table" || manquantes="$manquantes $table"
+          done
+          if [ -n "$manquantes" ]; then
+            echo "::error::Tables absentes du dump :$manquantes"
+            exit 1
+          fi
+          lignes=$(echo "$contenu" | grep -c '' )
+          echo "Dump valide, $lignes lignes, sept tables presentes."
+
+      - name: Dépôt de l'archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: sauvegarde-box-${{ steps.horodatage.outputs.jour }}-${{ github.run_number }}
+          path: ${{ runner.temp }}/sauvegarde/box.sql.gz
+          retention-days: 90
+          if-no-files-found: error

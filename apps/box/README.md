@@ -33,12 +33,26 @@ Testées le 18/09/2026 dans une transaction annulée :
 - **le journal des mouvements ne se modifie pas** — toute mise à jour ou
   suppression lève une exception.
 
-### Ce qu'il faut savoir avant d'y mettre de vrais contrats
+### Sauvegardes
 
-L'offre gratuite de Supabase **ne fait aucune sauvegarde automatique** et met le
-projet en pause après une semaine d'inactivité. C'est acceptable pour construire,
-pas pour exploiter. Avant la mise en service : passer à l'offre payante, ou monter
-un export nocturne sur le modèle de `.github/workflows/sauvegarde-sanity.yml`.
+L'offre gratuite de Supabase ne fait aucune sauvegarde automatique. Décision du
+18/09/2026 : on reste sur l'offre gratuite et `.github/workflows/sauvegarde-box.yml`
+exporte la base chaque nuit à 03h20 UTC — schéma `public` complet, archive déposée
+en pièce jointe du run, 90 jours de rétention.
+
+Non couvert : les comptes d'accès, gérés par Supabase Auth dans le schéma `auth`.
+Ils se recréent en quelques minutes ; des contrats, non.
+
+Le workflow a besoin du secret GitHub `BOX_DB_URL` : la chaîne de connexion
+**Session pooler** affichée par le bouton *Connect* du tableau de bord Supabase.
+Le pooler de session est indispensable — la connexion directe n'est joignable qu'en
+IPv6, et les machines GitHub n'ont que de l'IPv4.
+
+### Facturation
+
+Décision du 18/09/2026 : **le système box n'émet pas de factures.** Il produit des
+échéances de loyer ; les factures qui doivent légalement en être sont émises depuis
+Henrri. Une seule série de numérotation, donc pas de comptabilité incohérente.
 
 ## Reste à faire pour la phase 1
 
