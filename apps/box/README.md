@@ -68,8 +68,32 @@ Décision du 18/09/2026 : **le système box n'émet pas de factures.** Il produi
 échéances de loyer ; les factures qui doivent légalement en être sont émises depuis
 Henrri. Une seule série de numérotation, donc pas de comptabilité incohérente.
 
+## L'application
+
+Next.js 16, rendu serveur, port 3002 en développement (`pnpm --filter box dev`).
+
+| Écran | Rôle |
+|---|---|
+| `/connexion` | lien de connexion par e-mail, sans mot de passe |
+| `/` | plan d'occupation : ce qui est libre, occupé, en maintenance |
+| `/parametrage` | l'équipe déclare elle-même locaux, gabarits, tarifs et box |
+
+**Aucune valeur du parc n'est écrite dans le code.** Tout se saisit depuis le
+paramétrage et se corrige ensuite : le fichier `db/seed-parc.exemple.sql` ne
+sert plus que de secours pour une reprise en masse.
+
+### Ouvrir un accès
+
+Les comptes ne se créent pas depuis l'écran de connexion — sinon n'importe qui
+s'inscrirait. Ajouter une personne : tableau de bord Supabase →
+*Authentication* → *Users* → *Add user* → *Auto confirm user*.
+
+L'envoi des liens passe par le serveur d'e-mail par défaut de Supabase, dont le
+quota horaire est bas. Quand l'équipe dépassera quelques connexions par jour, le
+brancher sur Resend, déjà en service pour le fret.
+
 ## Reste à faire pour la phase 1
 
-1. Charger le parc réel : sites, catégories, tarifs, box.
-2. Écrire l'interface : plan d'occupation, fiche box, fiche client, contrats.
+1. Clients et contrats : fiches, entrée, sortie, préavis.
+2. Passage automatique du statut d'un box à « occupé » à la signature.
 3. Déployer sur `box.hgwf-cargo.fr`.
