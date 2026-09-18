@@ -17,7 +17,6 @@ import {
   type Application,
   type Proposition,
 } from '@/app/parametrage/assistant';
-import { CIEL, CREME, IVOIRE, MARINE, MONO, OR, ROUGE, VERT } from '@/lib/charte';
 
 const EXEMPLE =
   'Entrepôt de Rosny, 12 avenue du Général de Gaulle. 10 box de 3 m² à 49 € codés A-01 à A-10 au rez-de-chaussée, 20 box de 6 m² à 79 € codés B-01 à B-20 au premier étage.';
@@ -25,8 +24,8 @@ const EXEMPLE =
 function BoutonAnalyse() {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} style={{ ...bouton, opacity: pending ? 0.5 : 1 }}>
-      {pending ? 'Lecture…' : 'Analyser la description'}
+    <button type="submit" className="bouton" disabled={pending}>
+      {pending ? 'Lecture…' : 'Analyser'}
     </button>
   );
 }
@@ -34,7 +33,7 @@ function BoutonAnalyse() {
 function BoutonApplique({ nombre }: { nombre: number }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} style={{ ...bouton, opacity: pending ? 0.5 : 1 }}>
+    <button type="submit" className="bouton" disabled={pending}>
       {pending ? 'Création…' : `Créer ${nombre} box et leurs tarifs`}
     </button>
   );
@@ -57,49 +56,35 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
 
   if (!disponible) return null;
 
-  const total = brouillon
-    ? brouillon.series.reduce((n, s) => n + (s.au - s.du + 1), 0)
-    : 0;
+  const total = brouillon ? brouillon.series.reduce((n, s) => n + (s.au - s.du + 1), 0) : 0;
 
   return (
-    <section
-      style={{
-        background: IVOIRE,
-        border: `1.5px solid ${MARINE}`,
-        borderRadius: 12,
-        padding: 20,
-        marginBottom: 22,
-      }}
-    >
-      <h2 style={{ fontSize: 17, margin: '0 0 4px' }}>Décrire le parc en une phrase</h2>
-      <p style={{ margin: '0 0 16px', fontSize: 13, opacity: 0.75, lineHeight: 1.5, maxWidth: 760 }}>
+    <section className="carte" style={{ marginBottom: 18 }}>
+      <h2 className="carte-titre">
+        <span className="numero" aria-hidden="true">
+          ✦
+        </span>
+        Décrire le parc en une phrase
+      </h2>
+      <p className="carte-note">
         Écrivez votre entrepôt comme vous le diriez au téléphone. La proposition s’affiche ensuite
         pour relecture — <strong>rien n’est enregistré tant que vous n’avez pas validé</strong>.
       </p>
 
       <form action={lancerAnalyse}>
         <textarea
+          className="champ"
           name="description"
           rows={3}
           defaultValue=""
           placeholder={EXEMPLE}
-          style={{
-            width: '100%',
-            padding: '11px 12px',
-            borderRadius: 8,
-            border: `1.5px solid rgba(18,57,91,0.3)`,
-            background: CREME,
-            resize: 'vertical',
-            lineHeight: 1.5,
-          }}
+          style={{ resize: 'vertical', lineHeight: 1.55 }}
         />
-        <div style={{ marginTop: 12, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="barre-actions">
           <BoutonAnalyse />
-          {analyse && !analyse.ok && (
-            <span style={{ color: ROUGE, fontSize: 13.5 }}>{analyse.erreur}</span>
-          )}
+          {analyse && !analyse.ok && <span className="retour retour-erreur">{analyse.erreur}</span>}
           {application && (
-            <span style={{ color: application.ok ? VERT : ROUGE, fontSize: 13.5, fontWeight: 500 }}>
+            <span className={`retour ${application.ok ? 'retour-ok' : 'retour-erreur'}`}>
               {application.ok ? `✓ ${application.message}` : application.erreur}
             </span>
           )}
@@ -107,17 +92,17 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
       </form>
 
       {brouillon && (
-        <div style={{ marginTop: 22, borderTop: '1px solid rgba(18,57,91,0.15)', paddingTop: 18 }}>
-          <p style={{ ...surtitre, marginTop: 0 }}>Proposition — corrigez avant de valider</p>
+        <div style={{ marginTop: 24, borderTop: '1px solid var(--trait)', paddingTop: 20 }}>
+          <p className="surtitre">Proposition — corrigez avant de valider</p>
 
           {analyse?.ok && analyse.avertissements.length > 0 && (
             <ul
               style={{
-                margin: '0 0 16px',
-                padding: '10px 14px 10px 30px',
-                background: 'rgba(255,178,62,0.16)',
-                border: `1px solid ${OR}`,
-                borderRadius: 8,
+                margin: '0 0 18px',
+                padding: '12px 16px 12px 32px',
+                background: 'rgba(255,178,62,0.12)',
+                border: '1px solid rgba(255,178,62,0.5)',
+                borderRadius: 'var(--r-controle)',
                 fontSize: 13,
                 lineHeight: 1.6,
               }}
@@ -129,15 +114,15 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
           )}
 
           {brouillon.local && (
-            <div style={{ marginBottom: 18 }}>
-              <p style={surtitre}>Local</p>
-              <div style={grille}>
+            <>
+              <p className="surtitre" style={{ marginTop: 20 }}>
+                Local
+              </p>
+              <div className="grille">
                 <Champ
                   libelle="Nom"
                   valeur={brouillon.local.nom}
-                  sur={(v) =>
-                    setBrouillon({ ...brouillon, local: { ...brouillon.local!, nom: v } })
-                  }
+                  sur={(v) => setBrouillon({ ...brouillon, local: { ...brouillon.local!, nom: v } })}
                 />
                 <Champ
                   libelle="Adresse"
@@ -161,17 +146,15 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
                   }
                 />
               </div>
-            </div>
+            </>
           )}
 
-          <p style={surtitre}>Tailles de box</p>
+          <p className="surtitre" style={{ marginTop: 22 }}>
+            Tailles de box
+          </p>
           {brouillon.gabarits.map((g, i) => (
-            <div key={i} style={{ ...grille, marginBottom: 10 }}>
-              <Champ
-                libelle="Nom"
-                valeur={g.nom}
-                sur={(v) => majGabarit(i, { nom: v })}
-              />
+            <div className="grille" key={i} style={{ marginBottom: 12 }}>
+              <Champ libelle="Nom" valeur={g.nom} sur={(v) => majGabarit(i, { nom: v })} />
               <Champ
                 libelle="Surface (m²)"
                 valeur={g.surface_m2 ?? ''}
@@ -186,9 +169,11 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
             </div>
           ))}
 
-          <p style={surtitre}>Séries de box</p>
+          <p className="surtitre" style={{ marginTop: 22 }}>
+            Séries de box
+          </p>
           {brouillon.series.map((s, i) => (
-            <div key={i} style={{ ...grille, marginBottom: 10 }}>
+            <div className="grille" key={i} style={{ marginBottom: 12 }}>
               <Champ libelle="Taille" valeur={s.gabarit} sur={(v) => majSerie(i, { gabarit: v })} />
               <Champ libelle="Préfixe" valeur={s.prefixe} sur={(v) => majSerie(i, { prefixe: v })} />
               <Champ libelle="Du n°" valeur={s.du} sur={(v) => majSerie(i, { du: Number(v) })} />
@@ -198,7 +183,15 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
                 valeur={s.etage ?? ''}
                 sur={(v) => majSerie(i, { etage: v || null })}
               />
-              <div style={{ alignSelf: 'end', paddingBottom: 9, fontFamily: MONO, fontSize: 12.5 }}>
+              <div
+                style={{
+                  alignSelf: 'end',
+                  paddingBottom: 11,
+                  fontFamily: 'var(--mono)',
+                  fontSize: 12,
+                  color: 'var(--texte-faible)',
+                }}
+              >
                 {s.prefixe}
                 {String(s.du).padStart(s.largeur, '0')} → {s.prefixe}
                 {String(s.au).padStart(s.largeur, '0')}
@@ -206,23 +199,14 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
             </div>
           ))}
 
-          <form action={appliquer} style={{ marginTop: 18 }}>
+          <form action={appliquer}>
             <input type="hidden" name="proposition" value={JSON.stringify(brouillon)} />
-            <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="barre-actions">
               <BoutonApplique nombre={total} />
-              <button
-                type="button"
-                onClick={() => setBrouillon(null)}
-                style={{
-                  background: 'transparent',
-                  border: `1.5px solid ${MARINE}`,
-                  borderRadius: 8,
-                  padding: '10px 16px',
-                }}
-              >
+              <button type="button" className="bouton-fantome" onClick={() => setBrouillon(null)}>
                 Abandonner
               </button>
-              <span style={{ fontSize: 12.5, opacity: 0.7 }}>
+              <span className="aide" style={{ marginTop: 0 }}>
                 Un code déjà utilisé sera sauté, jamais écrasé.
               </span>
             </div>
@@ -257,46 +241,14 @@ function Champ({
   manquant?: boolean;
 }) {
   return (
-    <label style={{ fontSize: 12.5, display: 'block' }}>
-      <span style={{ display: 'block', marginBottom: 4, opacity: 0.75 }}>{libelle}</span>
+    <label style={{ display: 'block' }}>
+      <span className="etiquette">{libelle}</span>
       <input
+        className={`champ${manquant ? ' champ-manquant' : ''}`}
         value={valeur}
         onChange={(e) => sur(e.target.value)}
         placeholder={manquant ? 'à compléter' : undefined}
-        style={{
-          width: '100%',
-          padding: '8px 10px',
-          borderRadius: 7,
-          border: `1.5px solid ${manquant ? OR : 'rgba(18,57,91,0.28)'}`,
-          background: manquant ? 'rgba(255,178,62,0.1)' : CREME,
-        }}
       />
     </label>
   );
 }
-
-const surtitre: React.CSSProperties = {
-  fontFamily: MONO,
-  fontSize: 11.5,
-  textTransform: 'uppercase',
-  letterSpacing: 0.6,
-  opacity: 0.65,
-  margin: '18px 0 8px',
-};
-
-const grille: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-  gap: 10,
-};
-
-const bouton: React.CSSProperties = {
-  background: MARINE,
-  color: CREME,
-  border: 'none',
-  borderRadius: 8,
-  padding: '10px 18px',
-  fontWeight: 700,
-};
-
-export const lienAide = CIEL;

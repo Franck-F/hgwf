@@ -12,7 +12,6 @@
  * formulaire : c'est tout l'intérêt, éviter trois champs recopiés à la main.
  */
 import { useEffect, useRef, useState } from 'react';
-import { CREME, IVOIRE, MARINE, MONO } from '@/lib/charte';
 
 type Suggestion = { label: string; voie: string; codePostal: string; ville: string };
 
@@ -32,7 +31,7 @@ export default function ChampAdresse({
   const [ouvert, setOuvert] = useState(false);
   const conteneur = useRef<HTMLDivElement>(null);
 
-  // Trois caractères minimum, et 300 ms de silence avant d'interroger : sans
+  // Quatre caractères minimum, et 300 ms de silence avant d'interroger : sans
   // cela, taper une adresse déclenche une requête par frappe.
   useEffect(() => {
     const q = valeur.trim();
@@ -101,31 +100,21 @@ export default function ChampAdresse({
 
   return (
     <div ref={conteneur} style={{ position: 'relative' }}>
-      <label style={{ display: 'block', fontSize: 13.5 }}>
-        <span style={{ display: 'block', marginBottom: 5 }}>
+      <label style={{ display: 'block' }}>
+        <span className="etiquette">
           {libelle}
-          {obligatoire && <span style={{ color: '#C24435' }}> *</span>}
+          {obligatoire && <span className="obligatoire"> *</span>}
         </span>
         <input
+          className="champ"
           name={nom}
           required={obligatoire}
           autoComplete="off"
           value={valeur}
           onChange={(e) => setValeur(e.target.value)}
           onFocus={() => suggestions.length > 0 && setOuvert(true)}
-          style={{
-            width: '100%',
-            padding: '9px 10px',
-            borderRadius: 8,
-            border: `1.5px solid rgba(18,57,91,0.3)`,
-            background: IVOIRE,
-          }}
         />
-        {aide && (
-          <span style={{ display: 'block', fontSize: 11.5, opacity: 0.62, marginTop: 4 }}>
-            {aide}
-          </span>
-        )}
+        {aide && <span className="aide">{aide}</span>}
       </label>
 
       {ouvert && suggestions.length > 0 && (
@@ -133,17 +122,16 @@ export default function ChampAdresse({
           style={{
             position: 'absolute',
             zIndex: 20,
-            top: '100%',
+            top: 'calc(100% - 18px)',
             left: 0,
             right: 0,
             margin: '4px 0 0',
-            padding: 0,
+            padding: 6,
             listStyle: 'none',
-            background: CREME,
-            border: `1.5px solid ${MARINE}`,
-            borderRadius: 8,
-            overflow: 'hidden',
-            boxShadow: '0 6px 18px rgba(18,57,91,0.16)',
+            background: 'var(--carte)',
+            border: '1px solid var(--trait)',
+            borderRadius: 'var(--r-controle)',
+            boxShadow: 'var(--ombre-portee)',
           }}
         >
           {suggestions.map((s) => (
@@ -155,11 +143,14 @@ export default function ChampAdresse({
                   display: 'block',
                   width: '100%',
                   textAlign: 'left',
-                  padding: '9px 11px',
+                  padding: '9px 10px',
                   background: 'transparent',
                   border: 'none',
+                  borderRadius: 8,
                   fontSize: 13,
                 }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--champ)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
                 {s.label}
               </button>
@@ -167,11 +158,11 @@ export default function ChampAdresse({
           ))}
           <li
             style={{
-              padding: '6px 11px',
-              fontFamily: MONO,
-              fontSize: 10.5,
-              opacity: 0.6,
-              borderTop: '1px solid rgba(18,57,91,0.15)',
+              padding: '7px 10px 3px',
+              fontFamily: 'var(--mono)',
+              fontSize: 10,
+              letterSpacing: 0.6,
+              color: 'var(--texte-faible)',
             }}
           >
             BASE ADRESSE NATIONALE

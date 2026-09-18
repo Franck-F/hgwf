@@ -5,8 +5,7 @@
  */
 import Link from 'next/link';
 import { serveur } from '@/lib/supabase-serveur';
-import Cadre, { carte } from '@/composants/Cadre';
-import { CIEL, CORAIL, IVOIRE, MARINE, MONO, VERT } from '@/lib/charte';
+import Cadre from '@/composants/Cadre';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,16 +18,16 @@ type BoxLigne = {
   categorie_box: { nom: string } | null;
 };
 
-type Teinte = { fond: string; texte: string; libelle: string };
+type Teinte = { fond: string; texte: string; point: string; libelle: string };
 
 // Repli nommé : un statut inconnu en base ne doit pas casser l'affichage du plan.
-const RETIRE: Teinte = { fond: 'rgba(18,57,91,0.1)', texte: 'rgba(18,57,91,0.55)', libelle: 'Retiré' };
+const RETIRE: Teinte = { fond: '#f1f3f6', texte: '#94a3b4', point: '#94a3b4', libelle: 'Retiré' };
 
 const COULEURS: Record<string, Teinte> = {
-  disponible: { fond: 'rgba(46,125,91,0.14)', texte: VERT, libelle: 'Disponible' },
-  occupe: { fond: MARINE, texte: IVOIRE, libelle: 'Occupé' },
-  reserve: { fond: 'rgba(255,178,62,0.25)', texte: '#8A5A00', libelle: 'Réservé' },
-  maintenance: { fond: 'rgba(255,111,94,0.2)', texte: CORAIL, libelle: 'Maintenance' },
+  disponible: { fond: '#eaf5ef', texte: '#2e7d5b', point: '#2e7d5b', libelle: 'Disponible' },
+  occupe: { fond: '#12395b', texte: '#ffffff', point: '#12395b', libelle: 'Occupé' },
+  reserve: { fond: '#fff4e2', texte: '#8a5a00', point: '#ffb23e', libelle: 'Réservé' },
+  maintenance: { fond: '#ffeeec', texte: '#c24435', point: '#ff6f5e', libelle: 'Maintenance' },
   retire: RETIRE,
 };
 
@@ -46,24 +45,13 @@ export default async function Occupation() {
   if (lesBox.length === 0) {
     return (
       <Cadre actif="/" titre="Occupation">
-        <div style={{ ...carte, maxWidth: 620 }}>
-          <h2 style={{ margin: '0 0 10px', fontSize: 17 }}>Le parc n’est pas encore déclaré</h2>
-          <p style={{ margin: '0 0 18px', lineHeight: 1.55, opacity: 0.8 }}>
-            Déclarez votre local, vos gabarits de box et leurs tarifs. Rien n’est écrit d’avance :
-            tout se saisit depuis le paramétrage, et se corrige ensuite.
+        <div className="carte" style={{ maxWidth: 620 }}>
+          <h2 className="carte-titre">Le parc n’est pas encore déclaré</h2>
+          <p className="carte-note">
+            Décrivez votre entrepôt en une phrase, ou remplissez les sections une à une. Rien n’est
+            écrit d’avance : tout se saisit depuis le paramétrage, et se corrige ensuite.
           </p>
-          <Link
-            href="/parametrage"
-            style={{
-              display: 'inline-block',
-              background: MARINE,
-              color: IVOIRE,
-              textDecoration: 'none',
-              borderRadius: 8,
-              padding: '11px 18px',
-              fontWeight: 700,
-            }}
-          >
+          <Link href="/parametrage" className="bouton" style={{ display: 'inline-block' }}>
             Commencer le paramétrage
           </Link>
         </div>
@@ -75,6 +63,9 @@ export default async function Occupation() {
     acc[b.statut] = (acc[b.statut] ?? 0) + 1;
     return acc;
   }, {});
+
+  const libres = comptes.disponible ?? 0;
+  const tauxOccupation = Math.round(((lesBox.length - libres) / lesBox.length) * 100);
 
   // Regroupement par local puis par étage : c'est ainsi qu'on marche dans
   // l'entrepôt, donc c'est ainsi qu'on doit le lire.
@@ -89,25 +80,25 @@ export default async function Occupation() {
   }
 
   return (
-    <Cadre actif="/" titre="Occupation">
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
+    <Cadre
+      actif="/"
+      titre="Occupation"
+      chapeau={`${lesBox.length} box au total, ${libres} disponible${libres > 1 ? 's' : ''}.`}
+    >
+      <div className="stats">
+        <div className="stat">
+          <div className="stat-valeur">{tauxOccupation} %</div>
+          <div className="stat-libelle">Taux d’occupation</div>
+        </div>
+
         {Object.entries(COULEURS).map(([cle, c]) => {
           const n = comptes[cle] ?? 0;
           if (n === 0 && cle !== 'disponible' && cle !== 'occupe') return null;
           return (
-            <div
-              key={cle}
-              style={{
-                ...carte,
-                padding: '12px 18px',
-                minWidth: 118,
-                borderColor: 'rgba(18,57,91,0.18)',
-              }}
-            >
-              <div style={{ fontSize: 26, fontWeight: 700, color: c.texte === IVOIRE ? MARINE : c.texte }}>
-                {n}
-              </div>
-              <div style={{ fontFamily: MONO, fontSize: 11, textTransform: 'uppercase', opacity: 0.7 }}>
+            <div className="stat" key={cle}>
+              <div className="stat-valeur">{n}</div>
+              <div className="stat-libelle">
+                <span className="pastille" style={{ background: c.point }} />
                 {c.libelle}
               </div>
             </div>
@@ -116,40 +107,23 @@ export default async function Occupation() {
       </div>
 
       {[...parLocal.entries()].map(([local, etages]) => (
-        <section key={local} style={{ ...carte, marginBottom: 20 }}>
-          <h2 style={{ fontSize: 17, margin: '0 0 16px' }}>{local}</h2>
+        <section className="carte" key={local}>
+          <h2 className="carte-titre">{local}</h2>
 
           {[...etages.entries()].map(([etage, box]) => (
-            <div key={etage} style={{ marginBottom: 18 }}>
-              <p
-                style={{
-                  fontFamily: MONO,
-                  fontSize: 11.5,
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.6,
-                  opacity: 0.65,
-                  margin: '0 0 9px',
-                }}
-              >
+            <div key={etage} style={{ marginTop: 18 }}>
+              <p className="surtitre">
                 {etage} · {box.length} box
               </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+              <div className="plan">
                 {box.map((b) => {
                   const c = COULEURS[b.statut] ?? RETIRE;
                   return (
                     <span
                       key={b.id}
+                      className="jeton"
                       title={`${b.code} · ${b.categorie_box?.nom ?? '?'} · ${c.libelle}`}
-                      style={{
-                        background: c.fond,
-                        color: c.texte,
-                        border: `1px solid ${c.texte === IVOIRE ? MARINE : 'rgba(18,57,91,0.18)'}`,
-                        borderRadius: 7,
-                        padding: '7px 11px',
-                        fontFamily: MONO,
-                        fontSize: 12.5,
-                        fontWeight: 700,
-                      }}
+                      style={{ background: c.fond, color: c.texte }}
                     >
                       {b.code}
                     </span>
@@ -161,12 +135,13 @@ export default async function Occupation() {
         </section>
       ))}
 
-      <p style={{ fontSize: 13, opacity: 0.7, maxWidth: 700, lineHeight: 1.55 }}>
+      <p className="aide" style={{ marginTop: 20, maxWidth: '70ch' }}>
         Le statut d’un box passera à « occupé » automatiquement dès que les contrats seront
-        branchés. Pour l’instant il se règle à la main.{' '}
-        <Link href="/parametrage" style={{ color: CIEL }}>
-          Paramétrage
+        branchés. Pour l’instant il se règle à la main depuis le{' '}
+        <Link href="/parametrage" style={{ color: 'var(--ciel)' }}>
+          paramétrage
         </Link>
+        .
       </p>
     </Cadre>
   );

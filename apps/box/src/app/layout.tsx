@@ -1,5 +1,4 @@
-import type { Metadata } from 'next';
-import { CREME, MARINE, SANS } from '@/lib/charte';
+import type { Metadata, Viewport } from 'next';
 import './global.css';
 
 export const metadata: Metadata = {
@@ -7,6 +6,10 @@ export const metadata: Metadata = {
   description: 'Gestion des box de stockage HGWF Cargo.',
   // Outil interne : jamais dans un moteur de recherche.
   robots: { index: false, follow: false },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#12395b',
 };
 
 export default function RacineLayout({ children }: { children: React.ReactNode }) {
@@ -20,9 +23,7 @@ export default function RacineLayout({ children }: { children: React.ReactNode }
           rel="stylesheet"
         />
       </head>
-      <body style={{ margin: 0, background: CREME, color: MARINE, fontFamily: SANS }}>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

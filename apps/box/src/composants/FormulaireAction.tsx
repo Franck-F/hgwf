@@ -12,7 +12,6 @@ import { useActionState, useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { Resultat } from '@/app/parametrage/actions';
 import ChampAdresse from './ChampAdresse';
-import { CREME, IVOIRE, MARINE, ROUGE, VERT } from '@/lib/charte';
 
 export type Champ = {
   nom: string;
@@ -29,19 +28,7 @@ export type Champ = {
 function Bouton({ libelle }: { libelle: string }) {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      style={{
-        background: MARINE,
-        color: CREME,
-        border: 'none',
-        borderRadius: 8,
-        padding: '10px 18px',
-        fontWeight: 700,
-        opacity: pending ? 0.5 : 1,
-      }}
-    >
+    <button type="submit" className="bouton" disabled={pending}>
       {pending ? 'Enregistrement…' : libelle}
     </button>
   );
@@ -67,13 +54,7 @@ export default function FormulaireAction({
 
   return (
     <form ref={reference} action={envoyer}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-          gap: 12,
-        }}
-      >
+      <div className="grille">
         {champs.map((c) =>
           // L'adresse porte sa propre étiquette et sa liste de suggestions.
           c.type === 'adresse' ? (
@@ -86,59 +67,44 @@ export default function FormulaireAction({
               />
             </div>
           ) : (
-          <label
-            key={c.nom}
-            style={{ display: 'block', fontSize: 13.5, gridColumn: `span ${c.colonnes ?? 1}` }}
-          >
-            <span style={{ display: 'block', marginBottom: 5 }}>
-              {c.libelle}
-              {c.obligatoire && <span style={{ color: ROUGE }}> *</span>}
-            </span>
-
-            {c.type === 'select' ? (
-              <select
-                name={c.nom}
-                required={c.obligatoire}
-                defaultValue=""
-                style={champStyle}
-              >
-                <option value="" disabled>
-                  Choisir…
-                </option>
-                {c.options?.map((o) => (
-                  <option key={o.valeur} value={o.valeur}>
-                    {o.libelle}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                name={c.nom}
-                type={c.type ?? 'text'}
-                step={c.pas}
-                required={c.obligatoire}
-                defaultValue={c.defaut}
-                style={champStyle}
-              />
-            )}
-
-            {c.aide && (
-              <span style={{ display: 'block', fontSize: 11.5, opacity: 0.62, marginTop: 4 }}>
-                {c.aide}
+            <label key={c.nom} style={{ display: 'block', gridColumn: `span ${c.colonnes ?? 1}` }}>
+              <span className="etiquette">
+                {c.libelle}
+                {c.obligatoire && <span className="obligatoire"> *</span>}
               </span>
-            )}
-          </label>
+
+              {c.type === 'select' ? (
+                <select className="champ" name={c.nom} required={c.obligatoire} defaultValue="">
+                  <option value="" disabled>
+                    Choisir…
+                  </option>
+                  {c.options?.map((o) => (
+                    <option key={o.valeur} value={o.valeur}>
+                      {o.libelle}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  className="champ"
+                  name={c.nom}
+                  type={c.type ?? 'text'}
+                  step={c.pas}
+                  required={c.obligatoire}
+                  defaultValue={c.defaut}
+                />
+              )}
+
+              {c.aide && <span className="aide">{c.aide}</span>}
+            </label>
           ),
         )}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 16, flexWrap: 'wrap' }}>
+      <div className="barre-actions">
         <Bouton libelle={bouton} />
         {resultat && (
-          <span
-            role="status"
-            style={{ fontSize: 13.5, color: resultat.ok ? VERT : ROUGE, fontWeight: 500 }}
-          >
+          <span role="status" className={`retour ${resultat.ok ? 'retour-ok' : 'retour-erreur'}`}>
             {resultat.ok ? `✓ ${resultat.message}` : resultat.erreur}
           </span>
         )}
@@ -146,11 +112,3 @@ export default function FormulaireAction({
     </form>
   );
 }
-
-const champStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '9px 10px',
-  borderRadius: 8,
-  border: `1.5px solid rgba(18,57,91,0.3)`,
-  background: IVOIRE,
-};

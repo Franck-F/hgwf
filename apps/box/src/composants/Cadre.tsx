@@ -1,11 +1,38 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { serveur } from '@/lib/supabase-serveur';
-import { CREME, IVOIRE, MARINE, MONO } from '@/lib/charte';
+
+/**
+ * Structure commune : colonne de navigation à gauche, contenu à droite.
+ *
+ * Les icônes sont dessinées ici plutôt qu'importées d'une bibliothèque : deux
+ * traits SVG ne justifient pas une dépendance de plusieurs centaines de
+ * kilo-octets, ni un chargement supplémentaire au premier affichage.
+ */
 
 const ONGLETS = [
-  { href: '/', libelle: 'Occupation' },
-  { href: '/parametrage', libelle: 'Paramétrage' },
+  {
+    href: '/',
+    libelle: 'Occupation',
+    icone: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+      </svg>
+    ),
+  },
+  {
+    href: '/parametrage',
+    libelle: 'Paramétrage',
+    icone: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2" />
+        <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" />
+      </svg>
+    ),
+  },
 ];
 
 async function seDeconnecter() {
@@ -18,10 +45,14 @@ async function seDeconnecter() {
 export default async function Cadre({
   actif,
   titre,
+  chapeau,
+  actions,
   children,
 }: {
   actif: string;
   titre: string;
+  chapeau?: string;
+  actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const client = await serveur();
@@ -30,70 +61,53 @@ export default async function Cadre({
   } = await client.auth.getUser();
 
   return (
-    <div style={{ minHeight: '100dvh' }}>
-      <header
-        style={{
-          background: MARINE,
-          color: CREME,
-          padding: '14px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 24,
-          flexWrap: 'wrap',
-        }}
-      >
-        <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: 1 }}>HGWF · BOX</span>
+    <div className="app">
+      <aside className="flanc">
+        <div className="marque">
+          <span className="marque-pastille" aria-hidden="true">
+            HG
+          </span>
+          <span>
+            <span className="marque-nom">Box de stockage</span>
+            <br />
+            <span className="marque-sous">HGWF Cargo</span>
+          </span>
+        </div>
 
-        <nav style={{ display: 'flex', gap: 6 }}>
+        <nav style={{ display: 'contents' }}>
           {ONGLETS.map((o) => (
             <Link
               key={o.href}
               href={o.href}
-              style={{
-                textDecoration: 'none',
-                padding: '7px 13px',
-                borderRadius: 7,
-                fontSize: 14,
-                background: actif === o.href ? CREME : 'transparent',
-                color: actif === o.href ? MARINE : CREME,
-                fontWeight: actif === o.href ? 700 : 400,
-              }}
+              className="onglet"
+              aria-current={actif === o.href ? 'page' : undefined}
             >
+              {o.icone}
               {o.libelle}
             </Link>
           ))}
         </nav>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span style={{ fontSize: 12.5, opacity: 0.8 }}>{user?.email}</span>
+        <div className="flanc-pied">
+          <p className="flanc-identite">{user?.email}</p>
           <form action={seDeconnecter}>
-            <button
-              style={{
-                background: 'transparent',
-                color: CREME,
-                border: `1px solid ${CREME}`,
-                borderRadius: 7,
-                padding: '6px 12px',
-                fontSize: 13,
-              }}
-            >
+            <button className="bouton-fantome" style={{ width: '100%' }}>
               Se déconnecter
             </button>
           </form>
         </div>
-      </header>
+      </aside>
 
-      <main style={{ padding: '26px 24px 60px', maxWidth: 1180, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 23, margin: '0 0 20px' }}>{titre}</h1>
+      <main className="contenu">
+        <div className="entete">
+          <div>
+            <h1 className="titre">{titre}</h1>
+            {chapeau && <p className="sous-titre">{chapeau}</p>}
+          </div>
+          {actions}
+        </div>
         {children}
       </main>
     </div>
   );
 }
-
-export const carte: React.CSSProperties = {
-  background: IVOIRE,
-  border: `1.5px solid rgba(18,57,91,0.18)`,
-  borderRadius: 12,
-  padding: 20,
-};

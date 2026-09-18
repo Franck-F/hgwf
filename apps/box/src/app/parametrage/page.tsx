@@ -6,11 +6,11 @@
  * d'une catégorie, une catégorie a besoin d'exister avant d'avoir un tarif.
  */
 import { serveur } from '@/lib/supabase-serveur';
-import Cadre, { carte } from '@/composants/Cadre';
+import Cadre from '@/composants/Cadre';
 import FormulaireAction from '@/composants/FormulaireAction';
 import AssistantParc from '@/composants/AssistantParc';
 import { creerBox, creerCategorie, creerSite, creerTarif } from './actions';
-import { dateFr, euros, MARINE, MONO } from '@/lib/charte';
+import { dateFr, euros } from '@/lib/charte';
 import { geminiConfigure } from '@/lib/gemini';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +24,13 @@ type Tarif = {
   applicable_du: string;
   applicable_au: string | null;
 };
-type BoxLigne = { id: string; code: string; etage: string | null; site_id: string; categorie_id: string };
+type BoxLigne = {
+  id: string;
+  code: string;
+  etage: string | null;
+  site_id: string;
+  categorie_id: string;
+};
 
 export default async function Parametrage() {
   const client = await serveur();
@@ -64,20 +70,14 @@ export default async function Parametrage() {
   }
 
   return (
-    <Cadre actif="/parametrage" titre="Paramétrage du parc">
-      <p style={{ marginTop: -8, marginBottom: 24, maxWidth: 720, lineHeight: 1.55, opacity: 0.8 }}>
-        Le plus rapide : décrire le parc en une phrase ci-dessous. Sinon, remplissez les sections
-        dans l’ordre — local, gabarits, tarifs, box. Chacune dépend de la précédente.
-      </p>
-
+    <Cadre
+      actif="/parametrage"
+      titre="Paramétrage du parc"
+      chapeau="Le plus rapide : décrire le parc en une phrase. Sinon, remplissez les sections dans l’ordre — local, gabarits, tarifs, box."
+    >
       <AssistantParc disponible={geminiConfigure()} />
 
-      {/* ── 1. Les locaux ───────────────────────────────────────────────── */}
-      <Section
-        numero="1"
-        titre="Locaux"
-        commentaire="Un seul local aujourd’hui n’empêche pas d’en ouvrir un second : la structure le prévoit déjà."
-      >
+      <Section numero="1" titre="Locaux" note="Un seul local aujourd’hui n’empêche pas d’en ouvrir un second : la structure le prévoit déjà.">
         <FormulaireAction
           action={creerSite}
           bouton="Ajouter le local"
@@ -93,7 +93,12 @@ export default async function Parametrage() {
             },
             { nom: 'code_postal', libelle: 'Code postal' },
             { nom: 'ville', libelle: 'Ville' },
-            { nom: 'horaires', libelle: 'Horaires d’accès', aide: 'Ex. : lundi au vendredi, 9h-18h', colonnes: 2 },
+            {
+              nom: 'horaires',
+              libelle: 'Horaires d’accès',
+              aide: 'Ex. : lundi au vendredi, 9h-18h',
+              colonnes: 2,
+            },
           ]}
         />
 
@@ -101,20 +106,19 @@ export default async function Parametrage() {
           <Tableau entetes={['Nom', 'Adresse', 'Ville']}>
             {lesSites.map((s) => (
               <tr key={s.id}>
-                <Td fort>{s.nom}</Td>
-                <Td>{s.adresse}</Td>
-                <Td>{s.ville ?? '—'}</Td>
+                <td className="cellule-forte">{s.nom}</td>
+                <td>{s.adresse}</td>
+                <td>{s.ville ?? '—'}</td>
               </tr>
             ))}
           </Tableau>
         )}
       </Section>
 
-      {/* ── 2. Les gabarits ─────────────────────────────────────────────── */}
       <Section
         numero="2"
         titre="Gabarits de box"
-        commentaire="Une ligne par taille vendue. C’est le gabarit qui porte le tarif, jamais le box lui-même."
+        note="Une ligne par taille vendue. C’est le gabarit qui porte le tarif, jamais le box lui-même."
       >
         <FormulaireAction
           action={creerCategorie}
@@ -123,7 +127,12 @@ export default async function Parametrage() {
             { nom: 'nom', libelle: 'Nom', obligatoire: true, aide: 'Ex. : 6 m²' },
             { nom: 'surface_m2', libelle: 'Surface (m²)', type: 'number', pas: '0.01' },
             { nom: 'volume_m3', libelle: 'Volume (m³)', type: 'number', pas: '0.01' },
-            { nom: 'description', libelle: 'À quoi ça correspond', aide: 'Ex. : deux pièces', colonnes: 2 },
+            {
+              nom: 'description',
+              libelle: 'À quoi ça correspond',
+              aide: 'Ex. : deux pièces',
+              colonnes: 2,
+            },
           ]}
         />
 
@@ -133,22 +142,22 @@ export default async function Parametrage() {
               const t = tarifCourant.get(c.id);
               return (
                 <tr key={c.id}>
-                  <Td fort>{c.nom}</Td>
-                  <Td>{c.surface_m2 ? `${c.surface_m2} m²` : '—'}</Td>
-                  <Td>{c.volume_m3 ? `${c.volume_m3} m³` : '—'}</Td>
-                  <Td>
+                  <td className="cellule-forte">{c.nom}</td>
+                  <td>{c.surface_m2 ? `${c.surface_m2} m²` : '—'}</td>
+                  <td>{c.volume_m3 ? `${c.volume_m3} m³` : '—'}</td>
+                  <td>
                     {t ? (
                       <>
-                        {euros(t.montant_mensuel_cents)}{' '}
-                        <span style={{ opacity: 0.6, fontSize: 12 }}>
+                        <span className="cellule-forte">{euros(t.montant_mensuel_cents)}</span>{' '}
+                        <span className="ligne-close" style={{ fontSize: 12 }}>
                           depuis le {dateFr(t.applicable_du)}
                         </span>
                       </>
                     ) : (
-                      <span style={{ opacity: 0.6 }}>aucun</span>
+                      <span className="ligne-close">aucun</span>
                     )}
-                  </Td>
-                  <Td>{compteParCategorie.get(c.id) ?? 0}</Td>
+                  </td>
+                  <td>{compteParCategorie.get(c.id) ?? 0}</td>
                 </tr>
               );
             })}
@@ -156,11 +165,10 @@ export default async function Parametrage() {
         )}
       </Section>
 
-      {/* ── 3. Les tarifs ───────────────────────────────────────────────── */}
       <Section
         numero="3"
         titre="Tarifs mensuels"
-        commentaire="Un tarif ne s’écrase pas. Enregistrer un nouveau prix clôture le précédent la veille et le conserve : sans cela, un contrat signé l’an dernier deviendrait illisible."
+        note="Un tarif ne s’écrase pas. Enregistrer un nouveau prix clôture le précédent la veille et le conserve : sans cela, un contrat signé l’an dernier deviendrait illisible."
       >
         {lesCategories.length === 0 ? (
           <Attente>Créez d’abord un gabarit de box.</Attente>
@@ -196,22 +204,23 @@ export default async function Parametrage() {
         {lesTarifs.length > 0 && (
           <Tableau entetes={['Gabarit', 'Montant', 'Du', 'Au']}>
             {lesTarifs.map((t) => (
-              <tr key={t.id} style={{ opacity: t.applicable_au ? 0.55 : 1 }}>
-                <Td fort>{lesCategories.find((c) => c.id === t.categorie_id)?.nom ?? '—'}</Td>
-                <Td>{euros(t.montant_mensuel_cents)}</Td>
-                <Td>{dateFr(t.applicable_du)}</Td>
-                <Td>{t.applicable_au ? dateFr(t.applicable_au) : 'en cours'}</Td>
+              <tr key={t.id} className={t.applicable_au ? 'ligne-close' : undefined}>
+                <td className="cellule-forte">
+                  {lesCategories.find((c) => c.id === t.categorie_id)?.nom ?? '—'}
+                </td>
+                <td>{euros(t.montant_mensuel_cents)}</td>
+                <td>{dateFr(t.applicable_du)}</td>
+                <td>{t.applicable_au ? dateFr(t.applicable_au) : 'en cours'}</td>
               </tr>
             ))}
           </Tableau>
         )}
       </Section>
 
-      {/* ── 4. Les box ──────────────────────────────────────────────────── */}
       <Section
         numero="4"
         titre="Box"
-        commentaire="Les box se créent en série : un préfixe et une plage de numéros suffisent. Le code doit être celui écrit sur la porte — c’est la référence que le client donnera au téléphone."
+        note="Les box se créent en série : un préfixe et une plage de numéros suffisent. Le code doit être celui écrit sur la porte — c’est la référence que le client donnera au téléphone."
       >
         {lesSites.length === 0 || lesCategories.length === 0 ? (
           <Attente>Créez d’abord un local et un gabarit.</Attente>
@@ -220,7 +229,13 @@ export default async function Parametrage() {
             action={creerBox}
             bouton="Créer la série"
             champs={[
-              { nom: 'site_id', libelle: 'Local', type: 'select', obligatoire: true, options: optionsSites },
+              {
+                nom: 'site_id',
+                libelle: 'Local',
+                type: 'select',
+                obligatoire: true,
+                options: optionsSites,
+              },
               {
                 nom: 'categorie_id',
                 libelle: 'Gabarit',
@@ -236,7 +251,7 @@ export default async function Parametrage() {
           />
         )}
 
-        <p style={{ marginTop: 18, marginBottom: 0, fontFamily: MONO, fontSize: 13 }}>
+        <p className="aide" style={{ marginTop: 18 }}>
           {lesBox.length} box déclaré{lesBox.length > 1 ? 's' : ''} au total.
         </p>
       </Section>
@@ -249,75 +264,43 @@ export default async function Parametrage() {
 function Section({
   numero,
   titre,
-  commentaire,
+  note,
   children,
 }: {
   numero: string;
   titre: string;
-  commentaire: string;
+  note: string;
   children: React.ReactNode;
 }) {
   return (
-    <section style={{ ...carte, marginBottom: 22 }}>
-      <h2 style={{ fontSize: 17, margin: '0 0 4px' }}>
-        <span style={{ fontFamily: MONO, opacity: 0.45, marginRight: 8 }}>{numero}</span>
+    <section className="carte">
+      <h2 className="carte-titre">
+        <span className="numero">{numero}</span>
         {titre}
       </h2>
-      <p style={{ margin: '0 0 18px', fontSize: 13, opacity: 0.72, lineHeight: 1.5, maxWidth: 760 }}>
-        {commentaire}
-      </p>
+      <p className="carte-note">{note}</p>
       {children}
     </section>
   );
 }
 
 function Attente({ children }: { children: React.ReactNode }) {
-  return (
-    <p style={{ margin: 0, fontSize: 13.5, opacity: 0.7, fontStyle: 'italic' }}>{children}</p>
-  );
+  return <p className="aide" style={{ margin: 0, fontStyle: 'italic' }}>{children}</p>;
 }
 
 function Tableau({ entetes, children }: { entetes: string[]; children: React.ReactNode }) {
   return (
-    <div style={{ overflowX: 'auto', marginTop: 20 }}>
-      <table style={{ fontSize: 13.5 }}>
+    <div className="tableau-cadre">
+      <table className="tableau">
         <thead>
           <tr>
             {entetes.map((e) => (
-              <th
-                key={e}
-                style={{
-                  textAlign: 'left',
-                  padding: '8px 10px',
-                  borderBottom: `1.5px solid ${MARINE}`,
-                  fontFamily: MONO,
-                  fontSize: 11.5,
-                  letterSpacing: 0.5,
-                  textTransform: 'uppercase',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {e}
-              </th>
+              <th key={e}>{e}</th>
             ))}
           </tr>
         </thead>
         <tbody>{children}</tbody>
       </table>
     </div>
-  );
-}
-
-function Td({ children, fort }: { children: React.ReactNode; fort?: boolean }) {
-  return (
-    <td
-      style={{
-        padding: '8px 10px',
-        borderBottom: '1px solid rgba(18,57,91,0.12)',
-        fontWeight: fort ? 700 : 400,
-      }}
-    >
-      {children}
-    </td>
   );
 }
