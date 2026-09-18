@@ -11,12 +11,13 @@
 import { useActionState, useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { Resultat } from '@/app/parametrage/actions';
+import ChampAdresse from './ChampAdresse';
 import { CREME, IVOIRE, MARINE, ROUGE, VERT } from '@/lib/charte';
 
 export type Champ = {
   nom: string;
   libelle: string;
-  type?: 'text' | 'number' | 'date' | 'select';
+  type?: 'text' | 'number' | 'date' | 'select' | 'adresse';
   obligatoire?: boolean;
   aide?: string;
   options?: { valeur: string; libelle: string }[];
@@ -73,7 +74,18 @@ export default function FormulaireAction({
           gap: 12,
         }}
       >
-        {champs.map((c) => (
+        {champs.map((c) =>
+          // L'adresse porte sa propre étiquette et sa liste de suggestions.
+          c.type === 'adresse' ? (
+            <div key={c.nom} style={{ gridColumn: `span ${c.colonnes ?? 1}` }}>
+              <ChampAdresse
+                nom={c.nom}
+                libelle={c.libelle}
+                obligatoire={c.obligatoire}
+                aide={c.aide}
+              />
+            </div>
+          ) : (
           <label
             key={c.nom}
             style={{ display: 'block', fontSize: 13.5, gridColumn: `span ${c.colonnes ?? 1}` }}
@@ -116,7 +128,8 @@ export default function FormulaireAction({
               </span>
             )}
           </label>
-        ))}
+          ),
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 16, flexWrap: 'wrap' }}>

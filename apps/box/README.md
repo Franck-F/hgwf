@@ -82,6 +82,26 @@ Next.js 16, rendu serveur, port 3002 en développement (`pnpm --filter box dev`)
 paramétrage et se corrige ensuite : le fichier `db/seed-parc.exemple.sql` ne
 sert plus que de secours pour une reprise en masse.
 
+### Deux aides à la saisie
+
+**Décrire le parc en une phrase** (Gemini, `GEMINI_API_KEY`). L'utilisateur écrit
+son entrepôt en français, l'assistance en tire une proposition structurée —
+locaux, gabarits, tarifs, séries de box. Deux règles la gouvernent :
+
+- elle **propose, elle n'écrit jamais**. La proposition s'affiche dans un tableau
+  modifiable, et rien ne part en base sans un second clic ;
+- tout ce qu'elle renvoie est **revalidé côté serveur** comme une saisie
+  ordinaire. Une réponse de modèle n'est pas une source de confiance.
+
+Un tarif absent du texte reste vide et surligné, jamais deviné. À l'application,
+un code de box déjà pris est sauté, jamais écrasé. Sans clé configurée,
+l'encart disparaît et le reste de l'application fonctionne à l'identique.
+
+**Adresse complétée** par la Base Adresse Nationale (api-adresse.data.gouv.fr),
+service public, gratuit, sans clé. Choisir une suggestion remplit aussi le code
+postal et la ville. Volontairement pas d'IA ici : une adresse est un fait, et
+une base officielle ne peut pas inventer une rue.
+
 ### Ouvrir un accès
 
 Les comptes ne se créent pas depuis l'écran de connexion — sinon n'importe qui

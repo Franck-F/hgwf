@@ -8,8 +8,10 @@
 import { serveur } from '@/lib/supabase-serveur';
 import Cadre, { carte } from '@/composants/Cadre';
 import FormulaireAction from '@/composants/FormulaireAction';
+import AssistantParc from '@/composants/AssistantParc';
 import { creerBox, creerCategorie, creerSite, creerTarif } from './actions';
 import { dateFr, euros, MARINE, MONO } from '@/lib/charte';
+import { geminiConfigure } from '@/lib/gemini';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,9 +66,11 @@ export default async function Parametrage() {
   return (
     <Cadre actif="/parametrage" titre="Paramétrage du parc">
       <p style={{ marginTop: -8, marginBottom: 24, maxWidth: 720, lineHeight: 1.55, opacity: 0.8 }}>
-        Renseignez d’abord le local, puis les gabarits de box, puis leurs tarifs, puis les box
-        eux-mêmes. Chaque section dépend de la précédente.
+        Le plus rapide : décrire le parc en une phrase ci-dessous. Sinon, remplissez les sections
+        dans l’ordre — local, gabarits, tarifs, box. Chacune dépend de la précédente.
       </p>
+
+      <AssistantParc disponible={geminiConfigure()} />
 
       {/* ── 1. Les locaux ───────────────────────────────────────────────── */}
       <Section
@@ -79,7 +83,14 @@ export default async function Parametrage() {
           bouton="Ajouter le local"
           champs={[
             { nom: 'nom', libelle: 'Nom du local', obligatoire: true, colonnes: 2 },
-            { nom: 'adresse', libelle: 'Adresse', obligatoire: true, colonnes: 2 },
+            {
+              nom: 'adresse',
+              libelle: 'Adresse',
+              type: 'adresse',
+              obligatoire: true,
+              colonnes: 2,
+              aide: 'Tapez le début, choisissez dans la liste : code postal et ville se remplissent seuls.',
+            },
             { nom: 'code_postal', libelle: 'Code postal' },
             { nom: 'ville', libelle: 'Ville' },
             { nom: 'horaires', libelle: 'Horaires d’accès', aide: 'Ex. : lundi au vendredi, 9h-18h', colonnes: 2 },
