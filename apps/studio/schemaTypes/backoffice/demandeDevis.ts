@@ -26,7 +26,33 @@ export const demandeDevis = defineType({
   fields: [
     defineField({ name: 'reference', title: 'Référence', type: 'string', validation: (r) => r.required() }),
     defineField({ name: 'clientNom', title: 'Client', type: 'string' }),
-    defineField({ name: 'contact', title: 'Contact (mail · tél · préférence)', type: 'string' }),
+    // Les trois moyens de contact sont saisis séparément par le formulaire.
+    // Ils l'étaient déjà : l'API les recollait en une seule chaîne, qu'il
+    // fallait ensuite redécouper à l'expression régulière avant chaque envoi.
+    // Une faute de frappe dans la chaîne suffisait à perdre l'adresse.
+    defineField({
+      name: 'email',
+      title: 'E-mail du client',
+      type: 'string',
+      description: 'Adresse à laquelle partent l’accusé, le devis et les relances.',
+    }),
+    defineField({ name: 'telephone', title: 'Téléphone du client', type: 'string' }),
+    defineField({
+      name: 'preferenceContact',
+      title: 'Préférence de contact',
+      type: 'string',
+      options: {
+        list: ['E-mail', 'Téléphone', 'WhatsApp'].map((t) => ({ title: t, value: t })),
+      },
+    }),
+    defineField({
+      name: 'contact',
+      title: 'Contact (version lisible)',
+      type: 'string',
+      readOnly: true,
+      description:
+        'Recomposé à partir des trois champs ci-dessus. Conservé pour les demandes antérieures au 18/09/2026.',
+    }),
     defineField({ name: 'typeEnvoi', title: 'Type d’envoi', type: 'string' }),
     defineField({ name: 'destination', title: 'Destination', type: 'string' }),
     defineField({ name: 'volume', title: 'Volume estimé', type: 'string' }),

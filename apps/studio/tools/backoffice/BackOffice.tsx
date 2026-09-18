@@ -31,6 +31,9 @@ type Demande = {
   _updatedAt?: string;
   reference: string;
   clientNom?: string;
+  email?: string;
+  telephone?: string;
+  preferenceContact?: string;
   contact?: string;
   typeEnvoi?: string;
   destination?: string;
@@ -53,6 +56,8 @@ type Expedition = {
   _updatedAt?: string;
   reference: string;
   clientNom?: string;
+  email?: string;
+  telephone?: string;
   contact?: string;
   demandeRef?: string;
   trajet?: string;
@@ -275,13 +280,26 @@ const dateFR = () => {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
-// Extraction des moyens de contact depuis le champ libre « mail · tél (préférence : X) ».
+// Moyens de contact d'une demande ou d'une expédition.
+//
+// Depuis le 18/09/2026 les documents portent « email » et « telephone ». Les
+// plus anciens n'ont qu'une chaîne libre « mail · tél (préférence : X) » :
+// elle sert de secours, jamais de source principale.
+type AvecContact = { email?: string; telephone?: string; contact?: string };
+
 function extraireEmail(contact?: string): string | null {
   return contact?.match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0] ?? null;
 }
 function extraireTel(contact?: string): string | null {
   const m = contact?.match(/(?:\+?\d[\d ().-]{7,})/)?.[0];
   return m ? m.replace(/[^\d+]/g, '') : null;
+}
+function emailDe(doc?: AvecContact | null): string | null {
+  return doc?.email?.trim() || extraireEmail(doc?.contact);
+}
+function telDe(doc?: AvecContact | null): string | null {
+  const brut = doc?.telephone?.trim();
+  return brut ? brut.replace(/[^\d+]/g, '') : extraireTel(doc?.contact);
 }
 
 // ── Modèles de réponse ────────────────────────────────────────────────────────
@@ -448,8 +466,8 @@ export function BackOffice() {
       rotations: Rotation[];
       stats: Stats | null;
     }>(`{
-      "demandes": *[_type == "demandeDevis"] | order(_createdAt desc){_id, _createdAt, _updatedAt, reference, clientNom, contact, typeEnvoi, destination, volume, recueLe, statut, message, montantDevis, descriptionPrestation, delaiEstime, devisEnvoyeLe, notes, expeditionRef, accuseReceptionLe, devisEnvoyeA, relanceEnvoyeeLe},
-      "expeditions": *[_type == "expedition"] | order(_updatedAt desc){_id, _updatedAt, reference, clientNom, contact, demandeRef, trajet, etape, eta, statutPriseEnCharge, mode, expediteurNom, expediteurAdresse, expediteurTel, destinataireNom, destinataireAdresse, destinataireTel, colisNombre, colisPoids, colisVolume, colisNature, valeurDeclaree, reglementRecu, derogationDepart, derogationMotif, numeroReservation, numeroConteneur, notesExploitation, priseEnChargeLe, derniereEtapeNotifiee, derniereNotificationLe},
+      "demandes": *[_type == "demandeDevis"] | order(_createdAt desc){_id, _createdAt, _updatedAt, reference, clientNom, email, telephone, preferenceContact, contact, typeEnvoi, destination, volume, recueLe, statut, message, montantDevis, descriptionPrestation, delaiEstime, devisEnvoyeLe, notes, expeditionRef, accuseReceptionLe, devisEnvoyeA, relanceEnvoyeeLe},
+      "expeditions": *[_type == "expedition"] | order(_updatedAt desc){_id, _updatedAt, reference, clientNom, email, telephone, contact, demandeRef, trajet, etape, eta, statutPriseEnCharge, mode, expediteurNom, expediteurAdresse, expediteurTel, destinataireNom, destinataireAdresse, destinataireTel, colisNombre, colisPoids, colisVolume, colisNature, valeurDeclaree, reglementRecu, derogationDepart, derogationMotif, numeroReservation, numeroConteneur, notesExploitation, priseEnChargeLe, derniereEtapeNotifiee, derniereNotificationLe},
       "clients": *[_type == "clientFiche"] | order(nom asc){_id, nom, contact, destination, envois, volume},
       "conteneurs": *[_type == "conteneurOccasion"] | order(reference asc){_id, _updatedAt, reference, taille, etat, lieu, prix, statut},
       "rotations": *[_type == "rotation"] | order(cloture asc){_id, nom, cloture, depart, remplissage},
@@ -544,7 +562,7 @@ export function BackOffice() {
       // cela évite de resaisir ce que le dossier sait déjà.
       destinataireNom: x?.destinataireNom ?? x?.clientNom ?? '',
       destinataireAdresse: x?.destinataireAdresse ?? '',
-      destinataireTel: x?.destinataireTel ?? extraireTel(x?.contact) ?? '',
+      destinataireTel: x?.destinataireTel ?? telDe(x) ?? '',
       colisNombre: nombre(x?.colisNombre),
       colisPoids: nombre(x?.colisPoids),
       colisVolume: nombre(x?.colisVolume),
@@ -561,7 +579,7 @@ export function BackOffice() {
 
   // Tout ce que l'on sait du client de l'expédition sélectionnée : sa fiche,
   // la demande de devis d'origine et ses autres expéditions.
-  const emailExp = extraireEmail(selExp?.contact)?.toLowerCase() ?? null;
+  const emailExp = emailDe(selExp)?.toLowerCase() ?? null;
   const clientExp = selExp
     ? (clients.find(
         (c) =>
@@ -576,7 +594,7 @@ export function BackOffice() {
     ? expeditions.filter(
         (x) =>
           x._id !== selExp._id &&
-          ((emailExp && extraireEmail(x.contact)?.toLowerCase() === emailExp) ||
+          ((emailExp && emailDe(x)?.toLowerCase() === emailExp) ||
             (!!selExp.clientNom && x.clientNom === selExp.clientNom)),
       )
     : [];
@@ -639,6 +657,10 @@ export function BackOffice() {
       _id: id,
       reference: d.reference,
       clientNom: d.clientNom,
+      // Les notifications d'étape écrivent à cette adresse : elle est recopiée
+      // explicitement, pas redevinée depuis la chaîne lisible.
+      email: emailDe(d) ?? undefined,
+      telephone: telDe(d) ?? undefined,
       contact: d.contact,
       demandeRef: d.reference,
       trajet: `${depart} → ${d.destination ?? ''}`,
@@ -654,7 +676,7 @@ export function BackOffice() {
     await client.patch(d._id).set({ statut: 4, expeditionRef: d.reference }).commit();
 
     // Fiche client : retrouvée par e-mail (le plus fiable) sinon par nom.
-    const email = extraireEmail(d.contact)?.toLowerCase();
+    const email = emailDe(d)?.toLowerCase();
     const nom = (d.clientNom ?? '').trim();
     const existante = clients.find(
       (c) =>
@@ -1501,13 +1523,13 @@ export function BackOffice() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <span style={eyebrow}>Répondre au client</span>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {extraireEmail(sel.contact) && selPourEnvoi && (
+                          {emailDe(sel) && selPourEnvoi && (
                             <button
                               onClick={() => ouvrirApercuDevis(selPourEnvoi)}
                               disabled={envoiEnCours || !selPourEnvoi.montantDevis}
                               title={
                                 selPourEnvoi.montantDevis
-                                  ? `Envoie le devis et le PDF à ${extraireEmail(sel.contact)}`
+                                  ? `Envoie le devis et le PDF à ${emailDe(sel)}`
                                   : 'Renseignez le montant du devis avant de l’envoyer'
                               }
                               style={{
@@ -1524,9 +1546,9 @@ export function BackOffice() {
                               {envoiEnCours ? '⏳ Envoi…' : '✉ Envoyer le devis'}
                             </button>
                           )}
-                          {extraireEmail(sel.contact) && selPourEnvoi && (
+                          {emailDe(sel) && selPourEnvoi && (
                             <a
-                              href={`mailto:${extraireEmail(sel.contact)}?subject=${encodeURIComponent(`Votre devis HGWF Cargo · ${sel.reference}`)}&body=${encodeURIComponent(templateReponse(selPourEnvoi))}`}
+                              href={`mailto:${emailDe(sel)}?subject=${encodeURIComponent(`Votre devis HGWF Cargo · ${sel.reference}`)}&body=${encodeURIComponent(templateReponse(selPourEnvoi))}`}
                               style={{ ...boutonContour, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}
                               title="Repli : ouvre votre messagerie avec le message pré-rempli, sans trace ni pièce jointe"
                             >
@@ -1541,9 +1563,9 @@ export function BackOffice() {
                             <IconeExport />
                             Devis PDF
                           </button>
-                          {extraireTel(sel.contact) && selPourEnvoi && (
+                          {telDe(sel) && selPourEnvoi && (
                             <a
-                              href={`https://wa.me/${extraireTel(sel.contact)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(templateReponse(selPourEnvoi))}`}
+                              href={`https://wa.me/${telDe(sel)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(templateReponse(selPourEnvoi))}`}
                               target="_blank"
                               rel="noreferrer"
                               style={{ ...boutonContour, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
@@ -1828,18 +1850,18 @@ export function BackOffice() {
                             onClick={() =>
                               setConfirmation({
                                 titre: 'Prévenir le client par e-mail ?',
-                                texte: `Un message partira à ${extraireEmail(selExp.contact) ?? 'son adresse'} pour l’étape « ${ETAPES_EXPEDITION[clampEtape(selExp.etape)]} ». Un e-mail envoyé ne se rattrape pas.`,
+                                texte: `Un message partira à ${emailDe(selExp) ?? 'son adresse'} pour l’étape « ${ETAPES_EXPEDITION[clampEtape(selExp.etape)]} ». Un e-mail envoyé ne se rattrape pas.`,
                                 libelle: 'Envoyer',
                                 action: () => notifierClientExpedition(selExp),
                               })
                             }
-                            disabled={envoiEnCours || !extraireEmail(selExp.contact)}
-                            title={extraireEmail(selExp.contact) ? undefined : 'Aucune adresse e-mail sur cette expédition'}
+                            disabled={envoiEnCours || !emailDe(selExp)}
+                            title={emailDe(selExp) ? undefined : 'Aucune adresse e-mail sur cette expédition'}
                             style={{
                               ...boutonContour,
                               fontSize: 13,
                               padding: '9px 18px',
-                              opacity: envoiEnCours || !extraireEmail(selExp.contact) ? 0.45 : 1,
+                              opacity: envoiEnCours || !emailDe(selExp) ? 0.45 : 1,
                             }}
                           >
                             {envoiEnCours ? '⏳ Envoi…' : '✉ Prévenir le client'}
@@ -2113,17 +2135,17 @@ export function BackOffice() {
                           <span style={{ fontFamily: MONO, fontSize: 12, overflowWrap: 'anywhere', color: MARINE }}>{selExp.contact}</span>
                         )}
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {extraireEmail(selExp.contact) && (
+                          {emailDe(selExp) && (
                             <a
-                              href={`mailto:${extraireEmail(selExp.contact)}?subject=${encodeURIComponent(`Votre expédition HGWF Cargo · ${selExp.reference}`)}`}
+                              href={`mailto:${emailDe(selExp)}?subject=${encodeURIComponent(`Votre expédition HGWF Cargo · ${selExp.reference}`)}`}
                               style={{ ...boutonContour, fontSize: 12, padding: '7px 14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
                             >
                               ✉ E-mail
                             </a>
                           )}
-                          {extraireTel(selExp.contact) && (
+                          {telDe(selExp) && (
                             <a
-                              href={`https://wa.me/${extraireTel(selExp.contact)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(`Bonjour, au sujet de votre expédition HGWF Cargo ${selExp.reference} :`)}`}
+                              href={`https://wa.me/${telDe(selExp)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(`Bonjour, au sujet de votre expédition HGWF Cargo ${selExp.reference} :`)}`}
                               target="_blank"
                               rel="noreferrer"
                               style={{ ...boutonContour, fontSize: 12, padding: '7px 14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}

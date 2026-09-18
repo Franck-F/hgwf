@@ -105,6 +105,17 @@ function horodatage() {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} a ${p(d.getHours())}h${p(d.getMinutes())}`;
 }
 
+// Adresse à qui écrire, pour une demande comme pour une expédition.
+//
+// Les documents créés depuis le 18/09/2026 portent un champ `email` distinct.
+// Les plus anciens n'ont qu'une chaîne libre « mail · tél (préférence : X) » :
+// on continue de l'analyser pour eux, jamais pour les nouveaux.
+function adresseClient(doc) {
+  const explicite = (doc?.email ?? '').trim();
+  if (explicite) return explicite;
+  return (doc?.contact ?? '').match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0] ?? null;
+}
+
 // ── Référence unique HGWF-AAAA-NNNN ──────────────────────────────────────────
 async function genererReference() {
   const annee = new Date().getFullYear();
@@ -156,6 +167,13 @@ async function creerDemande(req, res, cors) {
     _type: 'demandeDevis',
     reference,
     clientNom: nom,
+    // Le formulaire envoie déjà trois champs distincts : on les conserve tels
+    // quels. `contact` reste la version lisible affichée dans le back-office,
+    // mais plus aucun envoi ne dépend d'une expression régulière pour
+    // retrouver l'adresse du client.
+    email: email || undefined,
+    telephone: tel || undefined,
+    preferenceContact: preference || undefined,
     contact,
     typeEnvoi: nettoyer(corps.typeEnvoi, 80) || 'Demande via le site',
     destination: nettoyer(corps.destination, 80),
@@ -218,12 +236,12 @@ async function envoyerDevis(req, res, cors) {
   }
 
   const d = await sanity.fetch(
-    `*[_type == "demandeDevis" && reference == $ref][0]{_id, reference, clientNom, contact, destination, montantDevis, descriptionPrestation, delaiEstime}`,
+    `*[_type == "demandeDevis" && reference == $ref][0]{_id, reference, clientNom, contact, email, destination, montantDevis, descriptionPrestation, delaiEstime}`,
     { ref: reference },
   );
   if (!d) return json(res, 404, { ok: false, erreur: 'demande introuvable' }, cors);
 
-  const email = (d.contact ?? '').match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0];
+  const email = adresseClient(d);
   if (!email) return json(res, 422, { ok: false, erreur: 'aucune adresse e-mail sur cette demande' }, cors);
   if (!d.montantDevis) return json(res, 422, { ok: false, erreur: 'montant du devis absent' }, cors);
 
@@ -325,14 +343,14 @@ async function relancerDevis(req, res, cors) {
   if (!parCron && !parCle) return json(res, 401, { ok: false, erreur: 'non autorisé' }, cors);
 
   const candidats = await sanity.fetch(
-    `*[_type == "demandeDevis" && statut == 2 && !defined(relanceEnvoyeeLe) && defined(devisEnvoyeLe)]{_id, reference, clientNom, contact, destination, montantDevis, devisEnvoyeLe}`,
+    `*[_type == "demandeDevis" && statut == 2 && !defined(relanceEnvoyeeLe) && defined(devisEnvoyeLe)]{_id, reference, clientNom, contact, email, destination, montantDevis, devisEnvoyeLe}`,
   );
 
   const traites = [];
   for (const d of candidats) {
     const age = joursDepuis(d.devisEnvoyeLe);
     if (age === null || age < DELAI_RELANCE_JOURS) continue;
-    const email = (d.contact ?? '').match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0];
+    const email = adresseClient(d);
     if (!email) continue;
 
     const prenom = (d.clientNom ?? '').trim().split(/\s+/)[0] || '';
@@ -380,12 +398,12 @@ async function notifierExpedition(req, res, cors) {
   if (!reference) return json(res, 422, { ok: false, erreur: 'reference requise' }, cors);
 
   const x = await sanity.fetch(
-    `*[_type == "expedition" && reference == $ref][0]{_id, reference, clientNom, contact, trajet, etape, eta, derniereEtapeNotifiee}`,
+    `*[_type == "expedition" && reference == $ref][0]{_id, reference, clientNom, contact, email, trajet, etape, eta, derniereEtapeNotifiee}`,
     { ref: reference },
   );
   if (!x) return json(res, 404, { ok: false, erreur: 'expédition introuvable' }, cors);
 
-  const email = (x.contact ?? '').match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0];
+  const email = adresseClient(x);
   if (!email) return json(res, 422, { ok: false, erreur: 'aucune adresse e-mail sur cette expédition' }, cors);
 
   const etape = Math.min(4, Math.max(0, x.etape ?? 0));

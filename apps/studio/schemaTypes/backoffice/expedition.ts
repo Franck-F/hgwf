@@ -54,10 +54,19 @@ export const expedition = defineType({
     }),
     defineField({ name: 'clientNom', title: 'Client', type: 'string', group: 'suivi' }),
     defineField({
-      name: 'contact',
-      title: 'Contact client (mail · tél · préférence)',
+      name: 'email',
+      title: 'E-mail du client',
       type: 'string',
       group: 'suivi',
+      description: 'Adresse à laquelle partent les notifications d’étape. Recopiée à la conversion.',
+    }),
+    defineField({ name: 'telephone', title: 'Téléphone du client', type: 'string', group: 'suivi' }),
+    defineField({
+      name: 'contact',
+      title: 'Contact client (version lisible)',
+      type: 'string',
+      group: 'suivi',
+      readOnly: true,
       description: 'Recopié depuis la demande de devis à la conversion.',
     }),
     defineField({
