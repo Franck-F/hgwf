@@ -48,6 +48,20 @@ Le workflow a besoin du secret GitHub `BOX_DB_URL` : la chaîne de connexion
 Le pooler de session est indispensable — la connexion directe n'est joignable qu'en
 IPv6, et les machines GitHub n'ont que de l'IPv4.
 
+### Restaurer
+
+```
+gunzip -c box.sql.gz | psql "<URI Session pooler du projet cible>"
+```
+
+Le dump est produit avec `--no-owner --no-privileges` : il se restaure sur
+n'importe quel projet Supabase, sans dépendre des rôles de celui d'origine.
+
+> **Ne jamais restaurer par-dessus la base en service sans l'avoir exportée
+> d'abord.** Le dump contient des `CREATE TABLE` : sur une base déjà peuplée, il
+> échoue table par table et laisse un état partiel, ni l'ancien ni le nouveau.
+> Restaurer se fait sur un projet vide, puis on bascule.
+
 ### Facturation
 
 Décision du 18/09/2026 : **le système box n'émet pas de factures.** Il produit des

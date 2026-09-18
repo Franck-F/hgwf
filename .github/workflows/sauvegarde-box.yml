@@ -40,7 +40,17 @@ jobs:
             | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-17
-          pg_dump --version
+          # Les machines Ubuntu embarquent deja un client 16 qui masque le 17
+          # dans le PATH : il faut mettre le repertoire du 17 devant.
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          # Et verifier, plutot que d'afficher une version que personne ne lit :
+          # un pg_dump plus ancien que le serveur refuse de s'executer.
+          version=$(/usr/lib/postgresql/17/bin/pg_dump --version)
+          echo "$version"
+          case "$version" in
+            *" 17."*) ;;
+            *) echo "::error::pg_dump 17 attendu, obtenu : $version"; exit 1 ;;
+          esac
 
       - name: Date du jour
         id: horodatage
