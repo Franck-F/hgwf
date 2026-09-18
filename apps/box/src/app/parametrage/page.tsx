@@ -24,13 +24,7 @@ type Tarif = {
   applicable_du: string;
   applicable_au: string | null;
 };
-type BoxLigne = {
-  id: string;
-  code: string;
-  etage: string | null;
-  site_id: string;
-  categorie_id: string;
-};
+type BoxLigne = { id: string; categorie_id: string };
 
 export default async function Parametrage() {
   const client = await serveur();
@@ -46,7 +40,7 @@ export default async function Parametrage() {
       .from('tarif')
       .select('id, categorie_id, montant_mensuel_cents, applicable_du, applicable_au')
       .order('applicable_du', { ascending: false }),
-    client.from('box').select('id, code, etage, site_id, categorie_id').is('archive_le', null),
+    client.from('box').select('id, categorie_id').is('archive_le', null),
   ]);
 
   const lesSites = (sites.data ?? []) as Site[];
@@ -70,14 +64,24 @@ export default async function Parametrage() {
   }
 
   return (
-    <Cadre
-      actif="/parametrage"
-      titre="Paramétrage du parc"
-      chapeau="Le plus rapide : décrire le parc en une phrase. Sinon, remplissez les sections dans l’ordre — local, gabarits, tarifs, box."
-    >
+    <Cadre actif="/parametrage">
+      <div style={{ marginBottom: 26 }}>
+        <h1 className="hero-titre" style={{ fontSize: 32 }}>
+          Paramétrage du parc
+        </h1>
+        <p className="hero-appui" style={{ maxWidth: '68ch' }}>
+          Le plus rapide : décrire le parc en une phrase. Sinon, remplissez les sections dans
+          l’ordre — local, gabarits, tarifs, box. Chacune dépend de la précédente.
+        </p>
+      </div>
+
       <AssistantParc disponible={geminiConfigure()} />
 
-      <Section numero="1" titre="Locaux" note="Un seul local aujourd’hui n’empêche pas d’en ouvrir un second : la structure le prévoit déjà.">
+      <Section
+        numero="1"
+        titre="Locaux"
+        note="Un seul local aujourd’hui n’empêche pas d’en ouvrir un second : la structure le prévoit déjà."
+      >
         <FormulaireAction
           action={creerSite}
           bouton="Ajouter le local"
@@ -137,7 +141,7 @@ export default async function Parametrage() {
         />
 
         {lesCategories.length > 0 && (
-          <Tableau entetes={['Gabarit', 'Surface', 'Volume', 'Tarif en cours', 'Box déclarés']}>
+          <Tableau entetes={['Gabarit', 'Surface', 'Volume', 'Tarif en cours', 'Box']}>
             {lesCategories.map((c) => {
               const t = tarifCourant.get(c.id);
               return (
@@ -149,12 +153,12 @@ export default async function Parametrage() {
                     {t ? (
                       <>
                         <span className="cellule-forte">{euros(t.montant_mensuel_cents)}</span>{' '}
-                        <span className="ligne-close" style={{ fontSize: 12 }}>
+                        <span className="ligne-close" style={{ fontSize: 11.5 }}>
                           depuis le {dateFr(t.applicable_du)}
                         </span>
                       </>
                     ) : (
-                      <span className="ligne-close">aucun</span>
+                      <span className="etiq etiq-rose">aucun</span>
                     )}
                   </td>
                   <td>{compteParCategorie.get(c.id) ?? 0}</td>
@@ -210,7 +214,13 @@ export default async function Parametrage() {
                 </td>
                 <td>{euros(t.montant_mensuel_cents)}</td>
                 <td>{dateFr(t.applicable_du)}</td>
-                <td>{t.applicable_au ? dateFr(t.applicable_au) : 'en cours'}</td>
+                <td>
+                  {t.applicable_au ? (
+                    dateFr(t.applicable_au)
+                  ) : (
+                    <span className="etiq etiq-verte">en cours</span>
+                  )}
+                </td>
               </tr>
             ))}
           </Tableau>
@@ -249,6 +259,7 @@ export default async function Parametrage() {
               { nom: 'etage', libelle: 'Étage ou zone', aide: 'Ex. : rez-de-chaussée' },
             ]}
           />
+
         )}
 
         <p className="aide" style={{ marginTop: 18 }}>
@@ -273,19 +284,40 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="carte">
-      <h2 className="carte-titre">
-        <span className="numero">{numero}</span>
-        {titre}
-      </h2>
-      <p className="carte-note">{note}</p>
-      {children}
+    <section className="carte" style={{ marginBottom: 22 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 10,
+            background: 'var(--fond-doux)',
+            color: 'var(--gris-faible)',
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: 12,
+            fontWeight: 800,
+            flex: 'none',
+          }}
+        >
+          {numero}
+        </span>
+        <span>
+          <h2 className="section-titre">{titre}</h2>
+          <p className="section-note">{note}</p>
+        </span>
+      </div>
+      <div style={{ marginTop: 20 }}>{children}</div>
     </section>
   );
 }
 
 function Attente({ children }: { children: React.ReactNode }) {
-  return <p className="aide" style={{ margin: 0, fontStyle: 'italic' }}>{children}</p>;
+  return (
+    <p className="aide" style={{ margin: 0, fontStyle: 'italic' }}>
+      {children}
+    </p>
+  );
 }
 
 function Tableau({ entetes, children }: { entetes: string[]; children: React.ReactNode }) {

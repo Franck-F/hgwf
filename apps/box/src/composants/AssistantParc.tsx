@@ -24,7 +24,7 @@ const EXEMPLE =
 function BoutonAnalyse() {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className="bouton" disabled={pending}>
+    <button type="submit" className="bouton bouton-violet" disabled={pending}>
       {pending ? 'Lecture…' : 'Analyser'}
     </button>
   );
@@ -59,26 +59,41 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
   const total = brouillon ? brouillon.series.reduce((n, s) => n + (s.au - s.du + 1), 0) : 0;
 
   return (
-    <section className="carte" style={{ marginBottom: 18 }}>
-      <h2 className="carte-titre">
-        <span className="numero" aria-hidden="true">
-          ✦
+    <section className="carte" style={{ marginBottom: 22 }}>
+      <div className="entete-carte">
+        <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 13,
+              background: 'var(--lavande-pale)',
+              color: 'var(--violet)',
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: 19,
+            }}
+          >
+            <i className="ph-duotone ph-sparkle" aria-hidden="true" />
+          </span>
+          <span>
+            <h2 className="section-titre">Décrire le parc en une phrase</h2>
+            <p className="section-note">
+              Écrivez votre entrepôt comme vous le diriez au téléphone.{' '}
+              <strong>Rien n’est enregistré tant que vous n’avez pas validé.</strong>
+            </p>
+          </span>
         </span>
-        Décrire le parc en une phrase
-      </h2>
-      <p className="carte-note">
-        Écrivez votre entrepôt comme vous le diriez au téléphone. La proposition s’affiche ensuite
-        pour relecture — <strong>rien n’est enregistré tant que vous n’avez pas validé</strong>.
-      </p>
+      </div>
 
-      <form action={lancerAnalyse}>
+      <form action={lancerAnalyse} style={{ marginTop: 18 }}>
         <textarea
           className="champ"
           name="description"
           rows={3}
           defaultValue=""
           placeholder={EXEMPLE}
-          style={{ resize: 'vertical', lineHeight: 1.55 }}
+          style={{ resize: 'vertical', lineHeight: 1.6 }}
         />
         <div className="barre-actions">
           <BoutonAnalyse />
@@ -92,19 +107,21 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
       </form>
 
       {brouillon && (
-        <div style={{ marginTop: 24, borderTop: '1px solid var(--trait)', paddingTop: 20 }}>
-          <p className="surtitre">Proposition — corrigez avant de valider</p>
+        <div style={{ marginTop: 24, borderTop: '1px dashed var(--trait-clair)', paddingTop: 20 }}>
+          <p className="groupe-titre">Proposition — corrigez avant de valider</p>
 
           {analyse?.ok && analyse.avertissements.length > 0 && (
             <ul
               style={{
                 margin: '0 0 18px',
                 padding: '12px 16px 12px 32px',
-                background: 'rgba(255,178,62,0.12)',
-                border: '1px solid rgba(255,178,62,0.5)',
-                borderRadius: 'var(--r-controle)',
-                fontSize: 13,
+                background: 'var(--ambre-fond)',
+                border: '1px solid #f0c674',
+                borderRadius: 16,
+                fontSize: 12.5,
                 lineHeight: 1.6,
+                color: 'var(--ambre)',
+                fontWeight: 600,
               }}
             >
               {analyse.avertissements.map((a) => (
@@ -115,7 +132,7 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
 
           {brouillon.local && (
             <>
-              <p className="surtitre" style={{ marginTop: 20 }}>
+              <p className="groupe-titre" style={{ marginTop: 18 }}>
                 Local
               </p>
               <div className="grille">
@@ -149,7 +166,7 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
             </>
           )}
 
-          <p className="surtitre" style={{ marginTop: 22 }}>
+          <p className="groupe-titre" style={{ marginTop: 22 }}>
             Tailles de box
           </p>
           {brouillon.gabarits.map((g, i) => (
@@ -169,7 +186,7 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
             </div>
           ))}
 
-          <p className="surtitre" style={{ marginTop: 22 }}>
+          <p className="groupe-titre" style={{ marginTop: 22 }}>
             Séries de box
           </p>
           {brouillon.series.map((s, i) => (
@@ -183,19 +200,19 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
                 valeur={s.etage ?? ''}
                 sur={(v) => majSerie(i, { etage: v || null })}
               />
-              <div
+              <span
                 style={{
                   alignSelf: 'end',
-                  paddingBottom: 11,
-                  fontFamily: 'var(--mono)',
-                  fontSize: 12,
-                  color: 'var(--texte-faible)',
+                  paddingBottom: 12,
+                  fontSize: 11.5,
+                  fontWeight: 800,
+                  color: 'var(--gris-faible)',
                 }}
               >
                 {s.prefixe}
                 {String(s.du).padStart(s.largeur, '0')} → {s.prefixe}
                 {String(s.au).padStart(s.largeur, '0')}
-              </div>
+              </span>
             </div>
           ))}
 
@@ -203,7 +220,7 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
             <input type="hidden" name="proposition" value={JSON.stringify(brouillon)} />
             <div className="barre-actions">
               <BoutonApplique nombre={total} />
-              <button type="button" className="bouton-fantome" onClick={() => setBrouillon(null)}>
+              <button type="button" className="bouton-discret" onClick={() => setBrouillon(null)}>
                 Abandonner
               </button>
               <span className="aide" style={{ marginTop: 0 }}>

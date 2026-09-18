@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * Connexion en deux volets : le récit à gauche, le formulaire à droite.
+ * Connexion en deux volets : le récit à gauche sur le violet, le formulaire à
+ * droite sur blanc.
  *
  * Voie principale : adresse et mot de passe. C'est ce qui ouvre le plus vite,
  * et ça ne dépend pas du quota d'envoi d'e-mails.
@@ -81,41 +82,63 @@ export default function FormulaireConnexion() {
   }
 
   return (
-    <div className="connexion">
-      <section className="connexion-recit">
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <span className="marque-pastille" aria-hidden="true">
-            HG
+    <main className="connexion-scene">
+      <div className="connexion-panneau">
+        <section className="connexion-recit">
+          <span
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 15,
+              background: 'rgba(255,255,255,0.2)',
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: 22,
+              position: 'relative',
+              zIndex: 1,
+            }}
+          >
+            <i className="ph-duotone ph-package" aria-hidden="true" />
           </span>
-        </div>
 
-        <div>
-          <h1 className="connexion-phrase">Chaque box, à sa place.</h1>
-          <p className="connexion-appui">
-            Le parc, les contrats et les échéances au même endroit. Ce qui est libre se voit d’un
-            coup d’œil, sans ouvrir un tableur.
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <h1 style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.26, margin: 0 }}>
+              Chaque box,
+              <br />à sa place.
+            </h1>
+            <p
+              style={{
+                margin: '16px 0 0',
+                fontSize: 14,
+                lineHeight: 1.65,
+                color: '#ddd7ff',
+                maxWidth: '34ch',
+              }}
+            >
+              Le parc, les contrats et les échéances au même endroit. Ce qui est libre se voit d’un
+              coup d’œil, sans ouvrir un tableur.
+            </p>
+          </div>
+
+          <p
+            style={{
+              position: 'relative',
+              zIndex: 1,
+              margin: 0,
+              fontSize: 10.5,
+              fontWeight: 800,
+              letterSpacing: '0.09em',
+              textTransform: 'uppercase',
+              color: 'rgba(255,255,255,0.65)',
+            }}
+          >
+            HGWF Cargo
           </p>
-        </div>
+        </section>
 
-        <p
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            margin: 0,
-            fontSize: 11.5,
-            letterSpacing: 0.8,
-            textTransform: 'uppercase',
-            opacity: 0.6,
-          }}
-        >
-          HGWF Cargo
-        </p>
-      </section>
-
-      <section className="connexion-formulaire">
-        <div className="connexion-boite">
-          <h2 style={{ fontSize: 24, margin: '0 0 6px', letterSpacing: '-0.3px' }}>Connexion</h2>
-          <p className="sous-titre" style={{ marginBottom: 26 }}>
+        <section className="connexion-formulaire">
+          <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 6px' }}>Connexion</h2>
+          <p className="section-note" style={{ marginBottom: 26 }}>
             Accès réservé à l’équipe HGWF.
           </p>
 
@@ -134,7 +157,7 @@ export default function FormulaireConnexion() {
               onChange={(e) => setEmail(e.target.value)}
             />
 
-            <label className="etiquette" htmlFor="mdp" style={{ marginTop: 16 }}>
+            <label className="etiquette" htmlFor="mdp" style={{ marginTop: 18 }}>
               Mot de passe
             </label>
             <div style={{ position: 'relative' }}>
@@ -146,13 +169,13 @@ export default function FormulaireConnexion() {
                 autoComplete="current-password"
                 value={motDePasse}
                 onChange={(e) => setMotDePasse(e.target.value)}
-                style={{ paddingRight: 62 }}
+                style={{ paddingRight: 68 }}
               />
               <button
                 type="button"
                 onClick={() => setVisible((v) => !v)}
                 className="bouton-lien"
-                style={{ position: 'absolute', right: 12, top: 11, fontSize: 12 }}
+                style={{ position: 'absolute', right: 13, top: 12, fontSize: 12 }}
               >
                 {visible ? 'masquer' : 'voir'}
               </button>
@@ -172,37 +195,39 @@ export default function FormulaireConnexion() {
 
             <button
               type="submit"
-              className="bouton"
+              className="bouton bouton-violet"
               disabled={occupe}
-              style={{ width: '100%', marginTop: 22, padding: '13px 20px' }}
+              style={{ width: '100%', marginTop: 24, padding: '13px 20px', fontSize: 14 }}
             >
               {occupe ? 'Connexion…' : 'Se connecter'}
             </button>
           </form>
 
-          <div style={{ marginTop: 20, borderTop: '1px solid var(--trait)', paddingTop: 16 }}>
+          <div
+            style={{
+              marginTop: 20,
+              borderTop: '1px dashed var(--trait-clair)',
+              paddingTop: 16,
+            }}
+          >
             {secoursOuvert ? (
               <>
-                <p className="aide" style={{ marginTop: 0, marginBottom: 10 }}>
+                <p className="aide" style={{ marginTop: 0, marginBottom: 12 }}>
                   Saisissez votre adresse ci-dessus, puis demandez un lien. Il ouvre la session sans
                   mot de passe.
                 </p>
                 <button
                   type="button"
-                  className="bouton-fantome"
+                  className="bouton-discret"
                   onClick={envoyerLien}
                   disabled={occupe || !email.trim()}
                   style={{ opacity: occupe || !email.trim() ? 0.45 : 1 }}
                 >
-                  Recevoir un lien par e-mail
+                  <i className="ph ph-envelope-simple" aria-hidden="true" /> Recevoir un lien
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                className="bouton-lien"
-                onClick={() => setSecoursOuvert(true)}
-              >
+              <button type="button" className="bouton-lien" onClick={() => setSecoursOuvert(true)}>
                 Mot de passe oublié, ou pas encore défini ?
               </button>
             )}
@@ -211,8 +236,8 @@ export default function FormulaireConnexion() {
           <p className="aide" style={{ marginTop: 22 }}>
             Les accès sont ouverts par l’administrateur. Ils ne se créent pas depuis cet écran.
           </p>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </main>
   );
 }

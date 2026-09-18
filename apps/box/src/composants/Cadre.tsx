@@ -3,36 +3,18 @@ import { redirect } from 'next/navigation';
 import { serveur } from '@/lib/supabase-serveur';
 
 /**
- * Structure commune : colonne de navigation à gauche, contenu à droite.
+ * Structure commune, reprise du modèle : un fond lavande, un grand panneau
+ * blanc arrondi posé dessus, un rail d'icônes violet qui déborde sur la gauche,
+ * et une barre d'onglets soulignés en haut.
  *
- * Les icônes sont dessinées ici plutôt qu'importées d'une bibliothèque : deux
- * traits SVG ne justifient pas une dépendance de plusieurs centaines de
- * kilo-octets, ni un chargement supplémentaire au premier affichage.
+ * Le rail ne porte que des icônes : chacune a donc un `title` et un
+ * `aria-label`, sinon la navigation devient illisible au lecteur d'écran et
+ * devinette à la souris.
  */
 
 const ONGLETS = [
-  {
-    href: '/',
-    libelle: 'Occupation',
-    icone: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <rect x="3" y="3" width="7" height="7" rx="1.5" />
-        <rect x="14" y="3" width="7" height="7" rx="1.5" />
-        <rect x="3" y="14" width="7" height="7" rx="1.5" />
-        <rect x="14" y="14" width="7" height="7" rx="1.5" />
-      </svg>
-    ),
-  },
-  {
-    href: '/parametrage',
-    libelle: 'Paramétrage',
-    icone: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <circle cx="12" cy="12" r="3.2" />
-        <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" />
-      </svg>
-    ),
-  },
+  { href: '/', libelle: 'Occupation', icone: 'ph-squares-four' },
+  { href: '/parametrage', libelle: 'Paramétrage', icone: 'ph-sliders-horizontal' },
 ];
 
 async function seDeconnecter() {
@@ -44,15 +26,9 @@ async function seDeconnecter() {
 
 export default async function Cadre({
   actif,
-  titre,
-  chapeau,
-  actions,
   children,
 }: {
   actif: string;
-  titre: string;
-  chapeau?: string;
-  actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const client = await serveur();
@@ -61,53 +37,50 @@ export default async function Cadre({
   } = await client.auth.getUser();
 
   return (
-    <div className="app">
-      <aside className="flanc">
-        <div className="marque">
-          <span className="marque-pastille" aria-hidden="true">
-            HG
-          </span>
-          <span>
-            <span className="marque-nom">Box de stockage</span>
-            <br />
-            <span className="marque-sous">HGWF Cargo</span>
-          </span>
-        </div>
-
-        <nav style={{ display: 'contents' }}>
+    <div className="scene">
+      <div className="panneau">
+        <nav className="rail" aria-label="Navigation principale">
           {ONGLETS.map((o) => (
             <Link
               key={o.href}
               href={o.href}
-              className="onglet"
+              title={o.libelle}
+              aria-label={o.libelle}
               aria-current={actif === o.href ? 'page' : undefined}
             >
-              {o.icone}
-              {o.libelle}
+              <i className={`ph-duotone ${o.icone}`} aria-hidden="true" />
             </Link>
           ))}
         </nav>
 
-        <div className="flanc-pied">
-          <p className="flanc-identite">{user?.email}</p>
+        <div className="barre">
+          {ONGLETS.map((o) => (
+            <Link
+              key={o.href}
+              href={o.href}
+              className="barre-onglet"
+              aria-current={actif === o.href ? 'page' : undefined}
+            >
+              <i className={`ph-duotone ${o.icone}`} style={{ fontSize: 17 }} aria-hidden="true" />
+              {o.libelle}
+            </Link>
+          ))}
+
+          <span className="barre-espace" />
+
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--gris-doux)' }}>
+            {user?.email}
+          </span>
+
           <form action={seDeconnecter}>
-            <button className="bouton-fantome" style={{ width: '100%' }}>
-              Se déconnecter
+            <button className="bouton-discret" type="submit">
+              <i className="ph ph-sign-out" aria-hidden="true" /> Se déconnecter
             </button>
           </form>
         </div>
-      </aside>
 
-      <main className="contenu">
-        <div className="entete">
-          <div>
-            <h1 className="titre">{titre}</h1>
-            {chapeau && <p className="sous-titre">{chapeau}</p>}
-          </div>
-          {actions}
-        </div>
-        {children}
-      </main>
+        <div className="corps">{children}</div>
+      </div>
     </div>
   );
 }

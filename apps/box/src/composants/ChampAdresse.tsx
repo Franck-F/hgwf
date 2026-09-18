@@ -49,7 +49,9 @@ export default function ChampAdresse({
         );
         if (!r.ok) return;
         const j = (await r.json()) as {
-          features?: { properties: { label: string; name: string; postcode: string; city: string } }[];
+          features?: {
+            properties: { label: string; name: string; postcode: string; city: string };
+          }[];
         };
         setSuggestions(
           (j.features ?? []).map((f) => ({
@@ -122,16 +124,16 @@ export default function ChampAdresse({
           style={{
             position: 'absolute',
             zIndex: 20,
-            top: 'calc(100% - 18px)',
+            top: 'calc(100% - 16px)',
             left: 0,
             right: 0,
             margin: '4px 0 0',
             padding: 6,
             listStyle: 'none',
-            background: 'var(--carte)',
+            background: 'var(--blanc)',
             border: '1px solid var(--trait)',
             borderRadius: 'var(--r-controle)',
-            boxShadow: 'var(--ombre-portee)',
+            boxShadow: 'var(--ombre-relief)',
           }}
         >
           {suggestions.map((s) => (
@@ -146,10 +148,11 @@ export default function ChampAdresse({
                   padding: '9px 10px',
                   background: 'transparent',
                   border: 'none',
-                  borderRadius: 8,
+                  borderRadius: 9,
                   fontSize: 13,
+                  fontWeight: 600,
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--champ)')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--fond-doux)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
                 {s.label}
@@ -158,11 +161,11 @@ export default function ChampAdresse({
           ))}
           <li
             style={{
-              padding: '7px 10px 3px',
-              fontFamily: 'var(--mono)',
-              fontSize: 10,
-              letterSpacing: 0.6,
-              color: 'var(--texte-faible)',
+              padding: '8px 10px 3px',
+              fontSize: 9.5,
+              fontWeight: 800,
+              letterSpacing: '0.08em',
+              color: 'var(--gris-faible)',
             }}
           >
             BASE ADRESSE NATIONALE
