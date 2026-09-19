@@ -90,10 +90,16 @@ jobs:
 
           # --no-owner et --no-privileges : le dump se restaure sur n'importe
           # quel projet Supabase, sans dépendre des rôles de celui d'origine.
+          #
+          # --inserts : les données sortent en INSERT plutôt qu'en COPY. Le
+          # fichier grossit un peu, mais il devient restaurable par n'importe
+          # quel outil SQL et plus seulement par psql. Le jour d'une
+          # restauration, on ne choisit pas toujours ses outils.
           pg_dump "$url" \
             --schema=public \
             --no-owner \
             --no-privileges \
+            --inserts \
             --file="$RUNNER_TEMP/sauvegarde/box.sql"
           gzip -9 "$RUNNER_TEMP/sauvegarde/box.sql"
           ls -lh "$RUNNER_TEMP/sauvegarde"
