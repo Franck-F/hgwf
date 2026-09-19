@@ -14,6 +14,8 @@ import { serveur } from '@/lib/supabase-serveur';
 
 const ONGLETS = [
   { href: '/', libelle: 'Occupation', icone: 'ph-squares-four' },
+  { href: '/clients', libelle: 'Clients', icone: 'ph-users-three' },
+  { href: '/contrats', libelle: 'Contrats', icone: 'ph-file-text' },
   { href: '/parametrage', libelle: 'Paramétrage', icone: 'ph-sliders-horizontal' },
 ];
 

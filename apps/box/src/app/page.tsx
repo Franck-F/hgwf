@@ -241,21 +241,24 @@ export default async function Occupation() {
             </div>
           )}
 
-          <div
+          <Link
+            href="/contrats"
             style={{
+              display: 'block',
               marginTop: 16,
               background: 'var(--fond-tres-doux)',
               border: '1px solid #f0eff8',
               borderRadius: 16,
               padding: '14px 16px',
+              color: 'inherit',
             }}
           >
-            <div className="ligne-titre">Contrats — pas encore branchés</div>
+            <div className="ligne-titre">Enregistrer une entrée ou une sortie</div>
             <div className="ligne-detail">
-              Le statut d’un box se règle à la main tant que l’entrée et la sortie d’un client ne
-              sont pas construites.
+              Le statut d’un box suit désormais ses contrats : il passe en occupé à l’entrée, et
+              redevient disponible à la sortie.
             </div>
-          </div>
+          </Link>
         </section>
 
         <section className="carte">
@@ -462,12 +465,12 @@ export default async function Occupation() {
               <h2 className="section-titre">Prochaine étape</h2>
             </div>
             <p className="section-note" style={{ marginTop: 10 }}>
-              Clients et contrats : entrée, sortie, préavis. Le statut d’un box passera alors à
-              « occupé » tout seul, et les loyers dus se calculeront.
+              Les loyers dus : échéances mensuelles, prorata d’entrée et de sortie, état des
+              impayés et relances. Les factures, elles, partiront de Henrri.
             </p>
             <div style={{ display: 'flex', gap: 12, marginTop: 18 }}>
               <span className="etiq etiq-douce">Phase 2</span>
-              <span className="etiq etiq-verte">Base déjà prête</span>
+              <span className="etiq etiq-verte">Contrats en place</span>
             </div>
           </section>
         </div>
