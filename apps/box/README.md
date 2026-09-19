@@ -18,6 +18,7 @@ règles sont éprouvées ; l'interface reste à écrire.
 | Projet | `hgwf-box` |
 | Référence | `mgzuujkhjjdypgutgoss` |
 | Région | `eu-west-3` (Paris) |
+| En ligne | https://box.hgwf-cargo.fr |
 | Coût | 0 €/mois (offre gratuite) |
 
 Les fichiers de `db/` sont la source de vérité du schéma. Ils ont été appliqués
