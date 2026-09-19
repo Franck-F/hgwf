@@ -110,11 +110,27 @@ table {
   padding: 26px 44px 44px 44px;
 }
 
-/* Rail d'icônes qui déborde du panneau : c'est la signature du modèle. */
-.rail {
+/* Rail d'icônes qui déborde du panneau : c'est la signature du modèle.
+   Il reste visible au défilement, sinon la navigation disparaît dès qu'on
+   descend dans un tableau un peu long.
+   Deux éléments sont nécessaires : une ancre absolue qui tient la colonne sur
+   toute la hauteur du panneau, et le rail lui-même en « sticky » dedans. Un
+   « fixed » serait calé sur la fenêtre, donc décroché du panneau centré. */
+.rail-ancre {
   position: absolute;
   left: -30px;
-  top: 128px;
+  top: 0;
+  bottom: 0;
+  width: 64px;
+  /* La colonne vide ne doit pas intercepter les clics du panneau. */
+  pointer-events: none;
+}
+
+.rail {
+  position: sticky;
+  top: 28px;
+  margin-top: 128px;
+  pointer-events: auto;
   width: 64px;
   background: linear-gradient(180deg, var(--violet), var(--violet-fonce));
   border-radius: 32px;
@@ -691,9 +707,16 @@ table {
 
   /* Le rail flottant passe en barre horizontale : à -30px il sortirait
      de l'écran sur un téléphone. */
+  .rail-ancre {
+    position: static;
+    width: auto;
+    pointer-events: auto;
+  }
+
   .rail {
     position: static;
     width: auto;
+    margin-top: 0;
     flex-direction: row;
     justify-content: space-around;
     border-radius: 20px;
