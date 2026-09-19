@@ -50,12 +50,29 @@ IPv6, et les machines GitHub n'ont que de l'IPv4.
 
 ### Restaurer
 
+Éprouvé le 19/09/2026 sur un projet jetable, avec la vraie archive de
+production. Deux obstacles ont été trouvés à cette occasion, et le workflow
+les corrige désormais dans le fichier lui-même.
+
 ```
+-- 1. Repartir d'un schéma vide, sur le projet CIBLE
+drop schema public cascade;
+create schema public;
+grant usage on schema public to anon, authenticated, service_role;
+```
+
+```
+# 2. Rejouer la sauvegarde
 gunzip -c box.sql.gz | psql "<URI Session pooler du projet cible>"
 ```
 
-Le dump est produit avec `--no-owner --no-privileges` : il se restaure sur
-n'importe quel projet Supabase, sans dépendre des rôles de celui d'origine.
+Le dump est produit avec `--no-owner --no-privileges --inserts` : il ne dépend
+pas des rôles du projet d'origine, et ses données sont en `INSERT`, donc
+rejouables par un autre outil que `psql`.
+
+> **Ce qu'il ne faut pas faire : supprimer `public` sans le recréer.** Sans ce
+> schéma, PostgREST ne redémarre pas et la base devient injoignable par l'API —
+> y compris pour la restauration elle-même.
 
 > **Ne jamais restaurer par-dessus la base en service sans l'avoir exportée
 > d'abord.** Le dump contient des `CREATE TABLE` : sur une base déjà peuplée, il

@@ -101,6 +101,22 @@ jobs:
             --no-privileges \
             --inserts \
             --file="$RUNNER_TEMP/sauvegarde/box.sql"
+
+          # Deux nettoyages, trouves en eprouvant une vraie restauration
+          # le 19/09/2026 :
+          #
+          #   - pg_dump 17 insere des meta-commandes psql restrict et unrestrict,
+          #     qui ne sont PAS du SQL : tout autre outil bute dessus des la
+          #     cinquieme ligne ;
+          #   - le dump porte un CREATE SCHEMA public, qui echoue sur tout projet
+          #     Supabase puisque ce schema existe deja. Et on ne peut pas le
+          #     supprimer avant de restaurer : sans lui, PostgREST ne redemarre
+          #     plus et la base devient injoignable par l'API.
+          #
+          # Procedure de restauration : recreer un schema public vide, puis jouer
+          # ce fichier.
+          sed -i -e '/^\\restrict /d' -e '/^\\unrestrict /d' -e '/^CREATE SCHEMA public;$/d' "$RUNNER_TEMP/sauvegarde/box.sql"
+
           gzip -9 "$RUNNER_TEMP/sauvegarde/box.sql"
           ls -lh "$RUNNER_TEMP/sauvegarde"
 
