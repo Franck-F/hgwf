@@ -64,9 +64,14 @@ n'importe quel projet Supabase, sans dépendre des rôles de celui d'origine.
 
 ### Facturation
 
-Décision du 18/09/2026 : **le système box n'émet pas de factures.** Il produit des
-échéances de loyer ; les factures qui doivent légalement en être sont émises depuis
-Henrri. Une seule série de numérotation, donc pas de comptabilité incohérente.
+**Le système n'émet aucune facture**, et n'en émettra pas en phase 2 : il produit des
+échéances de loyer internes, ce qui est autre chose.
+
+Le raccordement à Henrri, envisagé le 18/09/2026, est **écarté pour le moment**
+(décision du 19/09/2026). Qui facturera, et par quelle plateforme agréée à partir du
+1er septembre 2027, reste à trancher — voir `scale-up/specs/box-developpement.md`,
+section 5. La date est un butoir pour facturer une entreprise ; un particulier peut
+être facturé sans.
 
 ## L'application
 
