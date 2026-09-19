@@ -8,8 +8,10 @@
 import { serveur } from '@/lib/supabase-serveur';
 import Cadre from '@/composants/Cadre';
 import FormulaireAction from '@/composants/FormulaireAction';
+import AssistantClients from '@/composants/AssistantClients';
 import { dateFr, euros } from '@/lib/charte';
 import { creerClient } from './actions';
+import { geminiConfigure } from '@/lib/gemini';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,6 +71,8 @@ export default async function Clients() {
           s’archive, pour que ses contrats passés restent lisibles.
         </p>
       </div>
+
+      <AssistantClients disponible={geminiConfigure()} />
 
       <section className="carte" style={{ marginBottom: 22 }}>
         <h2 className="section-titre">Nouveau client</h2>
