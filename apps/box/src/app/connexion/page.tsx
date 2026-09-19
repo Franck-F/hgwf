@@ -6,7 +6,16 @@ import FormulaireConnexion from './Formulaire';
 // depuis un composant client, sinon la page ne peut plus être pré-rendue.
 export default function Connexion() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <main className="connexion-scene">
+          <div className="connexion-panneau">
+            <section className="connexion-recit" />
+            <section className="connexion-formulaire" />
+          </div>
+        </main>
+      }
+    >
       <FormulaireConnexion />
     </Suspense>
   );

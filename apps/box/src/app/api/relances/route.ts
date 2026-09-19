@@ -7,8 +7,9 @@
  * Protégée par un secret partagé. Sans `CRON_SECRET` posé, la route refuse
  * tout : une route d'envoi ouverte est une route d'envoi pour n'importe qui.
  *
- * Elle n'est pas encore branchée : l'application n'est pas déployée. Le jour où
- * elle le sera, une tâche planifiée l'appellera chaque matin.
+ * Les tâches planifiées Vercel appellent en GET et posent d'elles-mêmes
+ * l'en-tête `Authorization: Bearer $CRON_SECRET`. POST reste ouvert pour un
+ * déclenchement manuel depuis un terminal.
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -16,7 +17,7 @@ import { relancerImpayes } from '@/lib/relances';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(requete: NextRequest) {
+async function executer(requete: NextRequest) {
   const attendu = process.env.CRON_SECRET;
   if (!attendu) {
     return NextResponse.json({ ok: false, erreur: 'CRON_SECRET absent' }, { status: 503 });
@@ -39,3 +40,6 @@ export async function POST(requete: NextRequest) {
   const bilan = await relancerImpayes(sanity);
   return NextResponse.json(bilan, { status: bilan.ok ? 200 : 500 });
 }
+
+export const GET = executer;
+export const POST = executer;

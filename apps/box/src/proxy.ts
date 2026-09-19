@@ -12,7 +12,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { pourProxy } from '@/lib/supabase-proxy';
 
-const PUBLIQUES = ['/connexion', '/auth'];
+// `/api` est hors du verrou de session : ces routes sont appelées par des
+// tâches planifiées, sans navigateur ni cookie. Elles se protègent elles-mêmes
+// par un secret partagé. Sans cette exception, une tâche planifiée suivrait la
+// redirection vers /connexion et ne relancerait jamais rien — en silence.
+const PUBLIQUES = ['/connexion', '/auth', '/api'];
 
 export async function proxy(requete: NextRequest) {
   const { client, reponse } = pourProxy(requete);
