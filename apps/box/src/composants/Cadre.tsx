@@ -16,6 +16,7 @@ const ONGLETS = [
   { href: '/', libelle: 'Occupation', icone: 'ph-squares-four' },
   { href: '/clients', libelle: 'Clients', icone: 'ph-users-three' },
   { href: '/contrats', libelle: 'Contrats', icone: 'ph-file-text' },
+  { href: '/echeances', libelle: 'Loyers', icone: 'ph-receipt' },
   { href: '/parametrage', libelle: 'Paramétrage', icone: 'ph-sliders-horizontal' },
 ];
 

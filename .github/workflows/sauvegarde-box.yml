@@ -99,13 +99,13 @@ jobs:
           ls -lh "$RUNNER_TEMP/sauvegarde"
 
       # Un dump qui réussit en ne sauvegardant rien est le piège classique.
-      # On vérifie que les sept tables du socle sont bien dans le fichier.
+      # On vérifie que les huit tables du socle sont bien dans le fichier.
       - name: Contrôle du contenu
         run: |
           set -euo pipefail
           contenu=$(gunzip -c "$RUNNER_TEMP/sauvegarde/box.sql.gz")
           manquantes=""
-          for table in site categorie_box tarif box client contrat mouvement; do
+          for table in site categorie_box tarif box client contrat mouvement echeance; do
             echo "$contenu" | grep -q "CREATE TABLE public.$table" || manquantes="$manquantes $table"
           done
           if [ -n "$manquantes" ]; then
@@ -113,7 +113,7 @@ jobs:
             exit 1
           fi
           lignes=$(echo "$contenu" | grep -c '' )
-          echo "Dump valide, $lignes lignes, sept tables presentes."
+          echo "Dump valide, $lignes lignes, huit tables presentes."
 
       - name: Dépôt de l'archive
         uses: actions/upload-artifact@v4

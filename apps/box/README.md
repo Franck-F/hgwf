@@ -117,8 +117,33 @@ L'envoi des liens passe par le serveur d'e-mail par défaut de Supabase, dont le
 quota horaire est bas. Quand l'équipe dépassera quelques connexions par jour, le
 brancher sur Resend, déjà en service pour le fret.
 
-## Reste à faire pour la phase 1
+## Loyers dus (phase 2)
 
-1. Clients et contrats : fiches, entrée, sortie, préavis.
-2. Passage automatique du statut d'un box à « occupé » à la signature.
-3. Déployer sur `box.hgwf-cargo.fr`.
+Le loyer est dû **d'avance** : le mois en cours est émis en entier dès son
+premier jour, au prorata seulement si le contrat commence ou se termine dedans.
+
+Le prorata se calcule sur les **jours réels du mois**, pas sur une base 30 : un
+février entamé le 20 ne se facture pas comme un juillet entamé le 20. C'est de
+là que vient l'essentiel des litiges sur une facture de self-stockage. Les jours
+facturés sont stockés avec le montant — sans eux, un client qui conteste n'a
+rien à vérifier.
+
+Le calcul vit dans `src/lib/echeances.ts`, sans base ni horloge, pour rester
+vérifiable à la main.
+
+Trois règles tenues par la base :
+
+- **un seul loyer vivant par période et par contrat** : relancer la génération
+  ne crée jamais de doublon ;
+- **un loyer émis ne se modifie plus** — on l'annule avec un motif écrit, et on
+  régénère. L'index d'unicité est partiel pour que cette régénération soit
+  possible ;
+- **l'annulation laisse une trace** : rien n'est effacé.
+
+Une échéance est un loyer **interne**, pas une facture au sens légal.
+
+## Reste à faire
+
+1. Relances automatiques sur les loyers en retard.
+2. Déployer sur `box.hgwf-cargo.fr`.
+3. Trancher qui facture, et par quelle plateforme agréée avant le 01/09/2027.
