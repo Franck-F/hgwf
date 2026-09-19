@@ -107,14 +107,14 @@ table {
   border-radius: var(--r-panneau);
   box-shadow: var(--ombre-panneau);
   position: relative;
-  padding: 32px 44px 44px 44px;
+  padding: 26px 44px 44px 44px;
 }
 
 /* Rail d'icônes qui déborde du panneau : c'est la signature du modèle. */
 .rail {
   position: absolute;
   left: -30px;
-  top: 190px;
+  top: 128px;
   width: 64px;
   background: linear-gradient(180deg, var(--violet), var(--violet-fonce));
   border-radius: 32px;
@@ -162,25 +162,31 @@ table {
   flex-wrap: wrap;
 }
 
-.barre-onglet {
+/* Identité et fil d'Ariane. La navigation, elle, vit dans le rail : la
+   répéter ici ferait deux états actifs à tenir synchronisés pour rien. */
+.identite {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.identite-nom {
   font-size: 15px;
-  color: var(--gris-doux);
-  padding-bottom: 4px;
-  border-bottom: 2px solid transparent;
-}
-
-.barre-onglet:hover {
-  color: var(--encre);
-}
-
-.barre-onglet[aria-current='page'] {
   font-weight: 800;
-  color: var(--encre);
-  border-bottom-color: var(--encre);
+}
+
+.identite-fil {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gris-faible);
+}
+
+.identite-compte {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--gris-doux);
 }
 
 .barre-espace {
@@ -701,6 +707,10 @@ table {
 
   .hero-titre {
     font-size: 28px;
+  }
+
+  .identite-compte {
+    display: none;
   }
 
   .connexion-panneau {

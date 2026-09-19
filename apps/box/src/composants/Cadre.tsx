@@ -3,9 +3,13 @@ import { redirect } from 'next/navigation';
 import { serveur } from '@/lib/supabase-serveur';
 
 /**
- * Structure commune, reprise du modèle : un fond lavande, un grand panneau
- * blanc arrondi posé dessus, un rail d'icônes violet qui déborde sur la gauche,
- * et une barre d'onglets soulignés en haut.
+ * Structure commune : un fond lavande, un grand panneau blanc arrondi, et le
+ * rail d'icônes violet qui déborde sur la gauche.
+ *
+ * La navigation vit **uniquement** dans le rail. Elle était aussi répétée en
+ * haut : deux chemins vers la même page, donc deux états actifs à tenir
+ * synchronisés pour rien. La barre du haut ne garde que l'identité et la
+ * sortie.
  *
  * Le rail ne porte que des icônes : chacune a donc un `title` et un
  * `aria-label`, sinon la navigation devient illisible au lecteur d'écran et
@@ -39,6 +43,8 @@ export default async function Cadre({
     data: { user },
   } = await client.auth.getUser();
 
+  const page = ONGLETS.find((o) => o.href === actif);
+
   return (
     <div className="scene">
       <div className="panneau">
@@ -57,23 +63,14 @@ export default async function Cadre({
         </nav>
 
         <div className="barre">
-          {ONGLETS.map((o) => (
-            <Link
-              key={o.href}
-              href={o.href}
-              className="barre-onglet"
-              aria-current={actif === o.href ? 'page' : undefined}
-            >
-              <i className={`ph-duotone ${o.icone}`} style={{ fontSize: 17 }} aria-hidden="true" />
-              {o.libelle}
-            </Link>
-          ))}
+          <span className="identite">
+            <span className="identite-nom">Box de stockage</span>
+            <span className="identite-fil">HGWF Cargo{page && ` · ${page.libelle}`}</span>
+          </span>
 
           <span className="barre-espace" />
 
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--gris-doux)' }}>
-            {user?.email}
-          </span>
+          <span className="identite-compte">{user?.email}</span>
 
           <form action={seDeconnecter}>
             <button className="bouton-discret" type="submit">
