@@ -106,6 +106,60 @@ export function AnnulerEcheance({ echeanceId }: { echeanceId: string }) {
   );
 }
 
+export function LancerRelances({
+  action,
+  nombreEnRetard,
+}: {
+  action: () => Promise<{
+    ok: boolean;
+    envoyees: number;
+    echecs: number;
+    sansAdresse: number;
+    message: string;
+  }>;
+  nombreEnRetard: number;
+}) {
+  const [resultat, agir] = useActionState(async () => action(), null);
+  const [confirme, setConfirme] = useState(false);
+
+  if (resultat) {
+    return (
+      <span className={`retour ${resultat.ok ? 'retour-ok' : 'retour-erreur'}`}>
+        {resultat.ok ? `✓ ${resultat.message}` : resultat.message}
+      </span>
+    );
+  }
+
+  // Un envoi d'e-mails ne se déclenche pas d'un clic distrait : ceux qui
+  // partent ne se rattrapent pas.
+  if (!confirme) {
+    return (
+      <button
+        type="button"
+        className="bouton-discret"
+        onClick={() => setConfirme(true)}
+        disabled={nombreEnRetard === 0}
+        style={{ opacity: nombreEnRetard === 0 ? 0.45 : 1 }}
+      >
+        <i className="ph ph-paper-plane-tilt" aria-hidden="true" /> Relancer les retards
+      </button>
+    );
+  }
+
+  return (
+    <form action={agir} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+      <span className="aide" style={{ marginTop: 0 }}>
+        Un e-mail partira pour chaque loyer en retard jamais relancé. Un e-mail envoyé ne se
+        rattrape pas.
+      </span>
+      <Soumettre libelle="Envoyer" />
+      <button type="button" className="bouton-discret" onClick={() => setConfirme(false)}>
+        Annuler
+      </button>
+    </form>
+  );
+}
+
 export function GenererEcheances({
   action,
 }: {

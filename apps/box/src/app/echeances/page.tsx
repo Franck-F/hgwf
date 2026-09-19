@@ -13,8 +13,11 @@ import {
   AnnulerEcheance,
   EncaisserEcheance,
   GenererEcheances,
+  LancerRelances,
 } from '@/composants/ActionsEcheance';
 import { genererEcheances } from './actions';
+import { lancerRelances } from './relance';
+import { DELAI_DE_GRACE } from '@/lib/relances';
 import { dateFr, euros } from '@/lib/charte';
 import { aujourdhuiIso, libellePeriode } from '@/lib/echeances';
 
@@ -28,6 +31,7 @@ type Echeance = {
   jours_factures: number;
   jours_periode: number;
   statut: string;
+  relance_envoyee_le: string | null;
   paye_le: string | null;
   moyen_paiement: string | null;
   note: string | null;
@@ -44,7 +48,7 @@ export default async function Echeances() {
   const { data } = await sanity
     .from('echeance')
     .select(
-      'id, periode_debut, periode_fin, montant_cents, jours_factures, jours_periode, statut, paye_le, moyen_paiement, note, contrat(reference, client(nom, raison_sociale, type), box(code))',
+      'id, periode_debut, periode_fin, montant_cents, jours_factures, jours_periode, statut, relance_envoyee_le, paye_le, moyen_paiement, note, contrat(reference, client(nom, raison_sociale, type), box(code))',
     )
     .order('periode_debut', { ascending: false });
 
@@ -54,6 +58,7 @@ export default async function Echeances() {
   const dues = echeances.filter((e) => e.statut === 'due');
   const enRetard = dues.filter((e) => e.periode_fin < aujourdhui);
   const payees = echeances.filter((e) => e.statut === 'payee');
+  const aRelancer = enRetard.filter((e) => !e.relance_envoyee_le);
 
   const somme = (liste: Echeance[]) => liste.reduce((n, e) => n + e.montant_cents, 0);
 
@@ -96,9 +101,16 @@ export default async function Echeances() {
             </p>
           </span>
         </div>
-        <div style={{ marginTop: 18 }}>
+        <div style={{ marginTop: 18, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
           <GenererEcheances action={genererEcheances} />
+          <LancerRelances action={lancerRelances} nombreEnRetard={aRelancer.length} />
         </div>
+        <p className="aide" style={{ marginTop: 14 }}>
+          Une relance part {DELAI_DE_GRACE} jours après la fin de période, une seule fois par
+          loyer. {aRelancer.length === 0
+            ? 'Aucun loyer n’est éligible pour l’instant.'
+            : `${aRelancer.length} loyer${aRelancer.length > 1 ? 's' : ''} éligible${aRelancer.length > 1 ? 's' : ''}.`}
+        </p>
       </section>
 
       <section className="carte">
@@ -183,7 +195,14 @@ export default async function Echeances() {
                         ) : e.statut === 'annulee' ? (
                           <span className="etiq etiq-douce">Annulé</span>
                         ) : retard ? (
-                          <span className="etiq etiq-rose">En retard</span>
+                          <>
+                            <span className="etiq etiq-rose">En retard</span>
+                            {e.relance_envoyee_le && (
+                              <span className="ligne-detail" style={{ display: 'block' }}>
+                                relancé le {dateFr(e.relance_envoyee_le)}
+                              </span>
+                            )}
+                          </>
                         ) : (
                           <span className="etiq etiq-douce">À échoir</span>
                         )}

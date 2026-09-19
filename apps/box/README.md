@@ -142,8 +142,28 @@ Trois règles tenues par la base :
 
 Une échéance est un loyer **interne**, pas une facture au sens légal.
 
+### Relance des impayés
+
+Une relance part **5 jours après la fin de période**, **une seule fois par
+loyer**, et uniquement sur un loyer encore dû. Un loyer encaissé ou annulé ne
+relance personne.
+
+L'horodatage est posé **même quand l'envoi échoue** : sinon une adresse qui
+rejette nos messages serait relancée tous les jours, et c'est ainsi qu'on finit
+en liste noire.
+
+Le texte est procédural — une échéance qui est passée, pas une offre. C'est ce
+qui le maintient du côté transactionnel plutôt que prospection.
+
+Le même code sert au bouton de l'écran et à la route `/api/relances`, protégée
+par `CRON_SECRET`. **Cette route n'est pas encore branchée** : l'application
+n'est pas déployée, donc aucune tâche planifiée ne peut l'appeler. Aujourd'hui
+la relance se déclenche à la main, et le bouton demande confirmation.
+
 ## Reste à faire
 
-1. Relances automatiques sur les loyers en retard.
-2. Déployer sur `box.hgwf-cargo.fr`.
-3. Trancher qui facture, et par quelle plateforme agréée avant le 01/09/2027.
+1. Déployer sur `box.hgwf-cargo.fr`, puis brancher la tâche planifiée.
+2. Trancher qui facture, et par quelle plateforme agréée avant le 01/09/2027.
+3. Activer la protection contre les mots de passe compromis dans Supabase
+   (*Authentication → Policies*) — signalée par le linter depuis le passage au
+   mot de passe.
