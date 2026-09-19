@@ -74,6 +74,14 @@ rejouables par un autre outil que `psql`.
 > schéma, PostgREST ne redémarre pas et la base devient injoignable par l'API —
 > y compris pour la restauration elle-même.
 
+Résultat du test du 19/09/2026, sur l'archive réelle restaurée dans un projet
+vide : 1 local, 2 gabarits, 2 tarifs, 30 box — identiques à la production. Et
+surtout les garde-fous sont revenus avec : la contrainte d'exclusion des
+contrats, l'index partiel des échéances, les deux déclencheurs d'immuabilité et
+les 9 politiques de sécurité. **Une sauvegarde qui restaurerait les données sans
+les règles ne vaudrait rien** : elle rendrait possible, après incident, tout ce
+que le système interdit en temps normal.
+
 > **Ne jamais restaurer par-dessus la base en service sans l'avoir exportée
 > d'abord.** Le dump contient des `CREATE TABLE` : sur une base déjà peuplée, il
 > échoue table par table et laisse un état partiel, ni l'ancien ni le nouveau.
