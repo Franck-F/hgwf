@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Box de stockage HGWF">
+  <!--
+    Favicon de l'outil box. Volontairement différent du site public : dans une
+    barre d'onglets, on doit distinguer l'outil d'exploitation du site vitrine.
+
+    Le motif est la grille de quatre box — la même icône que l'onglet
+    « Occupation » dans le rail. Dessiné en aplats épais parce qu'un favicon
+    est lu à 16 pixels : tout trait fin y disparaît.
+  -->
+  <defs>
+    <linearGradient id="violet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7a66f2"/>
+      <stop offset="1" stop-color="#6250d8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="32" height="32" rx="8" fill="url(#violet)"/>
+
+  <g fill="#ffffff">
+    <rect x="8"  y="8"  width="7" height="7" rx="2"/>
+    <rect x="17" y="8"  width="7" height="7" rx="2"/>
+    <rect x="8"  y="17" width="7" height="7" rx="2"/>
+    <!-- Le quatrième est en retrait : un box occupé parmi trois libres.
+         Ça donne au motif un point d'asymétrie qui le rend reconnaissable. -->
+    <rect x="17" y="17" width="7" height="7" rx="2" fill-opacity="0.45"/>
+  </g>
+</svg>
