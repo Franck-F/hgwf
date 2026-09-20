@@ -158,7 +158,7 @@ export default async function Parametrage() {
                         </span>
                       </>
                     ) : (
-                      <span className="etiq etiq-rose">aucun</span>
+                      <span className="etiq etiq-corail">aucun</span>
                     )}
                   </td>
                   <td>{compteParCategorie.get(c.id) ?? 0}</td>
@@ -292,7 +292,7 @@ function Section({
             height: 28,
             borderRadius: 10,
             background: 'var(--fond-doux)',
-            color: 'var(--gris-faible)',
+            color: 'var(--ardoise-faible)',
             display: 'grid',
             placeItems: 'center',
             fontSize: 12,

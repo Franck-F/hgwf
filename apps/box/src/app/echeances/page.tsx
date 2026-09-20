@@ -118,7 +118,7 @@ export default async function Echeances() {
           <h2 className="section-titre">Tous les loyers</h2>
           <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {enRetard.length > 0 && (
-              <span className="etiq etiq-rose">{enRetard.length} en retard</span>
+              <span className="etiq etiq-corail">{enRetard.length} en retard</span>
             )}
             <span className="etiq etiq-douce">{dues.length} dus</span>
             <span className="etiq etiq-verte">{payees.length} encaissés</span>
@@ -196,7 +196,7 @@ export default async function Echeances() {
                           <span className="etiq etiq-douce">Annulé</span>
                         ) : retard ? (
                           <>
-                            <span className="etiq etiq-rose">En retard</span>
+                            <span className="etiq etiq-corail">En retard</span>
                             {e.relance_envoyee_le && (
                               <span className="ligne-detail" style={{ display: 'block' }}>
                                 relancé le {dateFr(e.relance_envoyee_le)}
@@ -252,8 +252,8 @@ function Chiffre({
           width: 38,
           height: 38,
           borderRadius: 13,
-          background: alerte ? 'var(--rose-fond)' : 'var(--lavande-pale)',
-          color: alerte ? 'var(--rose)' : 'var(--violet)',
+          background: alerte ? 'var(--corail-fond)' : 'var(--creme)',
+          color: alerte ? 'var(--corail-texte)' : 'var(--marine)',
           display: 'grid',
           placeItems: 'center',
           fontSize: 19,
@@ -264,7 +264,7 @@ function Chiffre({
       <span style={{ marginTop: 'auto' }}>
         <span
           className="stat-valeur"
-          style={{ display: 'block', color: alerte ? 'var(--rose)' : undefined }}
+          style={{ display: 'block', color: alerte ? 'var(--corail-texte)' : undefined }}
         >
           {valeur}
         </span>

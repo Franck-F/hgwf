@@ -165,7 +165,7 @@ export default function ChampAdresse({
               fontSize: 9.5,
               fontWeight: 800,
               letterSpacing: '0.08em',
-              color: 'var(--gris-faible)',
+              color: 'var(--ardoise-faible)',
             }}
           >
             BASE ADRESSE NATIONALE

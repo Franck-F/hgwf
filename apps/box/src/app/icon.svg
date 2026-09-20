@@ -8,13 +8,13 @@
     est lu à 16 pixels : tout trait fin y disparaît.
   -->
   <defs>
-    <linearGradient id="violet" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#7a66f2"/>
-      <stop offset="1" stop-color="#6250d8"/>
+    <linearGradient id="marine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#063565"/>
+      <stop offset="1" stop-color="#04203c"/>
     </linearGradient>
   </defs>
 
-  <rect width="32" height="32" rx="8" fill="url(#violet)"/>
+  <rect width="32" height="32" rx="8" fill="url(#marine)"/>
 
   <g fill="#ffffff">
     <rect x="8"  y="8"  width="7" height="7" rx="2"/>

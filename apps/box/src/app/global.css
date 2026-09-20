@@ -1,46 +1,64 @@
 /**
  * Système visuel, repris du modèle « Dashboard Notes ».
  *
- * Le parti pris du modèle en trois traits : un fond lavande, un grand panneau
- * blanc très arrondi posé dessus, et un rail d'icônes violet qui déborde sur la
- * gauche. À l'intérieur, des cartes blanches à 22 px de rayon, bordure très
- * claire, ombre diffuse, et une seule couleur d'accent — le violet.
+ * Mise en page reprise du modèle « Dashboard Notes », couleurs reprises de la
+ * charte HGWF : un fond crème, un grand panneau blanc très arrondi posé
+ * dessus, et un rail d'icônes marine qui déborde sur la gauche. À l'intérieur,
+ * des cartes blanches à 22 px de rayon, bordure très claire, ombre diffuse.
+ *
+ * Deux accents, et pas un de plus : le marine porte tout ce qui est structurant
+ * — rail, boutons pleins, box occupés ; le corail ne sert qu'aux actions
+ * principales et aux alertes.
  *
  * Tout est ici plutôt qu'en styles en ligne : deux boutons finissent sinon par
  * ne plus avoir le même arrondi, et personne ne sait lequel fait foi.
  */
 
 :root {
-  --violet: #7a66f2;
-  --violet-fonce: #6250d8;
-  --encre: #16182c;
-  --lavande: #e9e6f6;
-  --lavande-pale: #efedfb;
+  /* Charte HGWF — valeurs reprises telles quelles de
+     apps/web/src/app/globals.css, pour que l'outil et le site public ne
+     puissent pas diverger. */
+  --marine: #063565;        /* PMS 289 C */
+  --marine-abysse: #04203c; /* fin de dégradé */
+  --marine-fonce: #052c54;  /* survols */
+  --ciel: #51a5dd;          /* PMS 284 C */
+  --corail: #fd7f5a;        /* PMS 170 C */
+  --corail-fonce: #ec6a44;
+  --corail-texte: #b44224;  /* corail rendu lisible sur fond clair */
+  --or: #fdb53d;
+  --creme: #fbf4e6;
+  --ivoire: #fcf7ed;
+  --ardoise: #45566a;
   --blanc: #ffffff;
 
-  --gris-texte: #6f7089;
-  --gris-doux: #8a8ba3;
-  --gris-faible: #a2a3b8;
-  --trait: #edecf6;
-  --trait-clair: #e9e8f2;
-  --fond-doux: #f2f1fa;
-  --fond-tres-doux: #fbfbfe;
+  /* Nuances dérivées, absentes de la charte : elles n'existent que pour les
+     surfaces d'interface — bordures, champs, textes discrets. Toutes sont
+     tirées du crème et de l'ardoise, pour rester dans la famille. */
+  --ardoise-douce: #5d6e80;
+  --ardoise-faible: #8a99a8;
+  --trait: #ece4d4;
+  --trait-clair: #e6dcc9;
+  --fond-doux: #f4efe3;
+  --fond-tres-doux: #fdfaf3;
 
-  --vert: #2fa96b;
-  --vert-fond: #e5f6ec;
-  --rose: #e8407a;
-  --rose-fond: #fdeaf0;
-  --ambre: #b4790f;
-  --ambre-fond: #fdf1dd;
+  /* États. Le corail-texte sert d'alerte : c'est la seule déclinaison du
+     corail qui passe le contraste sur fond clair. */
+  --vert: #2e7d5b;
+  --vert-fond: #e7f2ec;
+  --corail-fond: #fdece6;
+  --ambre-texte: #8a5a00;
+  --ambre-fond: #fef3dd;
 
   --r-panneau: 44px;
   --r-carte: 22px;
   --r-controle: 12px;
 
-  --ombre-panneau: 0 40px 90px rgba(70, 60, 140, 0.18);
-  --ombre-carte: 0 14px 30px rgba(70, 60, 140, 0.07);
-  --ombre-relief: 0 12px 28px rgba(70, 60, 140, 0.14);
-  --ombre-violette: 0 18px 40px rgba(98, 80, 216, 0.4);
+  /* Ombres teintées marine plutôt que neutres : posées sur le crème, une
+     ombre grise vire au sale. */
+  --ombre-panneau: 0 40px 90px rgba(6, 53, 101, 0.16);
+  --ombre-carte: 0 14px 30px rgba(6, 53, 101, 0.07);
+  --ombre-relief: 0 12px 28px rgba(6, 53, 101, 0.13);
+  --ombre-marine: 0 18px 40px rgba(6, 53, 101, 0.38);
 
   --police: 'Manrope', system-ui, -apple-system, sans-serif;
 }
@@ -53,19 +71,19 @@
 
 body {
   margin: 0;
-  background: var(--lavande);
-  color: var(--encre);
+  background: var(--ivoire);
+  color: var(--marine);
   font-family: var(--police);
   -webkit-font-smoothing: antialiased;
 }
 
 a {
-  color: var(--violet);
+  color: var(--marine);
   text-decoration: none;
 }
 
 a:hover {
-  color: var(--violet-fonce);
+  color: var(--marine-abysse);
 }
 
 button,
@@ -81,7 +99,7 @@ button:not(:disabled) {
 }
 
 :focus-visible {
-  outline: 2px solid var(--violet);
+  outline: 2px solid var(--ciel);
   outline-offset: 2px;
 }
 
@@ -133,19 +151,19 @@ table {
      le rail défile en interne au lieu d'être coupé en haut et en bas. */
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
-  background: linear-gradient(180deg, var(--violet), var(--violet-fonce));
+  background: linear-gradient(180deg, var(--marine), var(--marine-abysse));
   border-radius: 32px;
   padding: 18px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 20px;
-  box-shadow: var(--ombre-violette);
+  box-shadow: var(--ombre-marine);
 }
 
 .rail a,
 .rail button {
-  color: #cfc6ff;
+  color: rgba(255, 255, 255, 0.62);
   font-size: 21px;
   background: none;
   border: none;
@@ -166,7 +184,7 @@ table {
 
 .rail a[aria-current='page'] {
   background: var(--blanc);
-  color: var(--violet);
+  color: var(--marine);
 }
 
 /* ── Barre du haut ──────────────────────────────────────────────────────── */
@@ -197,13 +215,13 @@ table {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--gris-faible);
+  color: var(--ardoise-faible);
 }
 
 .identite-compte {
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--gris-doux);
+  color: var(--ardoise-douce);
 }
 
 .barre-espace {
@@ -228,7 +246,7 @@ table {
   margin: 20px 0 0;
   font-size: 14.5px;
   line-height: 1.65;
-  color: var(--gris-texte);
+  color: var(--ardoise);
   max-width: 44ch;
 }
 
@@ -240,7 +258,7 @@ table {
 
 .section-note {
   font-size: 12px;
-  color: var(--gris-faible);
+  color: var(--ardoise-faible);
   margin: 6px 0 0;
   line-height: 1.55;
   max-width: 70ch;
@@ -258,7 +276,7 @@ table {
   font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--rose);
+  color: var(--corail-texte);
   margin: 0;
 }
 
@@ -272,20 +290,20 @@ table {
   box-shadow: var(--ombre-carte);
 }
 
-.carte-violette {
-  background: linear-gradient(180deg, var(--violet), var(--violet-fonce));
+.carte-accent {
+  background: linear-gradient(180deg, var(--marine), var(--marine-abysse));
   border: none;
   color: var(--blanc);
-  box-shadow: 0 18px 40px rgba(98, 80, 216, 0.35);
+  box-shadow: 0 18px 40px rgba(6, 53, 101, 0.32);
 }
 
-.carte-violette .section-titre,
-.carte-violette .section-note {
+.carte-accent .section-titre,
+.carte-accent .section-note {
   color: var(--blanc);
 }
 
-.carte-violette .section-note {
-  color: #ddd7ff;
+.carte-accent .section-note {
+  color: rgba(251, 244, 230, 0.82);
 }
 
 .grille-hero {
@@ -310,7 +328,7 @@ table {
 }
 
 .tuile-ajout {
-  background: var(--lavande-pale);
+  background: var(--creme);
   border-radius: var(--r-carte);
   display: grid;
   place-items: center;
@@ -322,12 +340,12 @@ table {
   width: 44px;
   height: 44px;
   border-radius: 14px;
-  background: var(--violet);
+  background: var(--marine);
   color: var(--blanc);
   display: grid;
   place-items: center;
   font-size: 20px;
-  box-shadow: 0 10px 22px rgba(122, 102, 242, 0.45);
+  box-shadow: 0 10px 22px rgba(6, 53, 101, 0.34);
 }
 
 /* ── Statistiques ───────────────────────────────────────────────────────── */
@@ -341,7 +359,7 @@ table {
 
 .stat-libelle {
   font-size: 11.5px;
-  color: var(--gris-faible);
+  color: var(--ardoise-faible);
   margin-top: 4px;
   font-weight: 600;
 }
@@ -369,7 +387,7 @@ table {
 .jauge {
   height: 6px;
   border-radius: 6px;
-  background: #efeef8;
+  background: var(--fond-doux);
   position: relative;
   overflow: hidden;
   flex: 1;
@@ -381,7 +399,7 @@ table {
   top: 0;
   bottom: 0;
   border-radius: 6px;
-  background: var(--violet);
+  background: var(--marine);
 }
 
 /* ── Étiquettes ─────────────────────────────────────────────────────────── */
@@ -399,42 +417,42 @@ table {
   color: var(--vert);
 }
 
-.etiq-rose {
-  background: var(--rose-fond);
-  color: var(--rose);
+.etiq-corail {
+  background: var(--corail-fond);
+  color: var(--corail-texte);
 }
 
 .etiq-ambre {
   background: var(--ambre-fond);
-  color: var(--ambre);
+  color: var(--ambre-texte);
 }
 
-.etiq-encre {
-  background: var(--encre);
+.etiq-marine {
+  background: var(--marine);
   color: var(--blanc);
 }
 
 .etiq-douce {
   background: var(--fond-doux);
-  color: #4a4b63;
+  color: var(--ardoise);
 }
 
 /* ── Boutons ────────────────────────────────────────────────────────────── */
 
 .bouton {
-  background: var(--encre);
+  background: var(--marine);
   color: var(--blanc);
   border: none;
   border-radius: var(--r-controle);
   padding: 11px 20px;
   font-size: 13.5px;
   font-weight: 800;
-  box-shadow: 0 10px 24px rgba(22, 24, 44, 0.25);
+  box-shadow: 0 10px 24px rgba(6, 53, 101, 0.26);
   transition: background 0.15s, opacity 0.15s;
 }
 
 .bouton:hover:not(:disabled) {
-  background: #2a2c4a;
+  background: var(--marine-fonce);
 }
 
 .bouton:disabled {
@@ -442,13 +460,15 @@ table {
   box-shadow: none;
 }
 
-.bouton-violet {
-  background: var(--violet);
-  box-shadow: 0 10px 22px rgba(122, 102, 242, 0.35);
+.bouton-accent {
+  background: var(--corail);
+  color: var(--marine);
+  box-shadow: 0 10px 22px rgba(253, 127, 90, 0.38);
 }
 
-.bouton-violet:hover:not(:disabled) {
-  background: var(--violet-fonce);
+.bouton-accent:hover:not(:disabled) {
+  background: var(--corail-fonce);
+  color: var(--marine);
 }
 
 .bouton-discret {
@@ -457,7 +477,7 @@ table {
   gap: 6px;
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--gris-texte);
+  color: var(--ardoise);
   border: 1px solid var(--trait);
   border-radius: 9px;
   padding: 7px 11px;
@@ -473,7 +493,7 @@ table {
   border: none;
   padding: 0;
   font-size: 13px;
-  color: var(--violet);
+  color: var(--marine);
   font-weight: 700;
 }
 
@@ -495,7 +515,7 @@ table {
 }
 
 .retour-erreur {
-  color: var(--rose);
+  color: var(--corail-texte);
 }
 
 /* ── Formulaires ────────────────────────────────────────────────────────── */
@@ -512,7 +532,7 @@ table {
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--gris-faible);
+  color: var(--ardoise-faible);
   margin-bottom: 6px;
 }
 
@@ -527,35 +547,35 @@ table {
 }
 
 .champ::placeholder {
-  color: var(--gris-faible);
+  color: var(--ardoise-faible);
 }
 
 .champ:hover {
-  border-color: #d9d7ea;
+  border-color: #ddd2bd;
 }
 
 .champ:focus {
   outline: none;
   background: var(--blanc);
-  border-color: var(--violet);
-  box-shadow: 0 0 0 3px rgba(122, 102, 242, 0.16);
+  border-color: var(--ciel);
+  box-shadow: 0 0 0 3px rgba(81, 165, 221, 0.3);
 }
 
 .champ-manquant {
-  border-color: #f0c674;
+  border-color: var(--or);
   background: var(--ambre-fond);
 }
 
 .aide {
   display: block;
   font-size: 11px;
-  color: var(--gris-faible);
+  color: var(--ardoise-faible);
   margin-top: 5px;
   line-height: 1.5;
 }
 
 .obligatoire {
-  color: var(--rose);
+  color: var(--corail-texte);
 }
 
 /* ── Listes et tableaux ─────────────────────────────────────────────────── */
@@ -579,7 +599,7 @@ table {
 
 .ligne-detail {
   font-size: 11px;
-  color: var(--gris-faible);
+  color: var(--ardoise-faible);
   margin-top: 3px;
 }
 
@@ -599,7 +619,7 @@ table {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--gris-faible);
+  color: var(--ardoise-faible);
   white-space: nowrap;
 }
 
@@ -613,7 +633,7 @@ table {
 }
 
 .ligne-close {
-  color: var(--gris-faible);
+  color: var(--ardoise-faible);
 }
 
 /* ── Plan d'occupation ──────────────────────────────────────────────────── */
@@ -637,7 +657,7 @@ table {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--gris-faible);
+  color: var(--ardoise-faible);
   margin: 0 0 10px;
 }
 
@@ -662,7 +682,7 @@ table {
 }
 
 .connexion-recit {
-  background: linear-gradient(170deg, var(--violet), var(--violet-fonce));
+  background: linear-gradient(170deg, var(--marine), var(--marine-abysse));
   color: var(--blanc);
   padding: 46px 42px;
   display: flex;

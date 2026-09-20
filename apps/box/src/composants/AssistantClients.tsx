@@ -27,10 +27,10 @@ Nom\tEmail\tTéléphone\tVille
 Prénom Nom\tadresse@exemple.fr\t0000000000\tVille
 SCI Exemple (contact Prénom Nom)\tcontact@exemple.fr\t0000000000\tVille`;
 
-function Bouton({ libelle, violet }: { libelle: string; violet?: boolean }) {
+function Bouton({ libelle, accent }: { libelle: string; accent?: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className={`bouton${violet ? ' bouton-violet' : ''}`} disabled={pending}>
+    <button type="submit" className={`bouton${accent ? ' bouton-accent' : ''}`} disabled={pending}>
       {pending ? 'Lecture…' : libelle}
     </button>
   );
@@ -63,8 +63,8 @@ export default function AssistantClients({ disponible }: { disponible: boolean }
               width: 38,
               height: 38,
               borderRadius: 13,
-              background: 'var(--lavande-pale)',
-              color: 'var(--violet)',
+              background: 'var(--creme)',
+              color: 'var(--marine)',
               display: 'grid',
               placeItems: 'center',
               fontSize: 19,
@@ -94,7 +94,7 @@ export default function AssistantClients({ disponible }: { disponible: boolean }
           style={{ resize: 'vertical', lineHeight: 1.6 }}
         />
         <div className="barre-actions">
-          <Bouton libelle="Analyser" violet />
+          <Bouton libelle="Analyser" accent />
           {analyse && !analyse.ok && <span className="retour retour-erreur">{analyse.erreur}</span>}
           {application && (
             <span className={`retour ${application.ok ? 'retour-ok' : 'retour-erreur'}`}>
@@ -116,11 +116,11 @@ export default function AssistantClients({ disponible }: { disponible: boolean }
                 margin: '0 0 18px',
                 padding: '12px 16px 12px 32px',
                 background: 'var(--ambre-fond)',
-                border: '1px solid #f0c674',
+                border: '1px solid var(--or)',
                 borderRadius: 16,
                 fontSize: 12.5,
                 lineHeight: 1.6,
-                color: 'var(--ambre)',
+                color: 'var(--ambre-texte)',
                 fontWeight: 600,
               }}
             >

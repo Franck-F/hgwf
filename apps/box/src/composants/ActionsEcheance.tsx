@@ -12,12 +12,12 @@ import { useFormStatus } from 'react-dom';
 import { annulerEcheance, marquerPayee } from '@/app/echeances/actions';
 import { aujourdhuiIso } from '@/lib/echeances';
 
-function Soumettre({ libelle, violet }: { libelle: string; violet?: boolean }) {
+function Soumettre({ libelle, accent }: { libelle: string; accent?: boolean }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
-      className={`bouton${violet ? ' bouton-violet' : ''}`}
+      className={`bouton${accent ? ' bouton-accent' : ''}`}
       disabled={pending}
       style={{ fontSize: 12.5, padding: '9px 14px' }}
     >
@@ -60,7 +60,7 @@ export function EncaisserEcheance({ echeanceId }: { echeanceId: string }) {
         <option>Espèces</option>
       </select>
       <div style={{ display: 'flex', gap: 8 }}>
-        <Soumettre libelle="Confirmer" violet />
+        <Soumettre libelle="Confirmer" accent />
         <button type="button" className="bouton-discret" onClick={() => setOuvert(false)}>
           Annuler
         </button>
@@ -168,7 +168,7 @@ export function GenererEcheances({
   const [resultat, agir] = useActionState(async () => action(), null);
   return (
     <form action={agir} style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-      <Soumettre libelle="Générer les loyers manquants" violet />
+      <Soumettre libelle="Générer les loyers manquants" accent />
       {resultat && (
         <span className={`retour ${resultat.ok ? 'retour-ok' : 'retour-erreur'}`}>
           {resultat.ok ? `✓ ${resultat.message}` : resultat.erreur}

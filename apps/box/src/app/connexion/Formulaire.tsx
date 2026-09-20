@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Connexion en deux volets : le récit à gauche sur le violet, le formulaire à
+ * Connexion en deux volets : le récit à gauche sur le marine, le formulaire à
  * droite sur blanc.
  *
  * Voie principale : adresse et mot de passe. C'est ce qui ouvre le plus vite,
@@ -111,7 +111,7 @@ export default function FormulaireConnexion() {
                 margin: '16px 0 0',
                 fontSize: 14,
                 lineHeight: 1.65,
-                color: '#ddd7ff',
+                color: 'rgba(251, 244, 230, 0.82)',
                 maxWidth: '34ch',
               }}
             >
@@ -195,7 +195,7 @@ export default function FormulaireConnexion() {
 
             <button
               type="submit"
-              className="bouton bouton-violet"
+              className="bouton bouton-accent"
               disabled={occupe}
               style={{ width: '100%', marginTop: 24, padding: '13px 20px', fontSize: 14 }}
             >

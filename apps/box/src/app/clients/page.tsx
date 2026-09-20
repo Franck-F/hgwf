@@ -154,7 +154,7 @@ export default async function Clients() {
                         )}
                       </td>
                       <td>
-                        <span className={`etiq ${c.type === 'societe' ? 'etiq-rose' : 'etiq-douce'}`}>
+                        <span className={`etiq ${c.type === 'societe' ? 'etiq-corail' : 'etiq-douce'}`}>
                           {c.type === 'societe' ? 'Société' : 'Particulier'}
                         </span>
                       </td>
@@ -172,7 +172,7 @@ export default async function Clients() {
                         ) : (
                           <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             {actifs.map((a, i) => (
-                              <span key={i} className="etiq etiq-encre" style={{ fontSize: 11 }}>
+                              <span key={i} className="etiq etiq-marine" style={{ fontSize: 11 }}>
                                 {a.box?.code ?? '?'}
                               </span>
                             ))}

@@ -25,13 +25,15 @@ type BoxLigne = {
 type Teinte = { fond: string; texte: string; libelle: string };
 
 // Repli nommé : un statut inconnu en base ne doit pas casser l'affichage.
-const RETIRE: Teinte = { fond: '#f2f1fa', texte: '#a2a3b8', libelle: 'Retiré' };
+const RETIRE: Teinte = { fond: 'var(--fond-doux)', texte: 'var(--ardoise-faible)', libelle: 'Retiré' };
 
 const COULEURS: Record<string, Teinte> = {
-  disponible: { fond: '#e5f6ec', texte: '#2fa96b', libelle: 'Disponible' },
-  occupe: { fond: '#16182c', texte: '#ffffff', libelle: 'Occupé' },
-  reserve: { fond: '#ede9ff', texte: '#6250d8', libelle: 'Réservé' },
-  maintenance: { fond: '#fdeaf0', texte: '#e8407a', libelle: 'Maintenance' },
+  disponible: { fond: 'var(--vert-fond)', texte: 'var(--vert)', libelle: 'Disponible' },
+  occupe: { fond: 'var(--marine)', texte: 'var(--blanc)', libelle: 'Occupé' },
+  // Dérivé du ciel de la charte : le ciel pur (#51a5dd) ne porte pas de
+  // texte lisible, il faut l'éclaircir pour le fond et le foncer pour l'encre.
+  reserve: { fond: '#e4f0f9', texte: '#1e5f8f', libelle: 'Réservé' },
+  maintenance: { fond: 'var(--corail-fond)', texte: 'var(--corail-texte)', libelle: 'Maintenance' },
   retire: RETIRE,
 };
 
@@ -153,7 +155,7 @@ export default async function Occupation() {
             <br />
             {libres > 0 ? (
               <>
-                Il reste <span style={{ color: 'var(--violet)' }}>{libres} box</span>
+                Il reste <span style={{ color: 'var(--marine)' }}>{libres} box</span>
                 <br />
                 à louer aujourd’hui.
               </>
@@ -231,7 +233,7 @@ export default async function Occupation() {
                       bottom: 14,
                       width: 4,
                       borderRadius: 4,
-                      background: a.ton === 'rose' ? 'var(--rose)' : '#f0c674',
+                      background: a.ton === 'rose' ? 'var(--corail-texte)' : 'var(--or)',
                     }}
                   />
                   <div className="ligne-titre">{a.titre}</div>
@@ -247,7 +249,7 @@ export default async function Occupation() {
               display: 'block',
               marginTop: 16,
               background: 'var(--fond-tres-doux)',
-              border: '1px solid #f0eff8',
+              border: '1px solid var(--trait)',
               borderRadius: 16,
               padding: '14px 16px',
               color: 'inherit',
@@ -285,7 +287,7 @@ export default async function Occupation() {
                     <span style={{ fontSize: 12, fontWeight: 800 }}>{g.part}%</span>
                   </div>
                 </div>
-                <span className={`etiq ${g.prix === null ? 'etiq-rose' : 'etiq-douce'}`}>
+                <span className={`etiq ${g.prix === null ? 'etiq-corail' : 'etiq-douce'}`}>
                   {g.prix === null ? 'sans tarif' : `${g.total} box`}
                 </span>
               </div>
@@ -325,7 +327,7 @@ export default async function Occupation() {
                       height: 36,
                       borderRadius: 12,
                       background: 'var(--fond-doux)',
-                      color: 'var(--violet)',
+                      color: 'var(--marine)',
                       display: 'grid',
                       placeItems: 'center',
                       fontSize: 17,
@@ -370,7 +372,7 @@ export default async function Occupation() {
                         width: 8,
                         height: 8,
                         borderRadius: '50%',
-                        background: cle === 'occupe' ? 'var(--encre)' : c.texte,
+                        background: cle === 'occupe' ? 'var(--marine)' : c.texte,
                         marginRight: 6,
                       }}
                     />
@@ -411,7 +413,7 @@ export default async function Occupation() {
         </section>
 
         <section
-          className="carte carte-violette"
+          className="carte carte-accent"
           style={{ display: 'flex', flexDirection: 'column', textAlign: 'center' }}
         >
           <span
@@ -499,8 +501,8 @@ function Stat({
           width: 38,
           height: 38,
           borderRadius: 13,
-          background: discret ? 'var(--fond-doux)' : 'var(--lavande-pale)',
-          color: 'var(--violet)',
+          background: discret ? 'var(--fond-doux)' : 'var(--creme)',
+          color: 'var(--marine)',
           display: 'grid',
           placeItems: 'center',
           fontSize: 19,
@@ -536,7 +538,7 @@ function Beignet({
       <span
         className="beignet"
         style={{
-          background: `conic-gradient(var(--violet) 0 ${part}%, #efeef8 ${part}% 100%)`,
+          background: `conic-gradient(var(--marine) 0 ${part}%, var(--fond-doux) ${part}% 100%)`,
         }}
       >
         <span className="beignet-creux">{part}%</span>
@@ -551,7 +553,7 @@ function Beignet({
         <span
           style={{
             fontSize: 10.5,
-            color: 'var(--gris-faible)',
+            color: 'var(--ardoise-faible)',
             marginTop: 5,
             lineHeight: 1.5,
             display: 'block',

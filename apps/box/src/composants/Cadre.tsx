@@ -3,8 +3,8 @@ import { redirect } from 'next/navigation';
 import { serveur } from '@/lib/supabase-serveur';
 
 /**
- * Structure commune : un fond lavande, un grand panneau blanc arrondi, et le
- * rail d'icônes violet qui déborde sur la gauche.
+ * Structure commune : un fond crème, un grand panneau blanc arrondi, et le
+ * rail d'icônes marine qui déborde sur la gauche.
  *
  * La navigation vit **uniquement** dans le rail. Elle était aussi répétée en
  * haut : deux chemins vers la même page, donc deux états actifs à tenir
