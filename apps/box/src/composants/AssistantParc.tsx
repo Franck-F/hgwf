@@ -18,8 +18,12 @@ import {
   type Proposition,
 } from '@/app/parametrage/assistant';
 
+// Exemple volontairement fictif — « Mon entrepôt », « 000 » — et non une
+// adresse plausible. Un exemple trop réaliste finit collé tel quel, et on se
+// retrouve avec un parc inventé qu'on prend ensuite pour le vrai. C'est
+// exactement ce qui est arrivé le 18/09/2026.
 const EXEMPLE =
-  'Entrepôt de Rosny, 12 avenue du Général de Gaulle. 10 box de 3 m² à 49 € codés A-01 à A-10 au rez-de-chaussée, 20 box de 6 m² à 79 € codés B-01 à B-20 au premier étage.';
+  'Exemple : Mon entrepôt, 000 rue à renseigner. 10 box de 3 m² à 00 € codés A-01 à A-10 au rez-de-chaussée, 20 box de 6 m² à 00 € codés B-01 à B-20 au premier étage.';
 
 function BoutonAnalyse() {
   const { pending } = useFormStatus();
@@ -79,7 +83,8 @@ export default function AssistantParc({ disponible }: { disponible: boolean }) {
           <span>
             <h2 className="section-titre">Décrire le parc en une phrase</h2>
             <p className="section-note">
-              Écrivez votre entrepôt comme vous le diriez au téléphone.{' '}
+              Écrivez <strong>votre</strong> entrepôt comme vous le diriez au téléphone — le texte
+              grisé n’est qu’un exemple, pas un formulaire pré-rempli.{' '}
               <strong>Rien n’est enregistré tant que vous n’avez pas validé.</strong>
             </p>
           </span>

@@ -18,12 +18,14 @@ import {
   type FicheProposee,
 } from '@/app/clients/assistant';
 
-const EXEMPLE = `Marie Dupont, 06 12 34 56 78, marie.dupont@exemple.fr, 3 rue des Lilas, 93110 Rosny-sous-Bois
+// Même précaution que pour le parc : des valeurs manifestement fictives, pour
+// qu'un collage machinal ne produise pas des fiches clients crédibles.
+const EXEMPLE = `Exemple : Prénom Nom, 00 00 00 00 00, adresse@exemple.fr, 0 rue à renseigner, 00000 Ville
 
 Ou collez directement un extrait de tableur :
 Nom\tEmail\tTéléphone\tVille
-Jean Martin\tjmartin@exemple.fr\t0612345678\tMontreuil
-SCI Bellevue (contact Paul Roy)\tp.roy@bellevue.fr\t0145678901\tBondy`;
+Prénom Nom\tadresse@exemple.fr\t0000000000\tVille
+SCI Exemple (contact Prénom Nom)\tcontact@exemple.fr\t0000000000\tVille`;
 
 function Bouton({ libelle, violet }: { libelle: string; violet?: boolean }) {
   const { pending } = useFormStatus();
@@ -74,7 +76,8 @@ export default function AssistantClients({ disponible }: { disponible: boolean }
           <span>
             <h2 className="section-titre">Saisir en texte libre</h2>
             <p className="section-note">
-              Dictez un client, ou collez un extrait de tableur pour reprendre un fichier existant.{' '}
+              Dictez un client, ou collez un extrait de tableur pour reprendre un fichier existant —
+              le texte grisé n’est qu’un exemple.{' '}
               <strong>Rien n’est enregistré tant que vous n’avez pas validé.</strong>
             </p>
           </span>
