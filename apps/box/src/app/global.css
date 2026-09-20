@@ -111,27 +111,28 @@ table {
 }
 
 /* Rail d'icônes qui déborde du panneau : c'est la signature du modèle.
-   Il reste visible au défilement, sinon la navigation disparaît dès qu'on
-   descend dans un tableau un peu long.
-   Deux éléments sont nécessaires : une ancre absolue qui tient la colonne sur
-   toute la hauteur du panneau, et le rail lui-même en « sticky » dedans. Un
-   « fixed » serait calé sur la fenêtre, donc décroché du panneau centré. */
-.rail-ancre {
-  position: absolute;
-  left: -30px;
-  top: 0;
-  bottom: 0;
-  width: 64px;
-  /* La colonne vide ne doit pas intercepter les clics du panneau. */
-  pointer-events: none;
-}
+   Fixe et centré verticalement — il ne bouge jamais, quel que soit le
+   défilement.
 
+   Le calcul de `left` mérite une explication. Le panneau est centré et plafonné
+   à 1440 px, et le rail déborde de 30 px sur sa gauche. Un `left` fixe en
+   pixels le décrocherait du panneau dès que la fenêtre change de largeur :
+     - fenêtre large  → moitié de la fenêtre, moins 720 px (demi-panneau),
+                        moins 30 px de débordement ;
+     - fenêtre étroite → le panneau ne fait plus 1440 px, il colle aux 40 px de
+                        marge de la scène : le rail se cale alors à 10 px.
+   Le `max()` choisit automatiquement le bon cas. */
 .rail {
-  position: sticky;
-  top: 28px;
-  margin-top: 128px;
-  pointer-events: auto;
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  left: max(10px, calc(50% - 750px));
+  z-index: 10;
   width: 64px;
+  /* Garde-fou : si la liste s'allonge un jour au-delà de la hauteur d'écran,
+     le rail défile en interne au lieu d'être coupé en haut et en bas. */
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
   background: linear-gradient(180deg, var(--violet), var(--violet-fonce));
   border-radius: 32px;
   padding: 18px 0;
@@ -707,16 +708,12 @@ table {
 
   /* Le rail flottant passe en barre horizontale : à -30px il sortirait
      de l'écran sur un téléphone. */
-  .rail-ancre {
-    position: static;
-    width: auto;
-    pointer-events: auto;
-  }
-
   .rail {
     position: static;
+    transform: none;
     width: auto;
-    margin-top: 0;
+    max-height: none;
+    overflow: visible;
     flex-direction: row;
     justify-content: space-around;
     border-radius: 20px;

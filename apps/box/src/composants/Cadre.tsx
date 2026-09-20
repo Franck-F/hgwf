@@ -48,21 +48,19 @@ export default async function Cadre({
   return (
     <div className="scene">
       <div className="panneau">
-        <div className="rail-ancre">
-          <nav className="rail" aria-label="Navigation principale">
-            {ONGLETS.map((o) => (
-              <Link
-                key={o.href}
-                href={o.href}
-                title={o.libelle}
-                aria-label={o.libelle}
-                aria-current={actif === o.href ? 'page' : undefined}
-              >
-                <i className={`ph-duotone ${o.icone}`} aria-hidden="true" />
-              </Link>
-            ))}
-          </nav>
-        </div>
+        <nav className="rail" aria-label="Navigation principale">
+          {ONGLETS.map((o) => (
+            <Link
+              key={o.href}
+              href={o.href}
+              title={o.libelle}
+              aria-label={o.libelle}
+              aria-current={actif === o.href ? 'page' : undefined}
+            >
+              <i className={`ph-duotone ${o.icone}`} aria-hidden="true" />
+            </Link>
+          ))}
+        </nav>
 
         <div className="barre">
           <span className="identite">
