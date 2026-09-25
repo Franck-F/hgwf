@@ -6,7 +6,10 @@
 // ignorés et le navigateur recevait la photo pleine taille. Le loader
 // (src/sanity/image-loader.ts) pointe désormais vers ces variantes.
 //
-// À relancer après tout ajout ou remplacement d'une photo :
+// À relancer après tout ajout ou remplacement d’une photo, depuis n’importe
+// quel dossier du dépôt :
+//   pnpm --filter web photos
+// ou, depuis la racine du dépôt (hgwf-cargo) :
 //   node apps/web/scripts/variantes-photos.mjs
 // Les largeurs doivent rester alignées sur LARGEURS_PHOTOS du loader.
 
