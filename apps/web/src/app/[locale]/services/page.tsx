@@ -141,7 +141,7 @@ export default async function ServicesPage({
                 aria-hidden="true"
               />
               <div className="absolute right-[18px] bottom-4 left-[18px] flex flex-col gap-1 text-creme">
-                <h3 className="m-0 text-[17px] font-bold">{s.titre}</h3>
+                <h2 className="m-0 text-[17px] font-bold">{s.titre}</h2>
                 <span className="text-xs opacity-85">{s.texte}</span>
               </div>
               <span className="fleche-carte absolute top-3.5 right-3.5 inline-flex h-[34px] w-[34px] items-center justify-center rounded-full bg-corail text-marine">
