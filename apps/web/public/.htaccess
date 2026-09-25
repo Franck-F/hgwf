@@ -30,3 +30,23 @@ RewriteRule ^$ https://hgwf-cargo.fr/fr/ [R=301,L]
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
 </IfModule>
 
+# ── Cache navigateur ──────────────────────────────────────────────────────────
+# Par défaut OVH ne sert que 15 min de cache : chaque visite retéléchargeait
+# scripts, polices et images.
+<IfModule mod_headers.c>
+  # Fichiers de build Next.js : leur nom contient une empreinte du contenu, un
+  # nouveau déploiement produit de nouveaux noms. Cache d'un an, sans revalidation.
+  <If "%{REQUEST_URI} =~ m#^/_next/static/#">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </If>
+  # Photos, logos, icônes : noms stables, remplacés rarement. Un mois.
+  <ElseIf "%{REQUEST_URI} =~ m#\.(jpe?g|png|webp|avif|svg|ico|woff2?)$#">
+    Header set Cache-Control "public, max-age=2592000"
+  </ElseIf>
+  # Pages HTML et données : toujours revalider, pour qu'une publication Sanity
+  # soit visible immédiatement.
+  <ElseIf "%{REQUEST_URI} =~ m#(/|\.html|\.txt|\.xml)$#">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </ElseIf>
+</IfModule>
+

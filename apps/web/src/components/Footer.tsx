@@ -106,7 +106,7 @@ export async function Footer({ locale }: { locale: string }) {
   // Ligne fixe de l'agence, affichée en plus du mobile.
   const telephoneFixe = '09 62 03 80 13';
   const reseaux = settings?.reseaux;
-  const logoUrl = '/logos/hgwf-monochrome-blanc.png';
+  const logoUrl = '/logos/hgwf-monochrome-blanc.webp';
 
   const sociaux = [
     { nom: 'Facebook', href: reseaux?.facebook ?? '#', icone: <IconeFacebook /> },
@@ -121,8 +121,8 @@ export async function Footer({ locale }: { locale: string }) {
           <Image
             src={logoUrl}
             alt="HGWF Cargo"
-            width={520}
-            height={293}
+            width={420}
+            height={130}
             unoptimized
             className="h-14 w-auto self-start"
           />

@@ -34,7 +34,7 @@ export async function Header({ locale }: { locale: string }) {
   };
 
   // Lockup horizontal de la charte (version fond sombre) — sur le header marine.
-  const logoUrl = '/logos/hgwf-horizontal-sombre.png';
+  const logoUrl = '/logos/hgwf-horizontal-sombre.webp';
   const nom = settings?.nomCommercial ?? 'HGWF Cargo';
 
   return (
@@ -50,8 +50,8 @@ export async function Header({ locale }: { locale: string }) {
           <Image
             src={logoUrl}
             alt={nom}
-            width={520}
-            height={186}
+            width={420}
+            height={130}
             priority
             unoptimized
             className="h-9 w-auto sm:h-11"

@@ -5,6 +5,8 @@ import { Link } from '@/i18n/navigation';
 import { defaultLocale, isLocale, type Locale } from '@hgwf/shared';
 import { getPageContact, getSiteSettings } from '@/sanity/queries';
 import { metadonneesPage } from '@/seo/metadonnees';
+import { FaqCiblee } from '@/components/FaqCiblee';
+import { FAQ_CIBLEES } from '@/content/faqCiblees';
 import { ContactForm, type ContactFormContent } from '@/components/contact/ContactForm';
 
 export { generateStaticParams } from '@/i18n/staticParams';
@@ -73,7 +75,7 @@ const CENTRE_DEFAUT = {
 };
 
 const SEO_DEFAUT = {
-  titre: 'Nous contacter · HGWF Cargo',
+  titre: 'Contact transitaire maritime à Rosny-sous-Bois · HGWF Cargo',
   description:
     'Contactez HGWF Cargo par mail, téléphone ou WhatsApp : devis gratuit, suivi d’envoi, conteneurs et déménagement Outre-mer. Réponse sous 24 à 48 h.',
 };
@@ -176,7 +178,7 @@ async function getContenu(locale: Locale) {
   };
 
   const seoEn = {
-    titre: 'Contact us · HGWF Cargo',
+    titre: 'Contact our freight forwarder near Paris · HGWF Cargo',
     description:
       'Contact HGWF Cargo by email, phone or WhatsApp: free quote, shipment tracking, containers and overseas removals. Reply within 24–48 h.',
   };
@@ -301,11 +303,12 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
           </div>
           <div className="revele-image relative h-[300px] min-w-0 overflow-hidden rounded-2xl bg-marine">
             {centre.imageUrl && (
-              <Image src={centre.imageUrl} alt="" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
+              <Image src={centre.imageUrl} alt={locale === 'en' ? 'HGWF Cargo logistics centre' : 'Centre logistique HGWF Cargo'} fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
             )}
           </div>
         </div>
       </section>
+      <FaqCiblee {...FAQ_CIBLEES.contact[resolveLocale(locale)]} className="pt-16 pb-20" />
     </main>
   );
 }

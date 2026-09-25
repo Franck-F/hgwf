@@ -4,12 +4,12 @@ export { generateStaticParams } from '@/i18n/staticParams';
 
 const { generateMetadata, Page } = creerPageLegale('mentions-legales', {
   fr: {
-    titre: 'Mentions légales · HGWF Cargo',
-    description: 'Mentions légales du site HGWF Cargo : éditeur, immatriculation et hébergeur.',
+    titre: 'Mentions légales · HGWF Cargo, commissionnaire de transport',
+    description: 'Mentions légales de HGWF Cargo, commissionnaire de transport à Rosny-sous-Bois : éditeur, immatriculation, direction de la publication et hébergeur.',
   },
   en: {
-    titre: 'Legal notice · HGWF Cargo',
-    description: 'Legal notice for the HGWF Cargo website: publisher, registration and hosting provider.',
+    titre: 'Legal notice · HGWF Cargo, international freight forwarder',
+    description: 'Legal notice for HGWF Cargo, international freight forwarder in Rosny-sous-Bois (France): publisher, registration, publication director and hosting.',
   },
 });
 

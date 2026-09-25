@@ -4,6 +4,8 @@ import { setRequestLocale } from 'next-intl/server';
 import { defaultLocale, isLocale, type Locale } from '@hgwf/shared';
 import { getPageDevis, getSiteSettings } from '@/sanity/queries';
 import { metadonneesPage } from '@/seo/metadonnees';
+import { FaqCiblee } from '@/components/FaqCiblee';
+import { FAQ_CIBLEES } from '@/content/faqCiblees';
 import { DevisWizard, type DevisWizardContent } from '@/components/devis/DevisWizard';
 
 export { generateStaticParams } from '@/i18n/staticParams';
@@ -194,7 +196,7 @@ const TEXTES_WIZARD_EN = {
 };
 
 const SEO_DEFAUT = {
-  titre: 'Demande de devis · HGWF Cargo',
+  titre: 'Devis transport maritime & déménagement gratuit · HGWF Cargo',
   description:
     'Obtenez un devis gratuit en 4 étapes : type d’envoi, destination, volume estimé et coordonnées. Réponse personnalisée sous 24 à 48 h.',
 };
@@ -405,7 +407,7 @@ async function getContenu(locale: Locale) {
       : REASSURANCE_DEFAUT;
 
   const seoEn = {
-    titre: 'Request a quote · HGWF Cargo',
+    titre: 'Free sea freight & overseas removal quote · HGWF Cargo',
     description:
       'Get a free quote in 4 steps: shipment type, destination, estimated volume and contact details. Personalised reply within 24–48 h.',
   };
@@ -483,12 +485,13 @@ export default async function DevisPage({ params }: { params: Promise<{ locale: 
               >
                 {r.valeur}
               </span>
-              <span className="text-base font-bold">{r.titre}</span>
+              <h3 className="m-0 text-base font-bold">{r.titre}</h3>
               <p className="m-0 text-[13px] leading-[1.55] text-encre-douce">{r.texte}</p>
             </div>
           ))}
         </div>
       </section>
+      <FaqCiblee {...FAQ_CIBLEES.devis[resolveLocale(locale)]} className="pb-20" />
     </main>
   );
 }

@@ -137,8 +137,8 @@ const DEFAUT = {
   faqCourte: {
     titre: 'Vos questions, nos',
     titreAccent: 'réponses',
-    texte: "L'essentiel sur le transport longue distance ; la FAQ complète est",
-    lienTexte: 'ici',
+    texte: "L'essentiel sur le transport longue distance ; pour le reste, consultez",
+    lienTexte: 'toutes les questions fréquentes sur nos envois',
     bouton: 'Voir toutes les questions',
     items: [
       {
@@ -174,7 +174,7 @@ const DEFAUT = {
     imageUrl: null as string | null,
   },
   seo: {
-    titre: 'HGWF Cargo — Transport maritime, fret international & déménagement Outre-mer',
+    titre: 'Transport maritime Outre-mer & international · HGWF Cargo',
     description:
       'Transport maritime, aérien et terrestre vers les Amériques, les Caraïbes et l’Afrique : groupage, conteneur complet, véhicules et déménagement Outre-mer.',
   },
@@ -309,8 +309,8 @@ const DEFAUT_EN = {
   faqCourte: {
     titre: 'Your questions, our',
     titreAccent: 'answers',
-    texte: 'The essentials of long-distance shipping; the full FAQ is',
-    lienTexte: 'here',
+    texte: 'The essentials of long-distance shipping; for everything else, read',
+    lienTexte: 'all the frequently asked questions about shipping',
     bouton: 'See all the questions',
     items: [
       {
@@ -346,7 +346,7 @@ const DEFAUT_EN = {
     imageUrl: null as string | null,
   },
   seo: {
-    titre: 'HGWF Cargo — Sea freight, international shipping & overseas removals',
+    titre: 'Sea freight to the Caribbean, Americas & Africa · HGWF Cargo',
     description:
       'Sea, air and road freight to North & South America, the Caribbean and Africa: LCL groupage, full containers, vehicles and overseas removals.',
   },
@@ -558,16 +558,16 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           {services.map((s) => (
             <Link key={s.titre} href={s.lien} className="carte-zoom group relative block h-[250px] overflow-hidden rounded-[22px] bg-marine">
               {s.imageUrl && (
-                <Image src={s.imageUrl} alt="" fill sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw" className="object-cover" />
+                <Image src={s.imageUrl} alt={s.titre} fill sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw" className="object-cover" />
               )}
               <span
                 className="absolute inset-0 bg-linear-180 from-marine/0 from-30% to-marine/88 to-100%"
                 aria-hidden="true"
               />
-              <span className="absolute right-[18px] bottom-4 left-[18px] flex flex-col gap-1 text-creme">
-                <span className="text-[17px] font-bold">{s.titre}</span>
+              <div className="absolute right-[18px] bottom-4 left-[18px] flex flex-col gap-1 text-creme">
+                <h3 className="m-0 text-[17px] font-bold">{s.titre}</h3>
                 <span className="text-xs opacity-85">{s.texte}</span>
-              </span>
+              </div>
               <span className="fleche-carte absolute top-3.5 right-3.5 inline-flex h-[34px] w-[34px] items-center justify-center rounded-full bg-corail text-marine">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
                   <path d="M7 17 17 7M9 7h8v8" />
@@ -656,7 +656,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           </div>
           <div className="revele-image relative h-[420px] min-w-0 overflow-hidden rounded-[28px] bg-marine">
             {demenagement.imageUrl && (
-              <Image src={demenagement.imageUrl} alt="" fill sizes="(min-width: 1024px) 50vw, 100vw" className="object-cover" />
+              <Image src={demenagement.imageUrl} alt={demenagement.eyebrow} fill sizes="(min-width: 1024px) 50vw, 100vw" className="object-cover" />
             )}
             <span className="pointer-events-none absolute bottom-5 left-5 flex flex-col gap-0.5 rounded-[14px] bg-marine/85 px-[18px] py-3 text-creme backdrop-blur-xs">
               <span className="font-mono text-lg text-or">{demenagement.badgeValeur}</span>

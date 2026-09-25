@@ -5,6 +5,8 @@ import { Link } from '@/i18n/navigation';
 import { defaultLocale, isLocale, type Locale } from '@hgwf/shared';
 import { getPageSuivi } from '@/sanity/queries';
 import { metadonneesPage } from '@/seo/metadonnees';
+import { FaqCiblee } from '@/components/FaqCiblee';
+import { FAQ_CIBLEES } from '@/content/faqCiblees';
 import { SuiviTracker, type SuiviTrackerContent } from '@/components/suivi/SuiviTracker';
 
 export { generateStaticParams } from '@/i18n/staticParams';
@@ -145,9 +147,9 @@ const CTA_DEFAUT = {
 };
 
 const SEO_DEFAUT = {
-  titre: "Suivi d'envoi · HGWF Cargo",
+  titre: "Suivi d'envoi et de conteneur en ligne · HGWF Cargo",
   description:
-    "Suivez votre envoi HGWF Cargo : statut, position, navire et date d'arrivée estimée, du départ à la livraison.",
+    "Suivez votre envoi HGWF Cargo avec votre référence : statut, position, navire et date d'arrivée estimée, du départ à la livraison.",
 };
 
 // Version anglaise des contenus par défaut (le contenu Sanity EN prime).
@@ -357,9 +359,9 @@ async function getContenu(locale: Locale) {
   };
 
   const seoEn = {
-    titre: 'Shipment tracking · HGWF Cargo',
+    titre: 'Track your shipment and container online · HGWF Cargo',
     description:
-      'Track your HGWF Cargo shipment: status, position, vessel and estimated arrival date, from departure to delivery.',
+      'Track your HGWF Cargo shipment with your reference: status, position, vessel and estimated arrival date, from departure to delivery.',
   };
   const seoDefaut = locale === 'en' ? seoEn : SEO_DEFAUT;
   const seo = {
@@ -399,7 +401,7 @@ export default async function SuiviPage({ params }: { params: Promise<{ locale: 
           {voyage.etapes.map((e, i) => (
             <div key={e.titre} className="carte-zoom relative h-[300px] overflow-hidden rounded-3xl bg-marine">
               {e.imageUrl && (
-                <Image src={e.imageUrl} alt="" fill sizes="(min-width: 768px) 33vw, 100vw" className="object-cover" />
+                <Image src={e.imageUrl} alt={e.titre} fill sizes="(min-width: 768px) 33vw, 100vw" className="object-cover" />
               )}
               <span
                 className="absolute inset-0 bg-linear-180 from-marine/5 from-30% to-marine/90 to-100%"
@@ -416,6 +418,8 @@ export default async function SuiviPage({ params }: { params: Promise<{ locale: 
           ))}
         </div>
       </section>
+
+      <FaqCiblee {...FAQ_CIBLEES.suivi[resolveLocale(locale)]} className="pt-4" />
 
       {/* Bandeau CTA */}
       <section className="mx-auto max-w-[1200px] px-5 sm:px-8 py-22">

@@ -33,15 +33,15 @@ const CTA_DEFAUT = {
 };
 
 const SEO_DEFAUT = {
-  titre: 'Questions fréquentes (FAQ) · HGWF Cargo',
+  titre: 'FAQ transport maritime, groupage & délais · HGWF Cargo',
   description:
     'Expéditions, tarifs, délais, groupage, conteneurs d’occasion : toutes les réponses sur le transport de marchandises avec HGWF Cargo.',
 };
 
 const SEO_DEFAUT_EN = {
-  titre: 'Frequently asked questions (FAQ) · HGWF Cargo',
+  titre: 'Sea freight FAQ: groupage, rates & transit · HGWF Cargo',
   description:
-    'Shipping, rates, transit times, groupage, used containers: all the answers about freight transport with HGWF Cargo.',
+    'Shipping, rates, transit times, groupage, used containers: all the answers about sea and air freight to the Caribbean with HGWF Cargo.',
 };
 
 // Version anglaise des contenus par défaut (le contenu Sanity EN prime).
@@ -229,7 +229,7 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
         if (!questions.length) return null;
         return (
           <section key={cat.cle} className={`revele mx-auto max-w-[860px] px-5 sm:px-8 ${ci === 0 ? 'pt-16' : 'pt-14'}`}>
-            <span className="text-xs font-medium tracking-[0.32em] text-encre-douce uppercase">{cat.titre}</span>
+            <h2 className="m-0 text-xs font-medium tracking-[0.32em] text-encre-douce uppercase">{cat.titre}</h2>
             <div className="mt-4 flex flex-col">
               {questions.map((q, qi) => (
                 <details
@@ -238,8 +238,8 @@ export default async function FaqPage({ params }: { params: Promise<{ locale: st
                   className="group border-t border-marine/14 px-1 py-[18px] last:border-b"
                 >
                   <summary className="flex cursor-pointer list-none justify-between gap-4 text-base font-bold [&::-webkit-details-marker]:hidden">
-                    {q.question}
-                    <span className="font-normal text-corail-texte transition group-open:rotate-45">+</span>
+                    <h3 className="m-0 text-base font-bold">{q.question}</h3>
+                    <span className="font-normal text-corail-texte transition group-open:rotate-45" aria-hidden="true">+</span>
                   </summary>
                   <ReponseFaq blocs={q.reponse ?? []} />
                 </details>

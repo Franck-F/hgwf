@@ -84,7 +84,7 @@ export function MobileNav({
           >
           <div className="flex items-center justify-between px-5 py-3">
             <Link href="/" onClick={() => setOpen(false)} className="flex items-center" aria-label={nom}>
-              <Image src={logoUrl} alt={nom} width={520} height={186} unoptimized className="h-10 w-auto" />
+              <Image src={logoUrl} alt={nom} width={420} height={130} unoptimized className="h-10 w-auto" />
             </Link>
             <button
               type="button"
