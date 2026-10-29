@@ -147,8 +147,6 @@ const ERREUR_NOM_EN = 'Please enter your name so the team knows who to reply to.
 // demandé plus tard.
 const FACTURATION_FR: DevisWizardContent['facturation'] = {
   titre: 'Facturation',
-  intro:
-    'Pour un devis et une facture à votre nom ou à celui de votre société. Vous pouvez aussi nous transmettre ces informations plus tard.',
   types: { particulier: 'Particulier', professionnel: 'Professionnel' },
   raisonSociale: 'Raison sociale',
   siret: 'SIRET',
@@ -160,8 +158,6 @@ const FACTURATION_FR: DevisWizardContent['facturation'] = {
 };
 const FACTURATION_EN: DevisWizardContent['facturation'] = {
   titre: 'Billing',
-  intro:
-    'For a quote and an invoice in your name or your company’s. You can also send us these details later.',
   types: { particulier: 'Individual', professionnel: 'Business' },
   raisonSociale: 'Company name',
   siret: 'SIRET (French company number)',

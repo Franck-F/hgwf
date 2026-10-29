@@ -90,7 +90,6 @@ export type DevisWizardContent = {
   // dans le back-office (champs facturation* de la demande).
   facturation: {
     titre: string;
-    intro: string;
     types: { particulier: string; professionnel: string };
     raisonSociale: string;
     siret: string;
@@ -775,12 +774,11 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
                 <textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} className={`${CHAMP} resize-y`} />
               </label>
               {/* Facturation, facultative : pré-remplit le back-office ; ce qui
-                  manque sera demandé plus tard par l'équipe. */}
-              <fieldset className="m-0 flex flex-col gap-3 rounded-2xl border border-marine/12 p-4">
-                <legend className="px-1 text-[13px] font-medium">
-                  {c.facturation.titre} <span className="font-normal text-encre-douce">· {c.etapeCoordonnees.optionnel}</span>
-                </legend>
-                <p className="m-0 text-[13px] text-encre-douce">{c.facturation.intro}</p>
+                  manque sera demandé plus tard par l'équipe. Aucun titre visible
+                  (choix du 29/10/2026) : les champs seuls, le titre reste pour
+                  les lecteurs d'écran. */}
+              <fieldset className="m-0 flex flex-col gap-3 border-none p-0">
+                <legend className="sr-only">{c.facturation.titre}</legend>
                 <div className="flex flex-wrap gap-2">
                   {(['particulier', 'professionnel'] as const).map((t) => (
                     <label
