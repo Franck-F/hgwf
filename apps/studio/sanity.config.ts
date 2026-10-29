@@ -280,6 +280,16 @@ function structureOperations(S: StructureBuilder) {
       S.documentTypeListItem('conteneurOccasion').title('Conteneurs d’occasion').icon(PackageIcon),
       S.documentTypeListItem('rotation').title('Rotations maritimes').icon(EarthGlobeIcon),
       S.listItem()
+        .title('Fiches services')
+        .id('fichesServices')
+        .icon(DocumentsIcon)
+        .child(
+          S.documentTypeList('ficheService')
+            .title('Fiches services')
+            .apiVersion(STUDIO_API_VERSION)
+            .defaultOrdering([{ field: 'ordre', direction: 'asc' }]),
+        ),
+      S.listItem()
         .title('Statistiques mensuelles')
         .id('statsMensuelles')
         .icon(BarChartIcon)

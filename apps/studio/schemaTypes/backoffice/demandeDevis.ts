@@ -72,6 +72,16 @@ export const demandeDevis = defineType({
         'Recomposé à partir des trois champs ci-dessus. Conservé pour les demandes antérieures au 18/09/2026.',
     }),
     defineField({ name: 'typeEnvoi', title: 'Type d’envoi', type: 'string' }),
+    defineField({
+      name: 'ficheService',
+      title: 'Fiche service',
+      type: 'reference',
+      to: [{ type: 'ficheService' }],
+      // Faible : supprimer une fiche ne doit pas être bloqué par les demandes.
+      weak: true,
+      description:
+        'Posée quand l’opérateur choisit la fiche à la main. Sinon, le back-office la déduit du type d’envoi.',
+    }),
     defineField({ name: 'destination', title: 'Destination', type: 'string' }),
     defineField({ name: 'volume', title: 'Volume estimé', type: 'string' }),
     defineField({ name: 'recueLe', title: 'Reçue le (JJ/MM/AAAA)', type: 'string' }),

@@ -28,6 +28,15 @@ import {
   TAUX_TVA,
   type Facturation,
 } from './chiffrage';
+import { ficheDe, PROJECTION_FICHE, remplirModele, type FicheService } from './fiches';
+import {
+  BoutonProposer,
+  CarteSuggestion,
+  EnteteChamp,
+  PanneauFiche,
+  type ChampSuggestion,
+  type SuggestionRecue,
+} from './Suggestion';
 
 // ── Palette HGWF ──────────────────────────────────────────────────────────────
 const MARINE = '#12395B';
@@ -58,6 +67,8 @@ type Demande = Facturation & {
   preferenceContact?: string;
   contact?: string;
   typeEnvoi?: string;
+  // Fiche choisie à la main ; sinon déduite du type d'envoi (fiches.ts).
+  ficheService?: { _ref?: string } | null;
   destination?: string;
   volume?: string;
   recueLe?: string;
@@ -440,7 +451,7 @@ const memeValeur = (a: unknown, b: unknown) => (a ?? '') === (b ?? '');
 const estConflit = (e: unknown) => (e as { statusCode?: number } | null)?.statusCode === 409;
 
 // Projection d'une demande, partagée par le chargement et les relectures.
-const PROJECTION_DEMANDE = `{_id, _rev, _createdAt, _updatedAt, reference, clientNom, email, telephone, preferenceContact, contact, typeEnvoi, destination, volume, recueLe, statut, message, montantHT, tauxTVA, montantDevis, descriptionPrestation, delaiEstime, devisEnvoyeLe, notes, expeditionRef, accuseReceptionLe, devisEnvoyeA, relanceEnvoyeeLe, ${CHAMPS_FACTURATION.join(', ')}}`;
+const PROJECTION_DEMANDE = `{_id, _rev, _createdAt, _updatedAt, reference, clientNom, email, telephone, preferenceContact, contact, typeEnvoi, ficheService, destination, volume, recueLe, statut, message, montantHT, tauxTVA, montantDevis, descriptionPrestation, delaiEstime, devisEnvoyeLe, notes, expeditionRef, accuseReceptionLe, devisEnvoyeA, relanceEnvoyeeLe, ${CHAMPS_FACTURATION.join(', ')}}`;
 
 // ── Modèles de réponse ────────────────────────────────────────────────────────
 // L'API du site range les détails structurés dans le message de la demande
@@ -449,7 +460,7 @@ const PROJECTION_DEMANDE = `{_id, _rev, _createdAt, _updatedAt, reference, clien
 // récapitulatif, partagé entre le message et le devis PDF.
 // Réponse type au client : toutes les informations de sa demande, plus le
 // montant s'il a été chiffré (sinon un espace à compléter avant l'envoi).
-function templateReponse(d: Demande): string {
+function templateReponse(d: Demande, fiche?: FicheService | null): string {
   const colis = lireDetail(d.message, 'Colis');
   const remarques = lireDetail(d.message, 'Remarques colis');
   const depart = lireDetail(d.message, 'Départ');
@@ -482,6 +493,8 @@ function templateReponse(d: Demande): string {
     '',
     ...proposition,
     '',
+    // Paragraphe propre au service (fiche), destination remplie.
+    ...(fiche?.modeleMessage ? [remplirModele(fiche.modeleMessage, d), ''] : []),
     'Vous trouverez le devis détaillé en pièce jointe. Nous vous communiquerons les prochaines dates de départ dès votre accord.',
     '',
     'Nous restons à votre disposition pour toute précision ou ajustement.',
@@ -524,6 +537,17 @@ export function BackOffice() {
   const [descriptionEdit, setDescriptionEdit] = useState('');
   const [delaiEdit, setDelaiEdit] = useState('');
   const [notesEdit, setNotesEdit] = useState('');
+  // Fiches services et propositions Gemini (Suggestion.tsx). Une proposition
+  // est rattachée à sa demande : si l'opérateur change de demande pendant la
+  // rédaction, elle ne s'affiche pas sur la mauvaise.
+  const [fiches, setFiches] = useState<FicheService[]>([]);
+  const [suggestions, setSuggestions] = useState<{
+    demandeId: string | null;
+    parChamp: Partial<Record<ChampSuggestion, SuggestionRecue>>;
+  }>({ demandeId: null, parChamp: {} });
+  const [suggestionEnCours, setSuggestionEnCours] = useState<ChampSuggestion | null>(null);
+  const [suggestionErreur, setSuggestionErreur] = useState<string | null>(null);
+  const [ficheEnCours, setFicheEnCours] = useState(false);
   // Verrou d'écriture du chiffrage, et l'erreur éventuelle : elle reste
   // affichée jusqu'au prochain essai, puisqu'elle demande une action.
   const [traitementEnCours, setTraitementEnCours] = useState(false);
@@ -616,13 +640,15 @@ export function BackOffice() {
       conteneurs: Conteneur[];
       rotations: Rotation[];
       stats: Stats | null;
+      fiches: FicheService[];
     }>(`{
       "demandes": *[_type == "demandeDevis"] | order(_createdAt desc)${PROJECTION_DEMANDE},
       "expeditions": *[_type == "expedition"] | order(_updatedAt desc){_id, _updatedAt, reference, clientNom, email, telephone, contact, demandeRef, trajet, etape, eta, statutPriseEnCharge, mode, expediteurNom, expediteurAdresse, expediteurTel, destinataireNom, destinataireAdresse, destinataireTel, colisNombre, colisPoids, colisVolume, colisNature, valeurDeclaree, reglementRecu, derogationDepart, derogationMotif, numeroReservation, numeroConteneur, notesExploitation, priseEnChargeLe, derniereEtapeNotifiee, derniereNotificationLe},
       "clients": *[_type == "clientFiche"] | order(nom asc){_id, nom, contact, destination, envois, volume},
       "conteneurs": *[_type == "conteneurOccasion"] | order(reference asc){_id, _updatedAt, reference, taille, etat, lieu, prix, statut},
       "rotations": *[_type == "rotation"] | order(cloture asc){_id, nom, cloture, depart, remplissage},
-      "stats": *[_type == "statsMensuelles"][0]{volumeMoisEnCours, progression, barres[]{mois, valeur}}
+      "stats": *[_type == "statsMensuelles"][0]{volumeMoisEnCours, progression, barres[]{mois, valeur}},
+      "fiches": *[_type == "ficheService" && actif != false] | order(ordre asc)${PROJECTION_FICHE}
     }`);
     setDemandes(data.demandes);
     setExpeditions(data.expeditions);
@@ -630,6 +656,7 @@ export function BackOffice() {
     setConteneurs(data.conteneurs);
     setRotations(data.rotations);
     setStats(data.stats);
+    setFiches(data.fiches ?? []);
     setChargement(false);
   }, [client]);
 
@@ -658,6 +685,8 @@ export function BackOffice() {
     );
   const sel = demandes.find((d) => d._id === selection) ?? demandesFiltrees[0] ?? demandes[0] ?? null;
   const selId = sel?._id ?? null;
+  const { fiche: ficheSel, manuel: ficheManuelle } = ficheDe(sel, fiches);
+  const suggestionsSel = suggestions.demandeId !== null && suggestions.demandeId === selId ? suggestions.parChamp : {};
 
   // Remplit le panneau de traitement depuis une demande enregistrée.
   // L'ancienne chaîne montantDevis n'est jamais reprise dans le champ : elle
@@ -671,6 +700,8 @@ export function BackOffice() {
     setNotesEdit(d?.notes ?? '');
     setTraitementErreur(null);
     setDemandeARecharger(null);
+    setSuggestions({ demandeId: null, parChamp: {} });
+    setSuggestionErreur(null);
   };
 
   // À chaque changement de demande sélectionnée, resynchronise les champs de
@@ -1202,7 +1233,7 @@ export function BackOffice() {
         signalerDemandePerimee(d);
         return;
       }
-      const rep = await appelerApi('/api/envoi-devis', cle, { reference: d.reference, apercu: true });
+      const rep = await appelerApi('/api/envoi-devis', cle, { reference: d.reference, apercu: true, ficheId: ficheDe(d, fiches).fiche?._id });
       if (!rep) return;
       const data = (await rep.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -1256,6 +1287,101 @@ export function BackOffice() {
     });
   };
 
+  // Proposition Gemini pour un champ du chiffrage. L'API relit la demande, la
+  // fiche et les rotations dans Sanity ; rien n'est écrit : la proposition
+  // s'affiche à côté du champ, l'opérateur la reprend ou non.
+  const proposer = async (champ: ChampSuggestion) => {
+    if (!sel || suggestionEnCours) return;
+    const cle = await obtenirCleApi();
+    if (!cle) return;
+    const demandeId = sel._id;
+    setSuggestionEnCours(champ);
+    setSuggestionErreur(null);
+    try {
+      const rep = await appelerApi('/api/suggestion-devis', cle, {
+        reference: sel.reference,
+        champ,
+        ficheId: ficheSel?._id,
+      });
+      if (!rep) {
+        setSuggestionErreur("API injoignable : son adresse n'est pas configurée.");
+        return;
+      }
+      const data = (await rep.json().catch(() => ({}))) as { ok?: boolean; erreur?: string; suggestion?: SuggestionRecue };
+      if (rep.status === 401) {
+        localStorage.removeItem('hgwf-cle-api');
+        setSuggestionErreur('Clé refusée. Relancez pour la saisir à nouveau.');
+        return;
+      }
+      if (!rep.ok || !data.ok || !data.suggestion) {
+        setSuggestionErreur(`Proposition impossible : ${data.erreur ?? 'erreur ' + rep.status}`);
+        return;
+      }
+      const recue = data.suggestion;
+      setSuggestions((prev) => ({
+        demandeId,
+        parChamp: { ...(prev.demandeId === demandeId ? prev.parChamp : {}), [champ]: recue },
+      }));
+    } catch (e) {
+      setSuggestionErreur(`Proposition impossible : ${e instanceof Error ? e.message : 'erreur inattendue'}`);
+    } finally {
+      setSuggestionEnCours(null);
+    }
+  };
+
+  const ignorerSuggestion = (champ: ChampSuggestion) =>
+    setSuggestions((prev) => {
+      const parChamp = { ...prev.parChamp };
+      delete parChamp[champ];
+      return { ...prev, parChamp };
+    });
+
+  // Reprend la proposition dans la saisie ; l'enregistrement reste un geste de
+  // l'opérateur (bouton Enregistrer), comme pour une saisie à la main.
+  const utiliserSuggestion = (champ: ChampSuggestion) => {
+    const recue = suggestionsSel[champ];
+    if (!recue) return;
+    if (champ === 'montant') {
+      if (typeof recue.montantHT === 'number') setMontantHTEdit(montantVersSaisie(recue.montantHT));
+      if (typeof recue.tauxTVA === 'number') setTauxTVAEdit(tauxVersSaisie(recue.tauxTVA));
+    } else if (champ === 'notes') {
+      const ajout = recue.texte ?? '';
+      setNotesEdit((n) => (n.trim() ? `${n.trimEnd()}\n${ajout}` : ajout));
+    } else if (champ === 'descriptionPrestation') {
+      setDescriptionEdit(recue.texte ?? '');
+    } else {
+      setDelaiEdit(recue.texte ?? '');
+    }
+    ignorerSuggestion(champ);
+  };
+
+  // Choix manuel de la fiche : enregistré aussitôt (ce n'est pas une saisie du
+  // chiffrage), et la nouvelle révision repart dans l'état local, comme pour un
+  // changement de statut.
+  const choisirFiche = async (id: string) => {
+    if (!sel || ficheEnCours) return;
+    const demandeId = sel._id;
+    setFicheEnCours(true);
+    setSuggestionErreur(null);
+    try {
+      const p = client.patch(demandeId);
+      const r = await (id
+        ? p.set({ ficheService: { _type: 'reference', _ref: id, _weak: true } })
+        : p.unset(['ficheService'])
+      ).commit();
+      setDemandes((prev) =>
+        prev.map((x) =>
+          x._id === demandeId ? { ...x, ficheService: id ? { _ref: id } : null, _rev: r._rev, _updatedAt: r._updatedAt } : x,
+        ),
+      );
+      setSuggestions({ demandeId: null, parChamp: {} });
+    } catch (e) {
+      setSuggestionErreur(`Choix de la fiche non enregistré : ${e instanceof Error ? e.message : 'erreur inattendue'}`);
+    } finally {
+      setFicheEnCours(false);
+    }
+  };
+
   // Étape 2 : envoi effectif, avec l'objet et le texte éventuellement retouchés.
   const envoyerDevisParEmail = async (d: Demande) => {
     if (envoiEnCours) return;
@@ -1277,6 +1403,7 @@ export function BackOffice() {
       const pdfBase64 = (doc.output('datauristring') as string).split(',')[1] ?? '';
       const rep = await appelerApi('/api/envoi-devis', cle, {
         reference: d.reference,
+        ficheId: ficheDe(d, fiches).fiche?._id,
         pdfBase64,
         objet: apercu?.objet,
         texte: apercu?.texte,
@@ -1939,6 +2066,23 @@ export function BackOffice() {
                           ils ne se saisissent jamais. */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <span style={eyebrow}>Chiffrage du devis</span>
+                        <PanneauFiche
+                          fiches={fiches}
+                          fiche={ficheSel}
+                          manuel={ficheManuelle}
+                          typeEnvoi={sel.typeEnvoi}
+                          enCours={ficheEnCours}
+                          onChoisir={choisirFiche}
+                        />
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ fontSize: 12, fontWeight: 500, color: ENCRE }}>Montant et TVA</span>
+                          <BoutonProposer
+                            quoi="un montant"
+                            enCours={suggestionEnCours === 'montant'}
+                            desactive={suggestionEnCours !== null && suggestionEnCours !== 'montant'}
+                            onClick={() => proposer('montant')}
+                          />
+                        </span>
                         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8 }}>
                           <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
                             Montant HT
@@ -1980,6 +2124,14 @@ export function BackOffice() {
                             </select>
                           </label>
                         </div>
+                        {suggestionsSel.montant && (
+                          <CarteSuggestion
+                            champ="montant"
+                            s={suggestionsSel.montant}
+                            onUtiliser={() => utiliserSuggestion('montant')}
+                            onIgnorer={() => ignorerSuggestion('montant')}
+                          />
+                        )}
                         {montantIllisible && (
                           <span style={{ fontSize: 12, color: ROUGE, fontWeight: 600 }}>
                             Montant illisible : saisissez un nombre, par exemple 1 250,50.
@@ -2013,30 +2165,92 @@ export function BackOffice() {
                             taux.
                           </span>
                         )}
-                        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
-                          Délai estimé
-                          <input placeholder="ex. 3 à 5 semaines" value={delaiEdit} onChange={(e) => setDelaiEdit(e.target.value)} style={champ} />
-                        </label>
-                        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
-                          Description de la prestation
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <EnteteChamp
+                            htmlFor="bo-delai"
+                            libelle="Délai estimé"
+                            bouton={<BoutonProposer
+                                quoi="un délai"
+                                enCours={suggestionEnCours === 'delaiEstime'}
+                                desactive={suggestionEnCours !== null && suggestionEnCours !== 'delaiEstime'}
+                                onClick={() => proposer('delaiEstime')}
+                              />}
+                          />
+                          <input id="bo-delai" placeholder="ex. 3 à 5 semaines" value={delaiEdit} onChange={(e) => setDelaiEdit(e.target.value)} style={champ} />
+                        </div>
+                        {suggestionsSel.delaiEstime && (
+                          <CarteSuggestion
+                            champ="delaiEstime"
+                            s={suggestionsSel.delaiEstime}
+                            onUtiliser={() => utiliserSuggestion('delaiEstime')}
+                            onIgnorer={() => ignorerSuggestion('delaiEstime')}
+                          />
+                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <EnteteChamp
+                            htmlFor="bo-description"
+                            libelle="Description de la prestation"
+                            bouton={<BoutonProposer
+                                quoi="une description"
+                                enCours={suggestionEnCours === 'descriptionPrestation'}
+                                desactive={suggestionEnCours !== null && suggestionEnCours !== 'descriptionPrestation'}
+                                onClick={() => proposer('descriptionPrestation')}
+                              />}
+                          />
                           <textarea
+                            id="bo-description"
                             placeholder="ex. Groupage maritime Le Havre → Pointe-à-Pitre, enlèvement à domicile, dédouanement inclus…"
                             value={descriptionEdit}
                             onChange={(e) => setDescriptionEdit(e.target.value)}
-                            rows={2}
+                            rows={3}
                             style={{ ...champ, resize: 'vertical', fontFamily: SANS }}
                           />
-                        </label>
-                        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
-                          Notes internes (jamais transmises au client)
+                        </div>
+                        {suggestionsSel.descriptionPrestation && (
+                          <CarteSuggestion
+                            champ="descriptionPrestation"
+                            s={suggestionsSel.descriptionPrestation}
+                            onUtiliser={() => utiliserSuggestion('descriptionPrestation')}
+                            onIgnorer={() => ignorerSuggestion('descriptionPrestation')}
+                          />
+                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <EnteteChamp
+                            htmlFor="bo-notes"
+                            libelle="Notes internes (jamais transmises au client)"
+                            bouton={<BoutonProposer
+                                quoi="une note interne"
+                                enCours={suggestionEnCours === 'notes'}
+                                desactive={suggestionEnCours !== null && suggestionEnCours !== 'notes'}
+                                onClick={() => proposer('notes')}
+                              />}
+                          />
                           <textarea
+                            id="bo-notes"
                             placeholder="Relances, particularités, accords…"
                             value={notesEdit}
                             onChange={(e) => setNotesEdit(e.target.value)}
-                            rows={2}
+                            rows={3}
                             style={{ ...champ, resize: 'vertical', fontFamily: SANS }}
                           />
-                        </label>
+                        </div>
+                        {suggestionsSel.notes && (
+                          <CarteSuggestion
+                            champ="notes"
+                            s={suggestionsSel.notes}
+                            onUtiliser={() => utiliserSuggestion('notes')}
+                            onIgnorer={() => ignorerSuggestion('notes')}
+                          />
+                        )}
+                        {suggestionErreur && (
+                          <span role="alert" style={{ fontSize: 12, color: ROUGE, fontWeight: 600 }}>
+                            {suggestionErreur}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 11, color: ENCRE }}>
+                          ✦ Proposer : texte rédigé par l’IA (Gemini) à partir de la demande et de la fiche du service,
+                          sans nom ni coordonnées du client. Toujours à relire ; rien n’est enregistré sans vous.
+                        </span>
                       </div>
 
                       {/* Facturation : collectée ici, à la validation du devis,
@@ -2246,7 +2460,7 @@ export function BackOffice() {
                               href={
                                 raisonModelesBloques
                                   ? undefined
-                                  : `mailto:${emailDe(sel)}?subject=${encodeURIComponent(`Votre devis HGWF Cargo · ${sel.reference}`)}&body=${encodeURIComponent(templateReponse(selPourEnvoi))}`
+                                  : `mailto:${emailDe(sel)}?subject=${encodeURIComponent(`Votre devis HGWF Cargo · ${sel.reference}`)}&body=${encodeURIComponent(templateReponse(selPourEnvoi, ficheSel))}`
                               }
                               aria-disabled={raisonModelesBloques ? true : undefined}
                               style={{
@@ -2289,7 +2503,7 @@ export function BackOffice() {
                               href={
                                 raisonModelesBloques
                                   ? undefined
-                                  : `https://wa.me/${telDe(sel)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(templateReponse(selPourEnvoi))}`
+                                  : `https://wa.me/${telDe(sel)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(templateReponse(selPourEnvoi, ficheSel))}`
                               }
                               aria-disabled={raisonModelesBloques ? true : undefined}
                               title={raisonModelesBloques ?? undefined}
@@ -2309,7 +2523,7 @@ export function BackOffice() {
                             </a>
                           )}
                           <button
-                            onClick={() => selPourEnvoi && navigator.clipboard.writeText(templateReponse(selPourEnvoi))}
+                            onClick={() => selPourEnvoi && navigator.clipboard.writeText(templateReponse(selPourEnvoi, ficheSel))}
                             disabled={raisonModelesBloques !== null}
                             style={{
                               ...boutonContour,

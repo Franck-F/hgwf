@@ -4,6 +4,7 @@
  *   POST /api/demande-devis  → crée un document demandeDevis (formulaires publics)
  *   GET  /api/suivi?ref=XXX  → statut d'une expédition (trajet, étape, ETA, jamais le client)
  *   GET  /api/sante          → vérification de vie
+ *   POST /api/suggestion-devis → proposition Gemini pour un champ du chiffrage (back-office, clé)
  *
  * Ce module exporte le gestionnaire HTTP pur (req, res) : `src/server.js`
  * l'enveloppe dans un serveur Node pour le dev local, `api/index.js` l'expose
@@ -13,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { createClient } from '@sanity/client';
 import { envoiConfigure, envoyerEmail, gabaritHtml } from './email.js';
 import { aUnMontant, calculerChiffrage, lignesMontant, montantAnnonce } from './montant.js';
+import { CHAMPS_SUGGESTION, MODELE_PAR_DEFAUT, construireRequete, demanderSuggestion, validerSuggestion } from './suggestion.js';
 
 // ── Chargement .env (sans dépendance) : dev local uniquement ─────────────────
 try {
@@ -240,7 +242,7 @@ async function envoyerDevis(req, res, cors) {
   // montantHT + tauxTVA pour les devis chiffrés depuis le 29/09/2026 ;
   // montantDevis (chaîne libre) reste lu pour les anciens documents.
   const d = await sanity.fetch(
-    `*[_type == "demandeDevis" && reference == $ref][0]{_id, reference, clientNom, contact, email, destination, montantHT, tauxTVA, montantDevis, descriptionPrestation, delaiEstime}`,
+    `*[_type == "demandeDevis" && reference == $ref][0]{_id, reference, clientNom, contact, email, destination, montantHT, tauxTVA, montantDevis, descriptionPrestation, delaiEstime, "ficheRef": ficheService._ref}`,
     { ref: reference },
   );
   if (!d) return json(res, 404, { ok: false, erreur: 'demande introuvable' }, cors);
@@ -255,6 +257,17 @@ async function envoyerDevis(req, res, cors) {
     return json(res, 422, { ok: false, erreur }, cors);
   }
 
+  // Paragraphe propre au service, tiré de la fiche choisie dans le back-office
+  // (ou rattachée à la demande). Relu dans Sanity : le corps ne porte que
+  // l'identifiant, jamais le texte.
+  const ficheId = nettoyer(corps.ficheId, 120) || d.ficheRef || '';
+  const fiche = ficheId
+    ? await sanity.fetch(`*[_type == "ficheService" && _id == $id][0]{modeleMessage}`, { id: ficheId })
+    : null;
+  const paragrapheService = (fiche?.modeleMessage ?? '')
+    .replace(/\{destination\}/g, d.destination?.trim() || 'votre destination')
+    .trim();
+
   const prenom = (d.clientNom ?? '').trim().split(/\s+/)[0] || '';
   const lignes = [
     ...lignesMontant(d),
@@ -267,8 +280,11 @@ async function envoyerDevis(req, res, cors) {
     '',
     `Voici votre devis${d.destination ? ' pour ' + d.destination : ''}, référence ${d.reference}.`,
     '',
-    ...lignes.map(([l, v]) => `  ${l} : ${v}`),
+    // Une ligne par montant : un retour à la ligne dans une valeur casserait le
+    // repérage du bloc, qui devient le tableau récapitulatif de la version HTML.
+    ...lignes.map(([l, v]) => `  ${l} : ${String(v).replace(/\s*\n\s*/g, ' ')}`),
     '',
+    ...(paragrapheService ? [paragrapheService, ''] : []),
     'Le devis détaillé est en pièce jointe.',
     '',
     "Pour l'accepter, répondez simplement « je valide » à cet e-mail. Nous ouvrons alors votre dossier et vous transmettons les prochaines dates de départ.",
@@ -593,6 +609,59 @@ async function chercherSuivi(req, res, cors, url) {
 }
 
 // ── Gestionnaire HTTP ─────────────────────────────────────────────────────────
+// ── Suggestions Gemini pour le chiffrage (back-office) ───────────────────────
+// Même garde que l'envoi du devis : clé du back-office. La demande, la fiche du
+// service et les rotations sont relues dans Sanity ; le corps ne porte que des
+// identifiants. Rien n'est écrit : la suggestion repart vers l'opérateur, qui
+// décide. Voir src/suggestion.js pour les règles données au modèle.
+async function suggererDevis(req, res, cors) {
+  const cle = process.env.BACKOFFICE_API_CLE;
+  if (!cle) return json(res, 503, { ok: false, erreur: 'back-office non configuré' }, cors);
+  if (req.headers['x-hgwf-cle'] !== cle) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
+  const cleGemini = process.env.GEMINI_API_KEY;
+  if (!cleGemini) return json(res, 503, { ok: false, erreur: 'suggestions non configurées' }, cors);
+
+  let corps;
+  try {
+    corps = JSON.parse((await lireCorps(req)) || '{}');
+  } catch {
+    return json(res, 400, { ok: false, erreur: 'JSON invalide' }, cors);
+  }
+  const reference = nettoyer(corps.reference, 60);
+  const champ = nettoyer(corps.champ, 40);
+  const ficheId = nettoyer(corps.ficheId, 120);
+  if (!reference || !CHAMPS_SUGGESTION.includes(champ)) {
+    return json(res, 422, { ok: false, erreur: 'reference et champ valides requis' }, cors);
+  }
+
+  // Ni nom, ni e-mail, ni téléphone dans la projection : rien de tout cela ne
+  // doit partir chez Google.
+  const demande = await sanity.fetch(
+    `*[_type == "demandeDevis" && reference == $ref][0]{typeEnvoi, destination, volume, message, "ficheRef": ficheService._ref}`,
+    { ref: reference },
+  );
+  if (!demande) return json(res, 404, { ok: false, erreur: 'demande introuvable' }, cors);
+  const [fiche, rotations] = await Promise.all([
+    (ficheId || demande.ficheRef) ? sanity.fetch(`*[_type == "ficheService" && _id == $id][0]`, { id: ficheId || demande.ficheRef }) : null,
+    sanity.fetch(`*[_type == "rotation"] | order(_updatedAt desc)[0...6]{nom, cloture, depart}`),
+  ]);
+
+  const modele = process.env.GEMINI_ANALYSIS_MODEL || MODELE_PAR_DEFAUT;
+  try {
+    const brut = await demanderSuggestion({
+      cle: cleGemini,
+      modele,
+      requete: construireRequete({ champ, demande, fiche, rotations }),
+    });
+    return json(res, 200, { ok: true, champ, suggestion: validerSuggestion(champ, brut), fiche: fiche?.titre ?? null }, cors);
+  } catch (err) {
+    // Statut seulement : ni la demande ni la réponse du modèle dans les journaux.
+    console.error('suggestion-devis', champ, err?.statut ?? err?.name ?? 'erreur');
+    const indisponible = err?.statut === 429 || err?.statut >= 500 || err?.name === 'TimeoutError';
+    return json(res, 502, { ok: false, erreur: indisponible ? 'service de suggestion indisponible, réessayez dans un instant' : 'suggestion impossible' }, cors);
+  }
+}
+
 export async function handler(req, res) {
   const cors = corsHeaders(req);
   const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
@@ -617,6 +686,9 @@ export async function handler(req, res) {
     }
     if (req.method === 'POST' && url.pathname === '/api/envoi-devis') {
       return await envoyerDevis(req, res, cors);
+    }
+    if (req.method === 'POST' && url.pathname === '/api/suggestion-devis') {
+      return await suggererDevis(req, res, cors);
     }
     if (req.method === 'GET' && url.pathname === '/api/suivi') {
       return await chercherSuivi(req, res, cors, url);

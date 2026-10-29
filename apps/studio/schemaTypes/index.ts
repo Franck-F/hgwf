@@ -19,6 +19,7 @@ import { clientFiche } from './backoffice/clientFiche';
 import { conteneurOccasion } from './backoffice/conteneurOccasion';
 import { rotation } from './backoffice/rotation';
 import { statsMensuelles } from './backoffice/statsMensuelles';
+import { ficheService } from './backoffice/ficheService';
 
 import { page } from './documents/page';
 import { pageSuivi } from './documents/pageSuivi';
@@ -70,4 +71,5 @@ export const backofficeTypes: SchemaTypeDefinition[] = [
   conteneurOccasion,
   rotation,
   statsMensuelles,
+  ficheService,
 ];
