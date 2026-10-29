@@ -15,6 +15,7 @@ import { createClient } from '@sanity/client';
 import { envoiConfigure, envoyerEmail, gabaritHtml } from './email.js';
 import { aUnMontant, calculerChiffrage, lignesMontant, montantAnnonce } from './montant.js';
 import { CHAMPS_SUGGESTION, MODELE_PAR_DEFAUT, construireRequete, demanderSuggestion, validerSuggestion } from './suggestion.js';
+import { facturationDepuisFormulaire } from './facturation.js';
 
 // ── Chargement .env (sans dépendance) : dev local uniquement ─────────────────
 try {
@@ -184,6 +185,9 @@ async function creerDemande(req, res, cors) {
     recueLe,
     statut: 0,
     message: details,
+    // Facturation pré-remplie depuis le formulaire (nom toujours, le reste si
+    // le visiteur l'a donné) ; ce qui manque sera demandé par l'équipe.
+    ...facturationDepuisFormulaire(nom, corps.facturation),
   });
 
   console.log(`[demande] ${reference} — ${nom} → ${corps.destination ?? '?'}`);
@@ -271,9 +275,11 @@ async function envoyerDevis(req, res, cors) {
   const prenom = (d.clientNom ?? '').trim().split(/\s+/)[0] || '';
   const lignes = [
     ...lignesMontant(d),
-    d.descriptionPrestation ? ['Prestation', d.descriptionPrestation] : null,
     d.delaiEstime ? ['Délai estimé', d.delaiEstime] : null,
   ].filter(Boolean);
+  // La description complète (plusieurs lignes : compris, non compris, documents,
+  // conditions) a son propre bloc : dans le récapitulatif, elle serait aplatie.
+  const description = (d.descriptionPrestation ?? '').trim();
 
   const texteDefaut = [
     `Bonjour${prenom ? ' ' + prenom : ''},`,
@@ -284,6 +290,7 @@ async function envoyerDevis(req, res, cors) {
     // repérage du bloc, qui devient le tableau récapitulatif de la version HTML.
     ...lignes.map(([l, v]) => `  ${l} : ${String(v).replace(/\s*\n\s*/g, ' ')}`),
     '',
+    ...(description ? ['Détail de la prestation :', description, ''] : []),
     ...(paragrapheService ? [paragrapheService, ''] : []),
     'Le devis détaillé est en pièce jointe.',
     '',
@@ -317,7 +324,9 @@ async function envoyerDevis(req, res, cors) {
   const blocs = texte.split(/\n\s*\n/).filter((b) => b.trim());
   const estRecap = (b) => b.split('\n').every((l) => /^ {2}\S/.test(l));
   const iRecap = blocs.findIndex(estRecap);
-  const enParagraphe = (b) => b.trim().replace(/\s*\n\s*/g, ' ');
+  // Les retours à la ligne d'un bloc sont gardés (listes de la description) :
+  // le gabarit les rend en <br>.
+  const enParagraphe = (b) => b.trim();
   const paragraphes = (iRecap === -1 ? blocs : blocs.slice(0, iRecap)).map(enParagraphe);
   const paragraphesApres = iRecap === -1 ? [] : blocs.slice(iRecap + 1).map(enParagraphe);
 

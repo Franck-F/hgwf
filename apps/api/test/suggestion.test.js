@@ -83,3 +83,20 @@ test('erreurs : statut HTTP remonté, réponse vide refusée', async () => {
   await assert.rejects(demanderSuggestion({ cle: 'x', requete: {}, fetchImpl: faux(429, {}) }), (e) => e.statut === 429);
   await assert.rejects(demanderSuggestion({ cle: 'x', requete: {}, fetchImpl: faux(200, { candidates: [] }) }), /réponse vide/);
 });
+
+test('description : questions au client renvoyées, bornées et nettoyées', () => {
+  const req = construireRequete({ champ: 'descriptionPrestation', demande, fiche: null });
+  assert.ok(req.generationConfig.responseSchema.properties.infosClient, 'le schéma demande les questions');
+  assert.ok(JSON.stringify(req).includes('à confirmer'), 'consigne : rien d’inventé, « à confirmer »');
+  const v = validerSuggestion('descriptionPrestation', {
+    texte: ' Objet\nComprend : x ',
+    infosClient: ['  Quelle ville ?  ', '', ...Array.from({ length: 12 }, (_, i) => `Q${i}`)],
+    manques: [],
+  });
+  assert.equal(v.texte, 'Objet\nComprend : x');
+  assert.equal(v.infosClient[0], 'Quelle ville ?');
+  assert.equal(v.infosClient.length, 8);
+  assert.deepEqual(validerSuggestion('descriptionPrestation', { texte: 'x' }).infosClient, []);
+  // Les autres champs ne renvoient pas de questions.
+  assert.equal(validerSuggestion('delaiEstime', { texte: 'x', infosClient: ['q'] }).infosClient, undefined);
+});

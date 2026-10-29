@@ -12,6 +12,18 @@ export type DevisPreset = {
   description: string;
 };
 
+// Facturation facultative : tout reste vide tant que le visiteur n'y touche pas.
+type Facturation = {
+  type: '' | 'particulier' | 'professionnel';
+  societe: string;
+  siret: string;
+  adresse: string;
+  codePostal: string;
+  ville: string;
+  pays: string;
+};
+const FACTURATION_VIDE: Facturation = { type: '', societe: '', siret: '', adresse: '', codePostal: '', ville: '', pays: '' };
+
 export type DevisWizardContent = {
   etapeLabels: string[];
   // « Étape {n} sur {total} » — l'indicateur compact des petits écrans.
@@ -74,6 +86,20 @@ export type DevisWizardContent = {
   dimsAria: { longueur: string; largeur: string; hauteur: string; quantite: string };
   erreurNom: string;
   erreurContact: string;
+  // Bloc facultatif de l'étape Coordonnées : il pré-remplit la facturation
+  // dans le back-office (champs facturation* de la demande).
+  facturation: {
+    titre: string;
+    intro: string;
+    types: { particulier: string; professionnel: string };
+    raisonSociale: string;
+    siret: string;
+    adresse: string;
+    codePostal: string;
+    ville: string;
+    pays: string;
+    exemplePays: string;
+  };
 };
 
 type Colis = { L: string; l: string; h: string; q: string };
@@ -141,6 +167,8 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
   const [tel, setTel] = useState('');
   const [preference, setPreference] = useState(c.etapeCoordonnees.preferences[0] ?? '');
   const [message, setMessage] = useState('');
+  const [fact, setFact] = useState<Facturation>(FACTURATION_VIDE);
+  const majFact = (champ: keyof Facturation, valeur: string) => setFact((f) => ({ ...f, [champ]: valeur }));
   const [envoye, setEnvoye] = useState(false);
   const [echecEnvoi, setEchecEnvoi] = useState(false);
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
@@ -167,6 +195,14 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
         if (typeof b.tel === 'string') setTel(b.tel);
         if (typeof b.preference === 'string' && b.preference) setPreference(b.preference);
         if (typeof b.message === 'string') setMessage(b.message);
+        if (b.fact && typeof b.fact === 'object') {
+          const f: Facturation = { ...FACTURATION_VIDE };
+          for (const k of Object.keys(FACTURATION_VIDE) as (keyof Facturation)[]) {
+            if (typeof b.fact[k] === 'string') (f as Record<string, string>)[k] = b.fact[k];
+          }
+          if (f.type !== 'particulier' && f.type !== 'professionnel') f.type = '';
+          setFact(f);
+        }
       }
     } catch {
       // brouillon illisible : on repart de zéro
@@ -181,12 +217,12 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
     try {
       sessionStorage.setItem(
         BROUILLON_CLE,
-        JSON.stringify({ type, destination, depart, modeVolume, preset, colis, commentaireColis, nom, email, tel, preference, message }),
+        JSON.stringify({ type, destination, depart, modeVolume, preset, colis, commentaireColis, nom, email, tel, preference, message, fact }),
       );
     } catch {
       // stockage plein ou bloqué : le formulaire fonctionne sans brouillon
     }
-  }, [restaure, envoye, type, destination, depart, modeVolume, preset, colis, commentaireColis, nom, email, tel, preference, message]);
+  }, [restaure, envoye, type, destination, depart, modeVolume, preset, colis, commentaireColis, nom, email, tel, preference, message, fact]);
 
   // ── Focus : au changement d'étape, le titre ; à la confirmation, le titre.
   const titreEtape = useRef<HTMLHeadingElement>(null);
@@ -301,6 +337,10 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
       tel ? `Tél : ${tel}` : '',
       email ? `E-mail : ${email}` : '',
       preference ? `Préférence de contact : ${preference}` : '',
+      fact.type ? `Facturation : ${fact.type === 'professionnel' ? c.facturation.types.professionnel : c.facturation.types.particulier}` : '',
+      fact.societe ? `${c.facturation.raisonSociale} : ${fact.societe}` : '',
+      fact.siret ? `${c.facturation.siret} : ${fact.siret}` : '',
+      [fact.adresse, [fact.codePostal, fact.ville].filter(Boolean).join(' '), fact.pays].filter(Boolean).join(', '),
     ]
       .filter(Boolean)
       .join('\n');
@@ -340,6 +380,7 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
             volume: volumeEnvoi,
             colis: dimsColis(),
             commentaireColis,
+            facturation: fact,
             website: '',
           }),
         });
@@ -733,6 +774,72 @@ export function DevisWizard({ content }: { content: DevisWizardContent }) {
                 </span>
                 <textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} className={`${CHAMP} resize-y`} />
               </label>
+              {/* Facturation, facultative : pré-remplit le back-office ; ce qui
+                  manque sera demandé plus tard par l'équipe. */}
+              <fieldset className="m-0 flex flex-col gap-3 rounded-2xl border border-marine/12 p-4">
+                <legend className="px-1 text-[13px] font-medium">
+                  {c.facturation.titre} <span className="font-normal text-encre-douce">· {c.etapeCoordonnees.optionnel}</span>
+                </legend>
+                <p className="m-0 text-[13px] text-encre-douce">{c.facturation.intro}</p>
+                <div className="flex flex-wrap gap-2">
+                  {(['particulier', 'professionnel'] as const).map((t) => (
+                    <label
+                      key={t}
+                      className={`presse cursor-pointer rounded-full px-5 py-2.5 text-sm font-medium transition ${
+                        fact.type === t
+                          ? 'bg-corail text-marine shadow-[0_1px_0_rgba(18,57,91,0.08)]'
+                          : 'border-[1.5px] border-marine/25 bg-transparent text-encre-douce hover:bg-creme'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="facturation-type"
+                        value={t}
+                        checked={fact.type === t}
+                        onChange={() => majFact('type', t)}
+                        className="sr-only"
+                      />
+                      {c.facturation.types[t]}
+                    </label>
+                  ))}
+                </div>
+                {fact.type === 'professionnel' && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                      {c.facturation.raisonSociale}
+                      <input value={fact.societe} onChange={(e) => majFact('societe', e.target.value)} autoComplete="organization" className={CHAMP} />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                      {c.facturation.siret}
+                      <input value={fact.siret} onChange={(e) => majFact('siret', e.target.value)} inputMode="numeric" className={CHAMP} />
+                    </label>
+                  </div>
+                )}
+                <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                  {c.facturation.adresse}
+                  <input value={fact.adresse} onChange={(e) => majFact('adresse', e.target.value)} autoComplete="street-address" className={CHAMP} />
+                </label>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                    {c.facturation.codePostal}
+                    <input value={fact.codePostal} onChange={(e) => majFact('codePostal', e.target.value)} autoComplete="postal-code" className={CHAMP} />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                    {c.facturation.ville}
+                    <input value={fact.ville} onChange={(e) => majFact('ville', e.target.value)} autoComplete="address-level2" className={CHAMP} />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                    {c.facturation.pays}
+                    <input
+                      value={fact.pays}
+                      onChange={(e) => majFact('pays', e.target.value)}
+                      autoComplete="country-name"
+                      placeholder={`ex. ${c.facturation.exemplePays}`}
+                      className={CHAMP}
+                    />
+                  </label>
+                </div>
+              </fieldset>
             </div>
           ) : (
             <div className="etape-entre flex flex-col items-start gap-4 py-3">

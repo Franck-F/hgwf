@@ -75,6 +75,42 @@ export function remplirModele(texte: string | undefined | null, d: { destination
   return (texte ?? '').replace(/\{destination\}/g, d.destination?.trim() || 'votre destination').trim()
 }
 
+// Questions au client pour compléter sa facturation, d'après ce qui manque
+// (le bloc du formulaire est facultatif). Formulées pour le client.
+// `manque` : le résultat de manquesFacturation (chiffrage.ts), passé par
+// l'appelant pour garder ce module sans import (Node l'exécute tel quel).
+export function questionsFacturation(manque: string[]): string[] {
+  const q: string[] = []
+  if (manque.includes('type de client')) q.push('Le devis est-il à établir au nom d’un particulier ou d’une société ?')
+  if (manque.includes('raison sociale')) q.push('Quelle est la raison sociale de votre société ?')
+  if (['adresse', 'code postal', 'ville', 'pays'].some((m) => manque.includes(m)))
+    q.push('Quelle est votre adresse de facturation complète (adresse, code postal, ville, pays) ?')
+  if (manque.includes('SIRET')) q.push('Quel est le numéro SIRET de votre société ?')
+  return q
+}
+
+// Message au client pour obtenir ce qui manque à sa demande (questions issues
+// de la proposition de description). Le même texte sert à la copie, à l'e-mail
+// et à WhatsApp.
+export function messageDemandeInfos(
+  d: { clientNom?: string | null; reference: string },
+  questions: string[],
+): string {
+  const prenom = (d.clientNom ?? '').trim().split(/\s+/)[0] ?? ''
+  return [
+    `Bonjour${prenom ? ` ${prenom}` : ''},`,
+    '',
+    `Merci pour votre demande de devis (référence ${d.reference}). Pour vous établir un prix exact, pourriez-vous nous préciser :`,
+    ...questions.map((q) => `- ${q}`),
+    '',
+    'Dès réception de ces éléments, nous vous adressons votre devis.',
+    '',
+    'Bien cordialement,',
+    "L'équipe HGWF Cargo",
+    'contact@hgwf-cargo.fr · 09 62 03 80 13',
+  ].join('\n')
+}
+
 // Lignes de grille sans prix : ce qui empêche une suggestion de montant.
 export function prixManquants(fiche?: FicheService | null): number {
   return (fiche?.grille ?? []).filter((l) => l.designation && !(typeof l.prixHT === 'number' && Number.isFinite(l.prixHT))).length

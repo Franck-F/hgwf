@@ -2,7 +2,8 @@
 // Le Studio n'a pas d'outil de test : Node exécute directement fiches.ts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ficheDe, normaliser, prixManquants, remplirModele } from '../../studio/tools/backoffice/fiches.ts';
+import { ficheDe, messageDemandeInfos, normaliser, prixManquants, questionsFacturation, remplirModele } from '../../studio/tools/backoffice/fiches.ts';
+import { manquesFacturation } from '../../studio/tools/backoffice/chiffrage.ts';
 import { FICHES } from '../../studio/seed/fichesServices.mjs';
 
 test('normalisation : casse, accents, apostrophes, barres et espaces ignorés', () => {
@@ -70,4 +71,41 @@ test('fiches de départ : aucun prix sans source, chaque grille a ses lignes', (
     assert.equal(prixManquants(f), f.grille.length - prix.length, f._id);
     assert.ok(Array.isArray(f.aCompleter) && f.aCompleter.length > 0, f._id);
   }
+});
+
+test('questions de facturation : seulement ce qui manque, formulées pour le client', () => {
+  const rien = questionsFacturation(manquesFacturation({ facturationNom: 'Marie Dupont' }));
+  assert.equal(rien.length, 2);
+  assert.ok(rien[0].includes('particulier ou d’une société'));
+  assert.ok(rien[1].includes('adresse de facturation complète'));
+  const pro = questionsFacturation(
+    manquesFacturation({
+      facturationType: 'professionnel',
+      facturationNom: 'SARL X',
+      facturationAdresse: '1 rue A',
+      facturationCodePostal: '97200',
+      facturationVille: 'Fort-de-France',
+      facturationPays: 'Martinique',
+    }),
+  );
+  assert.deepEqual(pro, ['Quel est le numéro SIRET de votre société ?']);
+  const complet = questionsFacturation(
+    manquesFacturation({
+      facturationType: 'particulier',
+      facturationNom: 'Marie',
+      facturationAdresse: '1 rue A',
+      facturationCodePostal: '97200',
+      facturationVille: 'Fort-de-France',
+      facturationPays: 'Martinique',
+    }),
+  );
+  assert.deepEqual(complet, []);
+});
+
+test('message de demande d’informations', () => {
+  const m = messageDemandeInfos({ clientNom: 'Marie Dupont', reference: 'HGWF-2026-1234' }, ['Quelle ville ?', 'Quelle date ?']);
+  assert.ok(m.startsWith('Bonjour Marie,'));
+  assert.ok(m.includes('HGWF-2026-1234'));
+  assert.ok(m.includes('- Quelle ville ?\n- Quelle date ?'));
+  assert.ok(messageDemandeInfos({ reference: 'R' }, ['Q']).startsWith('Bonjour,'));
 });

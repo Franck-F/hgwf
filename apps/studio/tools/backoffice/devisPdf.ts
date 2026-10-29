@@ -314,6 +314,15 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
     }
   }
 
+  // Description complète (la règle depuis le 29/10/2026 : objet, compris, non
+  // compris, documents, conditions) plus longue que sa place : un extrait ici,
+  // signalé dans le libellé, et le texte entier en page 2.
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  const descriptionComplete = tronquer(d.descriptionPrestation?.trim() ?? '', 6000);
+  const suite = rPrestation !== null && couper(descriptionComplete, LARGEUR_VALEUR).length > rPrestation.n;
+  if (suite && rPrestation) rPrestation.libelle = 'Prestation (détail p. 2)';
+
   // ── Détail de la demande ──
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
@@ -415,18 +424,43 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
   doc.setTextColor(...ENCRE);
   doc.text('Date et signature du client :', xBon + 4, y + 12);
 
-  // ── Pied de page ──
-  doc.setDrawColor(...MARINE);
-  doc.setLineWidth(0.2);
-  doc.line(M, 282, W - M, 282);
-  doc.setFontSize(7);
-  doc.setTextColor(...ENCRE);
-  doc.text(
-    'HGWF CARGO · AVENUE FAIDHERBE, 93110 ROSNY-SOUS-BOIS · 940 048 051 R.C.S. BOBIGNY · TVA FR18940048051 · www.hgwf-cargo.fr',
-    W / 2,
-    287,
-    { align: 'center' },
-  );
+  // ── Pied de page (identique sur chaque page) ──
+  const piedDePage = () => {
+    doc.setDrawColor(...MARINE);
+    doc.setLineWidth(0.2);
+    doc.line(M, 282, W - M, 282);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...ENCRE);
+    doc.text(
+      'HGWF CARGO · AVENUE FAIDHERBE, 93110 ROSNY-SOUS-BOIS · 940 048 051 R.C.S. BOBIGNY · TVA FR18940048051 · www.hgwf-cargo.fr',
+      W / 2,
+      287,
+      { align: 'center' },
+    );
+  };
+  piedDePage();
+
+  // ── Page 2 : description complète de la prestation ──
+  if (suite) {
+    doc.addPage();
+    doc.setFillColor(...MARINE);
+    doc.rect(0, 0, W, 16, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...CREME);
+    doc.text(assainir(`DEVIS ${d.reference} · DÉTAIL DE LA PRESTATION · PAGE 2/2`), M, 10, { charSpace: 0.8 });
+    doc.setCharSpace(0);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(...MARINE);
+    const HAUT_PAGE2 = 28;
+    const PAS_PAGE2 = 4.6;
+    couper(descriptionComplete, LARGE, Math.floor((LIMITE - HAUT_PAGE2) / PAS_PAGE2)).forEach((ligne, i) =>
+      doc.text(ligne, M, HAUT_PAGE2 + i * PAS_PAGE2),
+    );
+    piedDePage();
+  }
 
   return doc;
 }

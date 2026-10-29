@@ -28,9 +28,10 @@ import {
   TAUX_TVA,
   type Facturation,
 } from './chiffrage';
-import { ficheDe, PROJECTION_FICHE, remplirModele, type FicheService } from './fiches';
+import { ficheDe, messageDemandeInfos, PROJECTION_FICHE, questionsFacturation, remplirModele, type FicheService } from './fiches';
 import {
   BoutonProposer,
+  CarteInfosClient,
   CarteSuggestion,
   EnteteChamp,
   PanneauFiche,
@@ -478,7 +479,6 @@ function templateReponse(d: Demande, fiche?: FicheService | null): string {
 
   const proposition = [
     'Notre proposition :',
-    d.descriptionPrestation ? `- Prestation : ${d.descriptionPrestation}` : null,
     `- Montant : ${libelleMontant(d) ?? '[montant à compléter]'}, valable trente jours`,
     d.delaiEstime ? `- Délai estimé : ${d.delaiEstime}` : null,
   ].filter(Boolean) as string[];
@@ -493,6 +493,8 @@ function templateReponse(d: Demande, fiche?: FicheService | null): string {
     '',
     ...proposition,
     '',
+    // Description complète (plusieurs lignes) : son propre bloc, pas une puce.
+    ...(d.descriptionPrestation?.trim() ? ['Détail de la prestation :', d.descriptionPrestation.trim(), ''] : []),
     // Paragraphe propre au service (fiche), destination remplie.
     ...(fiche?.modeleMessage ? [remplirModele(fiche.modeleMessage, d), ''] : []),
     'Vous trouverez le devis détaillé en pièce jointe. Nous vous communiquerons les prochaines dates de départ dès votre accord.',
@@ -548,6 +550,14 @@ export function BackOffice() {
   const [suggestionEnCours, setSuggestionEnCours] = useState<ChampSuggestion | null>(null);
   const [suggestionErreur, setSuggestionErreur] = useState<string | null>(null);
   const [ficheEnCours, setFicheEnCours] = useState(false);
+  // Questions au client renvoyées avec la proposition de description : elles
+  // restent affichées après « Utiliser », jusqu'à « Fermer ».
+  const [infosClient, setInfosClient] = useState<{ demandeId: string | null; questions: string[] }>({
+    demandeId: null,
+    questions: [],
+  });
+  // Demande dont l'opérateur a fermé l'encadré des informations manquantes.
+  const [infosFermees, setInfosFermees] = useState<string | null>(null);
   // Verrou d'écriture du chiffrage, et l'erreur éventuelle : elle reste
   // affichée jusqu'au prochain essai, puisqu'elle demande une action.
   const [traitementEnCours, setTraitementEnCours] = useState(false);
@@ -702,6 +712,8 @@ export function BackOffice() {
     setDemandeARecharger(null);
     setSuggestions({ demandeId: null, parChamp: {} });
     setSuggestionErreur(null);
+    setInfosClient({ demandeId: null, questions: [] });
+    setInfosFermees(null);
   };
 
   // À chaque changement de demande sélectionnée, resynchronise les champs de
@@ -720,6 +732,15 @@ export function BackOffice() {
   const tauxSaisi = lireTauxSaisi(tauxTVAEdit);
   const chiffrageSaisi = calculerChiffrage(montantSaisi, tauxSaisi);
   const facturationSaisie = facturationDeSaisie(facturationEdit);
+  // Informations à demander au client : celles que la proposition de
+  // description a relevées, plus ce qui manque à la facturation (le bloc du
+  // formulaire est facultatif). Se met à jour pendant la saisie.
+  const questionsClient = sel
+    ? [
+        ...(infosClient.demandeId === selId ? infosClient.questions : []),
+        ...questionsFacturation(manquesFacturation(facturationSaisie)),
+      ]
+    : [];
   const proSaisi = facturationEdit.facturationType === 'professionnel';
   // Le SIRET n'est contrôlé que s'il sera enregistré, donc pour un professionnel.
   // Avertissement seulement, comme dans le Studio : un numéro incomplet ne sert
@@ -1318,6 +1339,10 @@ export function BackOffice() {
         return;
       }
       const recue = data.suggestion;
+      if (champ === 'descriptionPrestation') {
+        setInfosClient({ demandeId, questions: recue.infosClient ?? [] });
+        setInfosFermees(null);
+      }
       setSuggestions((prev) => ({
         demandeId,
         parChamp: { ...(prev.demandeId === demandeId ? prev.parChamp : {}), [champ]: recue },
@@ -2214,6 +2239,30 @@ export function BackOffice() {
                             onIgnorer={() => ignorerSuggestion('descriptionPrestation')}
                           />
                         )}
+                        {questionsClient.length > 0 &&
+                          infosFermees !== selId &&
+                          (() => {
+                            const message = messageDemandeInfos(sel, questionsClient);
+                            const email = emailDe(sel);
+                            const tel = telDe(sel);
+                            return (
+                              <CarteInfosClient
+                                questions={questionsClient}
+                                message={message}
+                                lienEmail={
+                                  email
+                                    ? `mailto:${email}?subject=${encodeURIComponent(`Votre demande de devis HGWF Cargo · ${sel.reference}`)}&body=${encodeURIComponent(message)}`
+                                    : null
+                                }
+                                lienWhatsApp={
+                                  tel
+                                    ? `https://wa.me/${tel.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(message)}`
+                                    : null
+                                }
+                                onFermer={() => setInfosFermees(selId)}
+                              />
+                            );
+                          })()}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           <EnteteChamp
                             htmlFor="bo-notes"

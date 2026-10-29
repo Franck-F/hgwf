@@ -142,6 +142,35 @@ const ERREUR_CONTACT_EN =
   'Please provide at least one way to contact you (email or phone) to receive your quote.';
 const ERREUR_NOM_FR = 'Indiquez votre nom : l’équipe saura à qui répondre.';
 const ERREUR_NOM_EN = 'Please enter your name so the team knows who to reply to.';
+// Bloc facturation, facultatif (décision du 29/10/2026) : ce qui est donné ici
+// remplit d'avance la facturation dans le back-office ; ce qui manque sera
+// demandé plus tard.
+const FACTURATION_FR: DevisWizardContent['facturation'] = {
+  titre: 'Facturation',
+  intro:
+    'Pour un devis et une facture à votre nom ou à celui de votre société. Vous pouvez aussi nous transmettre ces informations plus tard.',
+  types: { particulier: 'Particulier', professionnel: 'Professionnel' },
+  raisonSociale: 'Raison sociale',
+  siret: 'SIRET',
+  adresse: 'Adresse',
+  codePostal: 'Code postal',
+  ville: 'Ville',
+  pays: 'Pays',
+  exemplePays: 'France',
+};
+const FACTURATION_EN: DevisWizardContent['facturation'] = {
+  titre: 'Billing',
+  intro:
+    'For a quote and an invoice in your name or your company’s. You can also send us these details later.',
+  types: { particulier: 'Individual', professionnel: 'Business' },
+  raisonSociale: 'Company name',
+  siret: 'SIRET (French company number)',
+  adresse: 'Address',
+  codePostal: 'Postcode',
+  ville: 'City',
+  pays: 'Country',
+  exemplePays: 'France',
+};
 
 // ── Étape volume, mode simple : estimation par presets. Ces textes ne sont pas
 // dans le CMS (comme legendeDims ou les préférences) : traduits ici, par locale.
@@ -398,6 +427,7 @@ async function getContenu(locale: Locale) {
     dimsAria: locale === 'en' ? DIMS_ARIA_EN : DIMS_ARIA_FR,
     erreurNom: locale === 'en' ? ERREUR_NOM_EN : ERREUR_NOM_FR,
     erreurContact: locale === 'en' ? ERREUR_CONTACT_EN : ERREUR_CONTACT_FR,
+    facturation: locale === 'en' ? FACTURATION_EN : FACTURATION_FR,
   };
 
   const reassurance = data?.reassurance?.length

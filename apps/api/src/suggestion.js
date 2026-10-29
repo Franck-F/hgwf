@@ -82,8 +82,18 @@ const REGLES_COMMUNES = [
 ].join('\n');
 
 const CONSIGNES = {
-  descriptionPrestation:
-    'Rédige la « Description de la prestation » qui figurera sur le devis remis au client : 2 à 4 phrases, concrètes, adaptées à cette demande (nature des biens, volume, trajet), en t’inspirant du modèle de description de la fiche. Aucun prix. Pas de formule de politesse.',
+  descriptionPrestation: [
+    'Rédige la « Description de la prestation » COMPLÈTE qui figurera sur le devis remis au client. Texte brut, lignes courtes, dans cet ordre :',
+    '1) Une phrase d’objet : le service, le mode et le trajet (port ou lieu de départ → destination), en t’inspirant du modèle de description de la fiche.',
+    '2) « Marchandise : » nature des biens et volume ou quantité déclarés (colis et dimensions s’ils sont donnés).',
+    '3) « Comprend : » ce que la fiche indique comme compris ; l’enlèvement à domicile ou le dépôt à Rosny-sous-Bois seulement si la demande le mentionne.',
+    '4) « Ne comprend pas : » d’après la fiche.',
+    '5) « Documents à fournir : » d’après la fiche.',
+    '6) « Conditions : » la base du prix (volume ou quantité déclarés, révision en cas d’écart constaté) et le délai indicatif de la fiche pour cette destination.',
+    'Aucun prix, aucun montant. N’invente rien : une information absente de la demande s’écrit « à confirmer » (ex. « Port de départ : à confirmer, Le Havre ou Fos/Marseille ») et devient une question dans « infosClient ».',
+    '« infosClient » : les questions à poser au client pour établir un devis exact, tirées des « Informations à obtenir » de la fiche et de ce que la description laisse « à confirmer », UNIQUEMENT pour ce que la demande ne renseigne pas déjà. Une question par élément, au vouvoiement, courte, 6 au maximum. Liste vide si la demande est complète.',
+    '« manques » : ce qui manque côté équipe (prix, fiche incomplète), jamais adressé au client.',
+  ].join('\n'),
   delaiEstime:
     'Propose le « Délai estimé » à afficher sur le devis : une courte expression (ex. « 3 à 5 semaines après le départ du Havre »), tirée des délais de la fiche pour la destination demandée, et des prochaines rotations si elles sont fournies. Si la destination n’a pas de délai dans la fiche, texte vide et manque explicite.',
   notes:
@@ -99,6 +109,17 @@ const SCHEMA_TEXTE = {
     manques: { type: 'ARRAY', items: { type: 'STRING' } },
   },
   required: ['texte', 'manques'],
+};
+
+// La description renvoie en plus les questions à poser au client.
+const SCHEMA_DESCRIPTION = {
+  type: 'OBJECT',
+  properties: {
+    texte: { type: 'STRING' },
+    infosClient: { type: 'ARRAY', items: { type: 'STRING' } },
+    manques: { type: 'ARRAY', items: { type: 'STRING' } },
+  },
+  required: ['texte', 'infosClient', 'manques'],
 };
 
 const SCHEMA_MONTANT = {
@@ -135,7 +156,8 @@ export function construireRequete({ champ, demande, fiche, rotations = [] }) {
     generationConfig: {
       temperature: 0.3,
       responseMimeType: 'application/json',
-      responseSchema: champ === 'montant' ? SCHEMA_MONTANT : SCHEMA_TEXTE,
+      responseSchema:
+        champ === 'montant' ? SCHEMA_MONTANT : champ === 'descriptionPrestation' ? SCHEMA_DESCRIPTION : SCHEMA_TEXTE,
       // Réflexion courte : la tâche est cadrée, et l'opérateur attend devant l'écran.
       thinkingConfig: { thinkingLevel: 'low' },
     },
@@ -144,9 +166,16 @@ export function construireRequete({ champ, demande, fiche, rotations = [] }) {
 
 // Normalise la réponse du modèle : jamais de valeur hors bornes vers le back-office.
 export function validerSuggestion(champ, brut) {
-  const manques = Array.isArray(brut?.manques)
-    ? brut.manques.map((m) => String(m).trim()).filter(Boolean).slice(0, 10)
-    : [];
+  const listeBornee = (v, max) =>
+    Array.isArray(v) ? v.map((m) => String(m).trim()).filter(Boolean).slice(0, max) : [];
+  const manques = listeBornee(brut?.manques, 10);
+  if (champ === 'descriptionPrestation') {
+    return {
+      texte: String(brut?.texte ?? '').trim().slice(0, 4_000),
+      infosClient: listeBornee(brut?.infosClient, 8),
+      manques,
+    };
+  }
   if (champ === 'montant') {
     const ht = typeof brut?.montantHT === 'number' && Number.isFinite(brut.montantHT) && brut.montantHT >= 0
       ? Math.round(brut.montantHT * 100) / 100

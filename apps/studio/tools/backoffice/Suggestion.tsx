@@ -23,6 +23,8 @@ export type SuggestionRecue = {
   montantHT?: number | null;
   tauxTVA?: number | null;
   calcul?: string;
+  // Description seulement : questions à poser au client pour un devis exact.
+  infosClient?: string[];
   manques: string[];
 };
 
@@ -142,6 +144,69 @@ export function CarteSuggestion({
         )}
         <button type="button" onClick={onIgnorer} style={petitBouton}>
           Ignorer
+        </button>
+      </span>
+    </div>
+  );
+}
+
+// Ce que la demande ne dit pas : les questions à poser au client, avec un
+// message prêt à partir. Reste affiché après « Utiliser » sur la description,
+// jusqu'à ce que l'opérateur le ferme.
+export function CarteInfosClient({
+  questions,
+  message,
+  lienEmail,
+  lienWhatsApp,
+  onFermer,
+}: {
+  questions: string[];
+  message: string;
+  lienEmail: string | null;
+  lienWhatsApp: string | null;
+  onFermer: () => void;
+}) {
+  const lien = (href: string | null, libelle: string) =>
+    href ? (
+      <a href={href} target="_blank" rel="noreferrer" style={{ ...petitBouton, textDecoration: 'none' }}>
+        {libelle}
+      </a>
+    ) : null;
+  return (
+    <div
+      role="status"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        fontSize: 13,
+        color: MARINE,
+        background: '#FFF4F2',
+        border: `1px dashed ${ROUGE}`,
+        borderRadius: 12,
+        padding: '10px 12px',
+      }}
+    >
+      <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.2em', textTransform: 'uppercase', color: ROUGE }}>
+        Informations manquantes — à demander au client
+      </span>
+      <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {questions.map((q, i) => (
+          <li key={i}>{q}</li>
+        ))}
+      </ul>
+      <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={() => navigator.clipboard.writeText(message)}
+          style={{ ...petitBouton, background: MARINE, color: CREME, border: 'none' }}
+        >
+          Copier le message
+        </button>
+        {lien(lienEmail, 'Préparer l’e-mail')}
+        {lien(lienWhatsApp, 'Préparer le WhatsApp')}
+        <button type="button" onClick={onFermer} style={petitBouton}>
+          Fermer
         </button>
       </span>
     </div>

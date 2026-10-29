@@ -107,7 +107,7 @@ export function gabaritHtml({ titre, paragraphes, lignes = [], paragraphesApres 
         (x) =>
           `<p style="margin:0 0 16px 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:26px;color:${ARDOISE};">${echapper(
             x,
-          )}</p>`,
+          ).replace(/\n/g, '<br>')}</p>`,
       )
       .join('');
   const p = enParagraphes(paragraphes);
