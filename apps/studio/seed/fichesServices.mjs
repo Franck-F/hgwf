@@ -45,12 +45,17 @@ export const FICHES = [
     resume:
       'Plusieurs clients partagent un même conteneur : le client ne paie que le volume occupé, au mètre cube. Pour les particuliers et les PME (cartons, palettes, effets personnels).',
     methodeTarif:
-      'Au mètre cube (m³). Volume = somme des colis, longueur × largeur × hauteur, mesurés au point le plus large (cartons bombés et palettes compris). Prix selon la destination. Un écart de volume constaté au chargement entraîne la révision du prix.',
+      'Au mètre cube (m³). Volume = somme des colis, longueur × largeur × hauteur, mesurés au point le plus large (cartons bombés et palettes compris). Un écart de volume constaté au chargement entraîne la révision du prix.',
+    // 400 €/m³ : tarif annoncé par Franck le 29/10/2026 (scripts/tarif-groupage.cjs
+    // l'a posé dans Sanity). Ligne générale tant qu'on ignore s'il varie selon
+    // la destination.
     grille: [
-      { designation: 'Fret groupage — Antilles et Guyane', unite: 'm³', note: 'départ Le Havre ou Fos/Marseille' },
-      { designation: 'Fret groupage — Haïti / République Dominicaine', unite: 'm³' },
-      { designation: 'Fret groupage — Amériques (États-Unis, Canada, Amérique du Sud)', unite: 'm³', note: 'selon rotation' },
-      { designation: 'Fret groupage — Afrique francophone', unite: 'm³', note: 'selon la destination' },
+      {
+        designation: 'Fret groupage maritime',
+        unite: 'm³',
+        prixHT: 400,
+        note: 'tarif général annoncé le 29/10/2026 ; préciser s’il varie selon la destination',
+      },
     ],
     fraisAnnexes: [
       { designation: 'Enlèvement à domicile', unite: 'envoi', note: 'France métropolitaine, sur demande' },
@@ -80,7 +85,7 @@ export const FICHES = [
     modeleNote:
       '- Volume et nombre de colis confirmés\n- Inventaire et valeur reçus\n- Enlèvement, ou dépôt à Rosny-sous-Bois sur rendez-vous, convenu\n- Prochaine clôture vérifiée (rotations)\n- Assurance proposée',
     aCompleter: [
-      'Prix au m³ par destination',
+      'Le tarif de 400 €/m³ varie-t-il selon la destination (Antilles, Haïti, Amériques, Afrique) ?',
       'Minimum facturable',
       'Règle poids / volume éventuelle',
       'Supplément palette',

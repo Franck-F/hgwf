@@ -58,10 +58,16 @@ test('modèles : destination remplie, repli lisible', () => {
   assert.equal(remplirModele(undefined, {}), '');
 });
 
-test('fiches de départ : aucun prix inventé, chaque grille a ses lignes', () => {
+// Seuls les prix donnés par l'équipe figurent dans les fiches de départ ; tout
+// autre prix serait inventé. À mettre à jour à chaque tarif communiqué.
+const PRIX_SOURCES = { 'fiche-groupage': [400] }; // 29/10/2026, Franck : 400 €/m³
+
+test('fiches de départ : aucun prix sans source, chaque grille a ses lignes', () => {
   for (const f of FICHES) {
     assert.ok((f.grille ?? []).length > 0, f._id);
-    assert.equal(prixManquants(f), f.grille.length, `${f._id} : un prix de départ n'a pas de source`);
+    const prix = f.grille.filter((l) => typeof l.prixHT === 'number').map((l) => l.prixHT);
+    assert.deepEqual(prix, PRIX_SOURCES[f._id] ?? [], `${f._id} : prix sans source`);
+    assert.equal(prixManquants(f), f.grille.length - prix.length, f._id);
     assert.ok(Array.isArray(f.aCompleter) && f.aCompleter.length > 0, f._id);
   }
 });
