@@ -81,11 +81,16 @@ export async function envoyerEmail({ to, subject, text, html, replyTo, attachmen
 // ── Gabarit ───────────────────────────────────────────────────────────────────
 // Version compacte du gabarit de la charte : tableaux imbriqués et styles en
 // ligne, parce qu'Outlook sur Windows rend le HTML avec le moteur de Word —
-// ni flexbox, ni grid, ni feuille de style externe.
-const MARINE = '#063565';
+// ni flexbox, ni grid, ni feuille de style externe. Les puces sont donc des
+// cellules de tableau (les <ul> y ont un retrait imprévisible), et le filet de
+// l'encadré est un border-left de cellule, seul rendu fiable partout.
+const MARINE = '#063565'; // PMS 289 C, la couleur du site
+const CORAIL = '#fd7f5a'; // PMS 170 C
+const OR = '#fdb53d';
 const IVOIRE = '#fcf7ed';
 const CREME = '#fbf4e6';
 const ARDOISE = '#45566a';
+const POLICE = "'Helvetica Neue',Helvetica,Arial,sans-serif";
 
 const echapper = (s) =>
   String(s ?? '')
@@ -94,21 +99,90 @@ const echapper = (s) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
+// Le numéro de téléphone ne doit pas se couper en fin de ligne : espaces
+// insécables (ni tel: ni mise en page ne le garantissent autrement).
+const securiser = (s) => echapper(s).replace(/09 62 03 80 13/g, '09 62 03 80 13');
+
+const EST_PUCE = (l) => /^\s*[-•]\s+\S/.test(l);
+// Un « Libellé : » court devient un intertitre ; une phrase d'introduction
+// qui finit aussi par « : » reste du texte courant, sinon elle serait mise en
+// gras sur trois lignes.
+const EST_INTERTITRE = (l) => /\S ?:\s*$/.test(l) && !EST_PUCE(l) && l.trim().length <= 50;
+
+/**
+ * Découpe un bloc en séquences : intertitre, texte (lignes conservées) ou liste.
+ * Tout est échappé ici, une seule fois : rien du texte n'atteint le HTML brut.
+ */
+function sequencesDe(bloc) {
+  const seqs = [];
+  for (const brute of bloc.split('\n')) {
+    const l = brute.replace(/\s+$/, '');
+    if (!l.trim()) continue;
+    const dernier = seqs[seqs.length - 1];
+    if (EST_PUCE(l)) {
+      const item = l.replace(/^\s*[-•]\s+/, '');
+      if (dernier?.type === 'liste') dernier.items.push(item);
+      else seqs.push({ type: 'liste', items: [item] });
+    } else if (EST_INTERTITRE(l)) {
+      seqs.push({ type: 'intertitre', texte: l.trim() });
+    } else if (dernier?.type === 'texte') {
+      dernier.lignes.push(l.trim());
+    } else {
+      seqs.push({ type: 'texte', lignes: [l.trim()] });
+    }
+  }
+  return seqs;
+}
+
+function rendreListe(items, encadre) {
+  const lignes = items
+    .map(
+      (it) =>
+        `<tr><td width="22" valign="top" style="width:22px;padding:0 0 8px 0;font-family:${POLICE};font-size:18px;line-height:26px;font-weight:700;color:${CORAIL};">&bull;</td><td valign="top" style="padding:0 0 8px 0;font-family:${POLICE};font-size:16px;line-height:26px;color:${ARDOISE};">${securiser(
+          it,
+        )}</td></tr>`,
+    )
+    .join('');
+  const liste = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${lignes}</table>`;
+  if (!encadre) {
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px 0;"><tr><td style="padding:0 0 0 4px;">${liste}</td></tr></table>`;
+  }
+  // Fond crème et filet corail à gauche : la liste des questions doit sauter
+  // aux yeux, c'est ce que le client doit traiter.
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 20px 0;"><tr><td style="background-color:${CREME};border-left:4px solid ${CORAIL};padding:16px 20px 8px 18px;">${liste}</td></tr></table>`;
+}
+
+function rendreBloc(bloc, encadre) {
+  return sequencesDe(bloc)
+    .map((s) => {
+      if (s.type === 'intertitre') {
+        return `<p style="margin:0 0 8px 0;font-family:${POLICE};font-size:16px;line-height:24px;font-weight:700;color:${MARINE};">${echapper(
+          s.texte,
+        )}</p>`;
+      }
+      if (s.type === 'liste') return rendreListe(s.items, encadre);
+      return `<p style="margin:0 0 16px 0;font-family:${POLICE};font-size:16px;line-height:26px;color:${ARDOISE};">${s.lignes
+        .map(securiser)
+        .join('<br>')}</p>`;
+    })
+    .join('');
+}
+
 /**
  * `paragraphesApres` : texte placé après le récapitulatif (le devis met ses
  * montants au milieu du message, pas sous la signature).
- * @param {{titre: string, paragraphes: string[], lignes?: Array<[string, string]>, paragraphesApres?: string[]}} contenu
+ *
+ * Mise en forme du texte, par bloc (les `\n` sont conservés) :
+ *   - lignes commençant par « - » : vraie liste à puces ;
+ *   - ligne courte finissant par « : » : intertitre en gras marine ;
+ *   - `encadre: true` : les listes sont mises en valeur (fond crème, filet corail).
+ * @param {{titre: string, paragraphes: string[], lignes?: Array<[string, string]>, paragraphesApres?: string[], encadre?: boolean}} contenu
  */
-export function gabaritHtml({ titre, paragraphes, lignes = [], paragraphesApres = [] }) {
+export function gabaritHtml({ titre, paragraphes, lignes = [], paragraphesApres = [], encadre = false }) {
   const enParagraphes = (liste) =>
     liste
       .filter(Boolean)
-      .map(
-        (x) =>
-          `<p style="margin:0 0 16px 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:26px;color:${ARDOISE};">${echapper(
-            x,
-          ).replace(/\n/g, '<br>')}</p>`,
-      )
+      .map((x) => rendreBloc(String(x), encadre))
       .join('');
   const p = enParagraphes(paragraphes);
   const pApres = enParagraphes(paragraphesApres);
@@ -117,9 +191,9 @@ export function gabaritHtml({ titre, paragraphes, lignes = [], paragraphesApres 
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${CREME};border-radius:6px;margin:0 0 16px 0;"><tr><td style="padding:18px 22px;">${lignes
         .map(
           ([libelle, valeur]) =>
-            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:0 0 6px 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;color:${ARDOISE};">${echapper(
+            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:0 0 6px 0;font-family:${POLICE};font-size:15px;color:${ARDOISE};">${echapper(
               libelle,
-            )}</td><td align="right" style="padding:0 0 6px 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:${MARINE};">${echapper(
+            )}</td><td align="right" style="padding:0 0 6px 0;font-family:${POLICE};font-size:15px;font-weight:700;color:${MARINE};">${echapper(
               valeur,
             )}</td></tr></table>`,
         )
@@ -134,15 +208,16 @@ export function gabaritHtml({ titre, paragraphes, lignes = [], paragraphesApres 
 <tr><td style="padding:24px 32px;background-color:${MARINE};border-radius:8px 8px 0 0;">
 <img src="https://hgwf-cargo.fr/logos/hgwf-monochrome-blanc.png" width="150" height="47" alt="HGWF Cargo" style="display:block;width:150px;height:auto;">
 </td></tr>
-<tr><td style="padding:30px 32px 8px 32px;">
-<h1 style="margin:0 0 16px 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:23px;line-height:31px;font-weight:700;color:${MARINE};">${echapper(
+<tr><td style="height:4px;line-height:4px;font-size:0;background-color:${CORAIL};">&nbsp;</td></tr>
+<tr><td style="padding:30px 32px 12px 32px;">
+<h1 style="margin:0 0 20px 0;font-family:${POLICE};font-size:24px;line-height:32px;font-weight:700;color:${MARINE};">${echapper(
     titre,
   )}</h1>
 ${p}${recap}${pApres}
 </td></tr>
-<tr><td style="padding:20px 32px;background-color:${MARINE};border-radius:0 0 8px 8px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:22px;color:#cfe0ef;">
+<tr><td style="padding:20px 32px;background-color:${MARINE};border-radius:0 0 8px 8px;font-family:${POLICE};font-size:14px;line-height:22px;color:#cfe0ef;">
 <strong style="color:#ffffff;">HGWF Cargo</strong><br>Commissionnaire de transport international · Rosny-sous-Bois<br>
-<a href="tel:+33962038013" style="color:#ffffff;text-decoration:none;">09 62 03 80 13</a> ·
+<a href="tel:+33962038013" style="color:${OR};font-size:16px;font-weight:700;text-decoration:none;">09 62 03 80 13</a> ·
 <a href="https://hgwf-cargo.fr" style="color:#ffffff;text-decoration:none;">hgwf-cargo.fr</a>
 </td></tr></table></td></tr></table></body></html>`;
 }

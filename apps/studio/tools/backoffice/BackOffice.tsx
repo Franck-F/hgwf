@@ -28,7 +28,7 @@ import {
   TAUX_TVA,
   type Facturation,
 } from './chiffrage';
-import { ficheDe, messageDemandeInfos, PROJECTION_FICHE, questionsFacturation, remplirModele, type FicheService } from './fiches';
+import { ficheDe, messageDemandeComplement, messageDemandeInfos, PROJECTION_FICHE, questionsFacturation, remplirModele, type FicheService } from './fiches';
 import {
   BoutonProposer,
   CarteInfosClient,
@@ -90,6 +90,8 @@ type Demande = Facturation & {
   accuseReceptionLe?: string;
   devisEnvoyeA?: string;
   relanceEnvoyeeLe?: string;
+  complementDemandeLe?: string;
+  complementDemandeA?: string;
 };
 type Expedition = {
   _id: string;
@@ -452,7 +454,7 @@ const memeValeur = (a: unknown, b: unknown) => (a ?? '') === (b ?? '');
 const estConflit = (e: unknown) => (e as { statusCode?: number } | null)?.statusCode === 409;
 
 // Projection d'une demande, partagée par le chargement et les relectures.
-const PROJECTION_DEMANDE = `{_id, _rev, _createdAt, _updatedAt, reference, clientNom, email, telephone, preferenceContact, contact, typeEnvoi, ficheService, destination, volume, recueLe, statut, message, montantHT, tauxTVA, montantDevis, descriptionPrestation, delaiEstime, devisEnvoyeLe, notes, expeditionRef, accuseReceptionLe, devisEnvoyeA, relanceEnvoyeeLe, ${CHAMPS_FACTURATION.join(', ')}}`;
+const PROJECTION_DEMANDE = `{_id, _rev, _createdAt, _updatedAt, reference, clientNom, email, telephone, preferenceContact, contact, typeEnvoi, ficheService, destination, volume, recueLe, statut, message, montantHT, tauxTVA, montantDevis, descriptionPrestation, delaiEstime, devisEnvoyeLe, notes, expeditionRef, accuseReceptionLe, devisEnvoyeA, relanceEnvoyeeLe, complementDemandeLe, complementDemandeA, ${CHAMPS_FACTURATION.join(', ')}}`;
 
 // ── Modèles de réponse ────────────────────────────────────────────────────────
 // L'API du site range les détails structurés dans le message de la demande
@@ -633,7 +635,10 @@ export function BackOffice() {
   } | null>(null);
 
   // Fenêtre de relecture avant envoi. `null` = fermée.
+  // `mode` : le devis chiffré (PDF joint, statut « Devis envoyé ») ou la demande
+  // de compléments (devis provisoire joint, statut « En cours »).
   const [apercu, setApercu] = useState<{
+    mode: 'devis' | 'complement';
     demande: Demande;
     destinataire: string;
     objet: string;
@@ -870,6 +875,19 @@ export function BackOffice() {
           : !aUnMontant(selPourEnvoi)
             ? 'Renseignez le montant HT et le taux de TVA ci-dessus : ils s’insèrent automatiquement dans le message et le PDF.'
             : null;
+
+  // Demande de compléments : pas de montant à vérifier (c'est justement le
+  // cas d'usage), mais les mêmes garde-fous sur la saisie : l'e-mail et le
+  // devis provisoire reprennent ce qui est enregistré.
+  const raisonComplementBloque = montantIllisible
+    ? 'Montant HT illisible : corrigez-le avant d’envoyer.'
+    : messageIncomplet
+      ? messageIncomplet
+      : devisAZero
+        ? 'Un devis à 0 € n’est pas un devis provisoire : videz le montant HT ou corrigez-le.'
+        : traitementModifie
+          ? 'Enregistrez d’abord : l’e-mail et le devis provisoire reprennent les valeurs enregistrées.'
+          : null;
 
   const kpiNouvelles = demandes.filter((d) => (d.statut ?? 0) === 0).length;
   const kpiRetard = demandes.filter(enRetard).length;
@@ -1273,6 +1291,7 @@ export function BackOffice() {
         return;
       }
       setApercu({
+        mode: 'devis',
         demande: d,
         destinataire: data.destinataire ?? '',
         objet: data.objet ?? '',
@@ -1280,6 +1299,29 @@ export function BackOffice() {
       });
     } catch (e) {
       setEnvoiMessage(`Aperçu impossible : ${e instanceof Error ? e.message : 'erreur inattendue'}`);
+    } finally {
+      setEnvoiEnCours(false);
+    }
+  };
+
+  // Demande de compléments : le modèle est rédigé ici, côté back-office (il
+  // dépend des questions relevées sur la demande) ; l'opérateur l'adapte dans
+  // la fenêtre de relecture, puis l'API l'envoie après avoir relu la demande.
+  const ouvrirApercuComplement = async (d: Demande) => {
+    if (envoiEnCours) return;
+    const destinataire = emailDe(d);
+    if (!destinataire) return;
+    setEnvoiMessage(null);
+    setEnvoiEnCours(true);
+    try {
+      if (await demandePerimee(d)) {
+        signalerDemandePerimee(d);
+        return;
+      }
+      const modele = messageDemandeComplement(d, questionsClient, ficheDe(d, fiches).fiche);
+      setApercu({ mode: 'complement', demande: d, destinataire, objet: modele.objet, texte: modele.texte });
+    } catch (e) {
+      setEnvoiMessage(`Préparation impossible : ${e instanceof Error ? e.message : 'erreur inattendue'}`);
     } finally {
       setEnvoiEnCours(false);
     }
@@ -1453,6 +1495,53 @@ export function BackOffice() {
       const aJour = (await rechargerDemande(d._id).catch(() => null)) ?? d;
       // L'envoi réussi fait avancer la demande : c'est le geste métier attendu.
       if (clampDemande(aJour.statut) < 2) await changerStatut(aJour, 2);
+    } catch (e) {
+      setEnvoiMessage(`Échec de l'envoi : ${e instanceof Error ? e.message : 'erreur inattendue'}`);
+    } finally {
+      setEnvoiEnCours(false);
+    }
+  };
+
+  // Envoi de la demande de compléments, avec le devis provisoire en pièce
+  // jointe. L'API fait passer la demande « Nouvelle » → « En cours » et trace
+  // l'envoi : le statut n'est donc pas touché ici.
+  const envoyerComplementParEmail = async (d: Demande) => {
+    if (envoiEnCours) return;
+    const cle = await obtenirCleApi();
+    if (!cle) return;
+
+    setEnvoiEnCours(true);
+    setEnvoiMessage(null);
+    try {
+      if (await demandePerimee(d)) {
+        setApercu(null);
+        signalerDemandePerimee(d);
+        return;
+      }
+      const doc = await construireDevisPdf(d);
+      const pdfBase64 = (doc.output('datauristring') as string).split(',')[1] ?? '';
+      const rep = await appelerApi('/api/envoi-complement', cle, {
+        reference: d.reference,
+        objet: apercu?.objet,
+        texte: apercu?.texte,
+        pdfBase64,
+      });
+      if (!rep) return;
+      const data = (await rep.json().catch(() => ({}))) as { ok?: boolean; erreur?: string; destinataire?: string };
+      if (rep.status === 401) {
+        localStorage.removeItem('hgwf-cle-api');
+        setEnvoiMessage('Clé refusée. Relancez pour la saisir à nouveau.');
+        return;
+      }
+      if (!rep.ok || !data.ok) {
+        setEnvoiMessage(`Échec de l'envoi : ${data.erreur ?? 'erreur ' + rep.status}`);
+        return;
+      }
+      setEnvoiMessage(`✓ Demande de compléments envoyée à ${data.destinataire}.`);
+      setApercu(null);
+      // Relue pour la traçabilité et la révision ; un échec de relecture
+      // n'annule pas l'envoi réussi.
+      await rechargerDemande(d._id).catch(() => null);
     } catch (e) {
       setEnvoiMessage(`Échec de l'envoi : ${e instanceof Error ? e.message : 'erreur inattendue'}`);
     } finally {
@@ -2259,6 +2348,8 @@ export function BackOffice() {
                                     ? `https://wa.me/${tel.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(message)}`
                                     : null
                                 }
+                                onPreparerEmail={emailDe(sel) ? () => ouvrirApercuComplement(sel) : null}
+                                raisonEmailBloque={envoiEnCours ? 'Envoi en cours…' : raisonComplementBloque}
                                 onFermer={() => setInfosFermees(selId)}
                               />
                             );
@@ -2483,6 +2574,32 @@ export function BackOffice() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <span style={eyebrow}>Répondre au client</span>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {/* Sans montant, on ne peut pas chiffrer : on demande
+                              ce qui manque, avec un devis provisoire en pièce
+                              jointe. « Envoyer le devis » reste pour les devis
+                              chiffrés. */}
+                          {emailDe(sel) && selPourEnvoi && !aUnMontant(selPourEnvoi) && (
+                            <button
+                              onClick={() => ouvrirApercuComplement(sel)}
+                              disabled={envoiEnCours || raisonComplementBloque !== null}
+                              title={
+                                raisonComplementBloque ??
+                                `Prépare un e-mail de demande d'informations à ${emailDe(sel)}, avec le devis provisoire (sans montant) en pièce jointe`
+                              }
+                              style={{
+                                ...boutonPlein,
+                                fontSize: 13,
+                                padding: '8px 16px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                opacity: envoiEnCours || raisonComplementBloque !== null ? 0.45 : 1,
+                                cursor: raisonComplementBloque === null ? 'pointer' : 'not-allowed',
+                              }}
+                            >
+                              {envoiEnCours ? '⏳ Préparation…' : '✉ Demander des compléments'}
+                            </button>
+                          )}
                           {emailDe(sel) && selPourEnvoi && (
                             <button
                               onClick={() => ouvrirApercuDevis(selPourEnvoi)}
@@ -2542,7 +2659,12 @@ export function BackOffice() {
                               padding: '8px 16px',
                               ...(raisonModelesBloques ? { opacity: 0.45, cursor: 'not-allowed' } : {}),
                             }}
-                            title={raisonModelesBloques ?? 'Télécharger le devis PDF pré-rempli, à joindre au message'}
+                            title={
+                              raisonModelesBloques ??
+                              (selPourEnvoi && !aUnMontant(selPourEnvoi)
+                                ? 'Télécharger le devis provisoire, sans montant'
+                                : 'Télécharger le devis PDF pré-rempli, à joindre au message')
+                            }
                           >
                             <IconeExport />
                             Devis PDF
@@ -2620,6 +2742,17 @@ export function BackOffice() {
                             )}
                           </span>
                           <span>
+                            Compléments demandés :{' '}
+                            {sel.complementDemandeLe ? (
+                              <strong style={{ color: MARINE }}>
+                                envoyés le {sel.complementDemandeLe}
+                                {sel.complementDemandeA ? ` à ${sel.complementDemandeA}` : ''}
+                              </strong>
+                            ) : (
+                              'aucune'
+                            )}
+                          </span>
+                          <span>
                             Relance automatique :{' '}
                             {sel.relanceEnvoyeeLe ? (
                               <strong style={{ color: MARINE }}>envoyée le {sel.relanceEnvoyeeLe}</strong>
@@ -2649,8 +2782,10 @@ export function BackOffice() {
                         )}
                         <span style={{ fontSize: 11, color: ENCRE }}>
                           « Envoyer le devis » part directement depuis contact@hgwf-cargo.fr, avec le PDF en pièce
-                          jointe, et fait passer la demande à « Devis envoyé ».
-                          {raisonEnvoiBloque ? ` ${raisonEnvoiBloque}` : null}
+                          jointe, et fait passer la demande à « Devis envoyé ». Sans montant, « Demander des
+                          compléments » joint un devis provisoire et fait passer la demande à « En cours ».
+                          {raisonEnvoiBloque && aUnMontant(selPourEnvoi) ? ` ${raisonEnvoiBloque}` : null}
+                          {raisonComplementBloque && selPourEnvoi && !aUnMontant(selPourEnvoi) ? ` ${raisonComplementBloque}` : null}
                         </span>
                       </div>
 
@@ -3663,7 +3798,9 @@ export function BackOffice() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-                    <span style={{ fontWeight: 700, fontSize: 17, color: MARINE }}>Relire avant envoi</span>
+                    <span style={{ fontWeight: 700, fontSize: 17, color: MARINE }}>
+                      {apercu.mode === 'complement' ? 'Demande de compléments' : 'Relire avant envoi'}
+                    </span>
                     <span style={{ fontFamily: MONO, fontSize: 12, color: ENCRE }}>{apercu.demande.reference}</span>
                   </div>
 
@@ -3675,7 +3812,10 @@ export function BackOffice() {
                       <strong style={{ color: MARINE }}>À :</strong> {apercu.destinataire}
                     </div>
                     <div>
-                      <strong style={{ color: MARINE }}>Pièce jointe :</strong> Devis-{apercu.demande.reference}.pdf
+                      <strong style={{ color: MARINE }}>Pièce jointe :</strong>{' '}
+                      {apercu.mode === 'complement'
+                        ? `Devis-provisoire-${apercu.demande.reference}.pdf`
+                        : `Devis-${apercu.demande.reference}.pdf`}
                     </div>
                   </div>
 
@@ -3699,8 +3839,10 @@ export function BackOffice() {
                   </label>
 
                   <span style={{ fontSize: 11, color: ENCRE }}>
-                    Les lignes vides séparent les paragraphes de la version mise en forme. Le devis PDF est joint
-                    automatiquement, et la demande passera à « Devis envoyé ».
+                    Les lignes vides séparent les paragraphes de la version mise en forme.
+                    {apercu.mode === 'complement'
+                      ? ' Les lignes commençant par « - » deviennent la liste des questions, mise en valeur. Le devis provisoire (sans montant) est joint automatiquement, et la demande passera à « En cours » si elle était nouvelle.'
+                      : ' Le devis PDF est joint automatiquement, et la demande passera à « Devis envoyé ».'}
                   </span>
 
                   {envoiMessage && (
@@ -3720,10 +3862,16 @@ export function BackOffice() {
                     <button
                       onClick={() =>
                         setConfirmation({
-                          titre: 'Envoyer le devis maintenant ?',
-                          texte: `Le message et le PDF partiront à ${apercu.destinataire}. Un e-mail envoyé ne se rattrape pas.`,
+                          titre: apercu.mode === 'complement' ? 'Envoyer la demande de compléments maintenant ?' : 'Envoyer le devis maintenant ?',
+                          texte:
+                            apercu.mode === 'complement'
+                              ? `Le message et le devis provisoire partiront à ${apercu.destinataire}. Un e-mail envoyé ne se rattrape pas.`
+                              : `Le message et le PDF partiront à ${apercu.destinataire}. Un e-mail envoyé ne se rattrape pas.`,
                           libelle: 'Envoyer',
-                          action: () => envoyerDevisParEmail(apercu.demande),
+                          action: () =>
+                            apercu.mode === 'complement'
+                              ? envoyerComplementParEmail(apercu.demande)
+                              : envoyerDevisParEmail(apercu.demande),
                         })
                       }
                       disabled={envoiEnCours || !apercu.objet.trim() || !apercu.texte.trim()}
@@ -3734,7 +3882,7 @@ export function BackOffice() {
                         opacity: envoiEnCours || !apercu.objet.trim() || !apercu.texte.trim() ? 0.45 : 1,
                       }}
                     >
-                      {envoiEnCours ? 'Envoi…' : 'Envoyer maintenant'}
+                      {envoiEnCours ? 'Envoi…' : apercu.mode === 'complement' ? 'Envoyer la demande' : 'Envoyer maintenant'}
                     </button>
                   </div>
                 </div>

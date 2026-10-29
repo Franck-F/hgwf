@@ -268,6 +268,19 @@ export const demandeDevis = defineType({
       description: 'Une seule relance automatique par devis. Renseigné, elle ne repartira pas.',
     }),
     defineField({
+      name: 'complementDemandeLe',
+      title: 'Compléments demandés le',
+      type: 'string',
+      readOnly: true,
+      description: 'Date d’envoi de la demande d’informations complémentaires (devis provisoire joint).',
+    }),
+    defineField({
+      name: 'complementDemandeA',
+      title: 'Compléments demandés à',
+      type: 'string',
+      readOnly: true,
+    }),
+    defineField({
       name: 'notes',
       title: 'Notes internes',
       type: 'text',

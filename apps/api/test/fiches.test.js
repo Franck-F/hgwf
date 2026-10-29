@@ -2,7 +2,7 @@
 // Le Studio n'a pas d'outil de test : Node exécute directement fiches.ts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ficheDe, messageDemandeInfos, normaliser, prixManquants, questionsFacturation, remplirModele } from '../../studio/tools/backoffice/fiches.ts';
+import { ficheDe, messageDemandeComplement, messageDemandeInfos, normaliser, prixManquants, questionsFacturation, remplirModele } from '../../studio/tools/backoffice/fiches.ts';
 import { manquesFacturation } from '../../studio/tools/backoffice/chiffrage.ts';
 import { FICHES } from '../../studio/seed/fichesServices.mjs';
 
@@ -108,4 +108,33 @@ test('message de demande d’informations', () => {
   assert.ok(m.includes('HGWF-2026-1234'));
   assert.ok(m.includes('- Quelle ville ?\n- Quelle date ?'));
   assert.ok(messageDemandeInfos({ reference: 'R' }, ['Q']).startsWith('Bonjour,'));
+});
+
+test('demande de compléments : objet, intro, une ligne par question, pièce jointe et contact', () => {
+  const m = messageDemandeComplement(
+    { clientNom: 'Marie Dupont', reference: 'HGWF-0042', destination: 'Douala', _createdAt: '2026-10-20T10:00:00Z' },
+    ['Quel est le poids ?', 'Quelle est la valeur déclarée ?'],
+  );
+  assert.equal(m.objet, 'Votre demande de devis HGWF Cargo · HGWF-0042 — quelques précisions');
+  const blocs = m.texte.split('\n\n');
+  assert.equal(blocs[0], 'Bonjour Marie,');
+  assert.match(blocs[1], /^Merci pour votre demande de devis pour Douala \(référence HGWF-0042, reçue le 20\/10\/2026\)\.$/);
+  assert.equal(
+    blocs[2],
+    'Pour vous établir un prix exact, il nous manque quelques informations :\n- Quel est le poids ?\n- Quelle est la valeur déclarée ?',
+  );
+  assert.match(blocs[3], /devis provisoire/);
+  assert.match(blocs[4], /09 62 03 80 13.*WhatsApp/);
+  assert.equal(blocs[5], "Bien cordialement,\nL'équipe HGWF Cargo");
+});
+
+test('demande de compléments : sans destination ni date, questions de la fiche puis ligne à compléter', () => {
+  const sans = messageDemandeComplement({ reference: 'R1' }, [], null);
+  assert.match(sans.texte, /^Bonjour,/);
+  assert.match(sans.texte, /devis \(référence R1\)\./);
+  assert.match(sans.texte, /\n- \[précisez ici l’information attendue\]\n/);
+  const fiche = { _id: 'f', titre: 'T', infosAObtenir: ['Poids du colis', ' '] };
+  const avec = messageDemandeComplement({ reference: 'R1' }, [], fiche);
+  assert.match(avec.texte, /\n- Poids du colis\n/);
+  assert.doesNotMatch(avec.texte, /précisez ici/);
 });

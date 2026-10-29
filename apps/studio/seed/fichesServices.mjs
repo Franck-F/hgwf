@@ -46,7 +46,7 @@ export const FICHES = [
       'Plusieurs clients partagent un même conteneur : le client ne paie que le volume occupé, au mètre cube. Pour les particuliers et les PME (cartons, palettes, effets personnels).',
     methodeTarif:
       'Au mètre cube (m³). Volume = somme des colis, longueur × largeur × hauteur, mesurés au point le plus large (cartons bombés et palettes compris). Un écart de volume constaté au chargement entraîne la révision du prix.',
-    // 400 €/m³ pour toutes les destinations : tarif annoncé et confirmé par
+    // 400 €/m³ pour toutes les destinations :
     // Franck le 29/10/2026 (posé dans Sanity par scripts/tarif-groupage.cjs).
     grille: [
       {

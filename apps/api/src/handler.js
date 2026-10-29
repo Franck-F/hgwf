@@ -617,6 +617,62 @@ async function chercherSuivi(req, res, cors, url) {
   );
 }
 
+// ── Demande de complément d'informations (back-office) ───────────────────────
+// Quand la demande ne suffit pas pour chiffrer. Le texte est rédigé et relu
+// dans le back-office (modèle adapté à la demande) ; le destinataire, lui, ne
+// vient que de Sanity, comme pour le devis : jamais un relais ouvert.
+// Trace : complementDemandeLe, et la demande passe « En cours » si elle était
+// « Nouvelle ».
+async function envoyerComplement(req, res, cors) {
+  const cle = process.env.BACKOFFICE_API_CLE;
+  if (!cle) return json(res, 503, { ok: false, erreur: 'envoi non configuré' }, cors);
+  if (req.headers['x-hgwf-cle'] !== cle) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
+
+  let corps;
+  try {
+    // Le devis provisoire en pièce jointe (PDF rastérisé) dépasse la limite par défaut.
+    corps = JSON.parse((await lireCorps(req, 3_000_000)) || '{}');
+  } catch {
+    return json(res, 400, { ok: false, erreur: 'JSON invalide' }, cors);
+  }
+  const reference = nettoyer(corps.reference, 60);
+  const objet = nettoyer(corps.objet, 200);
+  const texte = String(corps.texte ?? '').trim().slice(0, 20_000);
+  // Facultatif : sans PDF (devis provisoire non généré), la demande part seule.
+  const pdfBase64 = String(corps.pdfBase64 ?? '');
+  if (!reference || !objet || !texte) {
+    return json(res, 422, { ok: false, erreur: 'reference, objet et texte sont requis' }, cors);
+  }
+
+  const d = await sanity.fetch(
+    `*[_type == "demandeDevis" && reference == $ref][0]{_id, reference, email, contact, statut}`,
+    { ref: reference },
+  );
+  if (!d) return json(res, 404, { ok: false, erreur: 'demande introuvable' }, cors);
+  const email = adresseClient(d);
+  if (!email) return json(res, 422, { ok: false, erreur: 'aucune adresse e-mail sur cette demande' }, cors);
+
+  const r = await envoyerEmail({
+    to: email,
+    subject: objet,
+    text: texte,
+    html: gabaritHtml({
+      titre: 'Quelques précisions pour votre devis',
+      paragraphes: texte.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean),
+      // Les questions sont ce que le client doit traiter : liste mise en valeur.
+      encadre: true,
+    }),
+    replyTo: process.env.EMAIL_INTERNE || undefined,
+    ...(pdfBase64 ? { attachments: [{ filename: `Devis-provisoire-${d.reference}.pdf`, content: pdfBase64 }] } : {}),
+  });
+  if (!r.ok) return json(res, 502, { ok: false, erreur: r.raison }, cors);
+
+  const trace = { complementDemandeLe: horodatage(), complementDemandeA: email };
+  if ((d.statut ?? 0) === 0) trace.statut = 1;
+  await sanity.patch(d._id).set(trace).commit().catch(() => {});
+  return json(res, 200, { ok: true, destinataire: email }, cors);
+}
+
 // ── Gestionnaire HTTP ─────────────────────────────────────────────────────────
 // ── Suggestions Gemini pour le chiffrage (back-office) ───────────────────────
 // Même garde que l'envoi du devis : clé du back-office. La demande, la fiche du
@@ -695,6 +751,9 @@ export async function handler(req, res) {
     }
     if (req.method === 'POST' && url.pathname === '/api/envoi-devis') {
       return await envoyerDevis(req, res, cors);
+    }
+    if (req.method === 'POST' && url.pathname === '/api/envoi-complement') {
+      return await envoyerComplement(req, res, cors);
     }
     if (req.method === 'POST' && url.pathname === '/api/suggestion-devis') {
       return await suggererDevis(req, res, cors);

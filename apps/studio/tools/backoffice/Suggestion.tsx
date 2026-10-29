@@ -158,12 +158,18 @@ export function CarteInfosClient({
   message,
   lienEmail,
   lienWhatsApp,
+  onPreparerEmail,
+  raisonEmailBloque,
   onFermer,
 }: {
   questions: string[];
   message: string;
   lienEmail: string | null;
   lienWhatsApp: string | null;
+  // Ouvre la fenêtre de relecture de la demande de compléments (envoi par
+  // l'API, devis provisoire joint). Absent : repli sur le lien mailto.
+  onPreparerEmail?: (() => void) | null;
+  raisonEmailBloque?: string | null;
   onFermer: () => void;
 }) {
   const lien = (href: string | null, libelle: string) =>
@@ -203,7 +209,19 @@ export function CarteInfosClient({
         >
           Copier le message
         </button>
-        {lien(lienEmail, 'Préparer l’e-mail')}
+        {onPreparerEmail ? (
+          <button
+            type="button"
+            onClick={onPreparerEmail}
+            disabled={Boolean(raisonEmailBloque)}
+            title={raisonEmailBloque ?? 'Ouvre la fenêtre de relecture de la demande de compléments'}
+            style={{ ...petitBouton, ...(raisonEmailBloque ? { opacity: 0.45, cursor: 'not-allowed' } : {}) }}
+          >
+            Préparer l’e-mail
+          </button>
+        ) : (
+          lien(lienEmail, 'Préparer l’e-mail')
+        )}
         {lien(lienWhatsApp, 'Préparer le WhatsApp')}
         <button type="button" onClick={onFermer} style={petitBouton}>
           Fermer

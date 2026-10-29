@@ -111,6 +111,47 @@ export function messageDemandeInfos(
   ].join('\n')
 }
 
+// E-mail de demande de compléments, quand la demande ne suffit pas pour
+// chiffrer. C'est un modèle : l'opérateur l'adapte dans la fenêtre de relecture
+// avant l'envoi. Les lignes « - question » deviennent une liste mise en valeur
+// dans la version HTML (gabaritHtml, apps/api/src/email.js) — ne pas changer ce
+// format sans l'y répercuter. Sans question connue, les informations à obtenir
+// de la fiche service servent de base ; à défaut, une ligne à compléter.
+export function messageDemandeComplement(
+  d: { clientNom?: string | null; reference: string; destination?: string | null; _createdAt?: string | null },
+  questions: string[],
+  fiche?: FicheService | null,
+): { objet: string; texte: string } {
+  const prenom = (d.clientNom ?? '').trim().split(/\s+/)[0] ?? ''
+  const destination = (d.destination ?? '').trim()
+  const recue = d._createdAt ? new Date(d._createdAt) : null
+  const dateRecue =
+    recue && !Number.isNaN(recue.getTime())
+      ? `${String(recue.getDate()).padStart(2, '0')}/${String(recue.getMonth() + 1).padStart(2, '0')}/${recue.getFullYear()}`
+      : ''
+  const propres = questions.map((q) => q.trim()).filter(Boolean)
+  const delaFiche = (fiche?.infosAObtenir ?? []).map((q) => q.trim()).filter(Boolean)
+  const lignes = propres.length ? propres : delaFiche.length ? delaFiche : ['[précisez ici l’information attendue]']
+  return {
+    objet: `Votre demande de devis HGWF Cargo · ${d.reference} — quelques précisions`,
+    texte: [
+      `Bonjour${prenom ? ` ${prenom}` : ''},`,
+      '',
+      `Merci pour votre demande de devis${destination ? ` pour ${destination}` : ''} (référence ${d.reference}${dateRecue ? `, reçue le ${dateRecue}` : ''}).`,
+      '',
+      'Pour vous établir un prix exact, il nous manque quelques informations :',
+      ...lignes.map((q) => `- ${q}`),
+      '',
+      'Vous trouverez en pièce jointe un devis provisoire qui reprend votre demande et le détail de la prestation. Le montant y sera indiqué dès réception de vos réponses.',
+      '',
+      'Il vous suffit de répondre à cet e-mail. Vous pouvez aussi nous appeler au 09 62 03 80 13 ou nous écrire sur WhatsApp.',
+      '',
+      'Bien cordialement,',
+      "L'équipe HGWF Cargo",
+    ].join('\n'),
+  }
+}
+
 // Lignes de grille sans prix : ce qui empêche une suggestion de montant.
 export function prixManquants(fiche?: FicheService | null): number {
   return (fiche?.grille ?? []).filter((l) => l.designation && !(typeof l.prixHT === 'number' && Number.isFinite(l.prixHT))).length

@@ -50,6 +50,37 @@ const MARINE: [number, number, number] = [18, 57, 91];
 const CREME: [number, number, number] = [251, 244, 230];
 const OR: [number, number, number] = [255, 178, 62];
 const ENCRE: [number, number, number] = [41, 99, 141];
+const CORAIL: [number, number, number] = [246, 150, 124]; // « À établir » : visible, sans alarme
+const FILET: [number, number, number] = [226, 214, 190];
+
+// ── Description de la prestation : structure lue dans le texte rédigé ───────
+// Une phrase d'objet, des rubriques « Libellé : » seules sur leur ligne, des
+// puces « - », des lignes « Libellé : texte », des lignes vides.
+type Element =
+  | { type: 'titre'; texte: string }
+  | { type: 'para'; texte: string; libelle?: string; puce?: boolean };
+
+export function analyserDescription(texte: string): Element[] {
+  const elements: Element[] = [];
+  for (const brut of texte.split('\n')) {
+    const l = brut.trim();
+    if (!l) continue;
+    const puce = l.match(/^[-•*–]\s+(.+)$/);
+    if (puce?.[1]) {
+      elements.push({ type: 'para', texte: puce[1], puce: true });
+      continue;
+    }
+    const lib = l.match(/^([^:\s][^:]{0,44}?)\s*:\s*(.*)$/);
+    const libelle = lib?.[1]?.trim();
+    if (lib && libelle && libelle.split(/\s+/).length <= 6 && !/[.!?]$/.test(libelle)) {
+      if (lib[2]) elements.push({ type: 'para', libelle, texte: lib[2] });
+      else elements.push({ type: 'titre', texte: libelle });
+      continue;
+    }
+    elements.push({ type: 'para', texte: l });
+  }
+  return elements;
+}
 
 const tronquer = (texte: string, max: number) =>
   texte.length > max ? `${texte.slice(0, max - 1)}…` : texte;
@@ -122,6 +153,13 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
   const depart = lireDetail(d.message, 'Départ');
   const libre = messageLibre(d.message);
 
+  // Montant : HT et TVA recalculés d'abord ; l'ancienne chaîne seulement à défaut.
+  // Sans l'un ni l'autre, le devis est provisoire (prix encore à fixer).
+  const chiffrage = calculerChiffrage(d.montantHT, d.tauxTVA);
+  const ancien = chiffrage ? null : d.montantDevis?.trim() || null;
+  const provisoire = !chiffrage && !ancien;
+  const titreDevis = provisoire ? 'DEVIS PROVISOIRE' : 'DEVIS';
+
   // ── En-tête marine ──
   doc.setFillColor(...MARINE);
   doc.rect(0, 0, W, 40, 'F');
@@ -141,9 +179,12 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
   doc.text('TRANSPORT DE MARCHANDISES DANS LE MONDE ENTIER', brandX, 26, { charSpace: 0.6 });
   doc.setCharSpace(0);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(26);
+  // Le titre se réduit au besoin pour rester à droite de « HGWF CARGO ».
+  let taille = 26;
+  doc.setFontSize(taille);
+  while (taille > 14 && doc.getTextWidth(titreDevis) > 86) doc.setFontSize(--taille);
   doc.setTextColor(...CREME);
-  doc.text('DEVIS', W - M, 20, { align: 'right' });
+  doc.text(titreDevis, W - M, 20, { align: 'right' });
   doc.setFontSize(10);
   doc.setTextColor(...OR);
   doc.text(`N° ${d.reference}`, W - M, 27, { align: 'right' });
@@ -238,6 +279,9 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
   // 62 + 6 + 12 × 4,4 + 5 = 125,8 ; détail 3 + 6 × 8 + 7 = 58 ; proposition
   // 3 + 2 × 8 + 7 = 26 ; HT, TVA et bandeau 12 + 20 + 5 = 37 ; mention 0 % et
   // conditions 8 × 3,5 = 28. Total 274,8 ≤ 279 : le budget ne peut pas manquer.
+  // Devis provisoire (sans HT/TVA) : bandeau 20 + 5 = 25 et mention de deux
+  // lignes + conditions, soit 10 × 3,5 = 35 (le bon pour accord, 24, est moins
+  // haut) : 60 contre 65 pour le cas chiffré à 0 %, donc le pire cas ne grandit pas.
   const PAS = 4; // interligne des rangées
   const ECART = 7; // entre deux sections
   const LARGEUR_VALEUR = LARGE - 62;
@@ -260,16 +304,26 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
   const rColis = rangee('Colis (L × l × H en cm × qté)', colis, 1, 4);
   const rRemarques = rangee('Remarques du client', remarques, 1, 4);
   const rMessage = rangee('Message du client', libre, 0, 6);
-  const rPrestation = rangee('Prestation', d.descriptionPrestation, 1, 6);
+  // Description structurée (rubriques, puces, paragraphes) : la page 1 n'en
+  // garde que la phrase d'objet, le détail typographié va en page 2.
+  const descriptionComplete = tronquer(d.descriptionPrestation?.trim() ?? '', 6000);
+  const elementsDescription = analyserDescription(descriptionComplete);
+  const structuree =
+    /\n\s*\n/.test(descriptionComplete) ||
+    elementsDescription.some((e) => e.type === 'titre' || (e.type === 'para' && (e.puce || e.libelle)));
+  const premier = elementsDescription[0];
+  const resumePrestation = structuree
+    ? premier?.type === 'para' && !premier.puce && !premier.libelle
+      ? premier.texte
+      : 'Voir le détail de la prestation en page 2.'
+    : descriptionComplete;
+  const rPrestation = rangee('Prestation', resumePrestation, 1, 6);
   const rDelai = rangee('Délai estimé', d.delaiEstime, 1, 2);
   const presentes = (rs: (Rangee | null)[]) => rs.filter((r): r is Rangee => r !== null);
   const detail = presentes([...courts, rColis, rRemarques, rMessage]);
   const proposition = presentes([rPrestation, rDelai]);
   const croissance = presentes([rPrestation, ...courts, rDelai, rColis, rRemarques, rMessage]);
 
-  // Montant : HT et TVA recalculés d'abord ; l'ancienne chaîne seulement à défaut.
-  const chiffrage = calculerChiffrage(d.montantHT, d.tauxTVA);
-  const ancien = chiffrage ? null : d.montantDevis?.trim() || null;
   const BANDEAU = 20;
   const HAUT_CHIFFRAGE = 12; // lignes HT et TVA au-dessus du bandeau
 
@@ -281,7 +335,14 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
   const PAS_CONDITIONS = 3.5;
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  const lignesMention = chiffrage?.taux === 0 ? couper(MENTION_EXONERATION, LARGEUR_CONDITIONS) : [];
+  const lignesMention = provisoire
+    ? couper(
+        'Devis provisoire : le montant sera établi dès réception des informations complémentaires demandées.',
+        LARGEUR_CONDITIONS,
+      )
+    : chiffrage?.taux === 0
+      ? couper(MENTION_EXONERATION, LARGEUR_CONDITIONS)
+      : [];
   doc.setFont('helvetica', 'normal');
   // Quand HT, TVA et TTC sont affichés, « hors taxes, sauf mention contraire »
   // ne serait plus exact ; les anciens devis (chaîne libre) gardent leur phrase.
@@ -296,7 +357,7 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
 
   const hauteurFin =
     (chiffrage ? HAUT_CHIFFRAGE : 0) +
-    (chiffrage || ancien ? BANDEAU + 5 : 0) +
+    BANDEAU + 5 + // bandeau toujours présent : TTC, ancien montant ou « À établir »
     Math.max((lignesMention.length + lignesConditions.length) * PAS_CONDITIONS, HAUT_BON);
   const hauteurSection = (rs: Rangee[]) => 3 + rs.reduce((s, r) => s + hauteurRangee(r.n), 0) + ECART;
   let reste =
@@ -319,8 +380,9 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
   // signalé dans le libellé, et le texte entier en page 2.
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
-  const descriptionComplete = tronquer(d.descriptionPrestation?.trim() ?? '', 6000);
-  const suite = rPrestation !== null && couper(descriptionComplete, LARGEUR_VALEUR).length > rPrestation.n;
+  const suite =
+    rPrestation !== null &&
+    (structuree || couper(descriptionComplete, LARGEUR_VALEUR).length > rPrestation.n);
   if (suite && rPrestation) rPrestation.libelle = 'Prestation (détail p. 2)';
 
   // ── Détail de la demande ──
@@ -368,7 +430,7 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
   // ── Montant ──
   // HT et TVA au-dessus du bandeau, le TTC dedans : c'est ce que le client
   // paiera. Un ancien devis garde sa chaîne libre ; sans montant, pas de bandeau.
-  const bandeau = (libelle: string, montant: string) => {
+  const bandeau = (libelle: string, montant: string, couleur: [number, number, number] = OR) => {
     doc.setFillColor(...MARINE);
     doc.roundedRect(M, y, LARGE, BANDEAU, 3, 3, 'F');
     doc.setFont('helvetica', 'bold');
@@ -377,7 +439,7 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
     doc.text(libelle, M + 6, y + 12, { charSpace: 0.8 });
     doc.setCharSpace(0);
     doc.setFontSize(17);
-    doc.setTextColor(...OR);
+    doc.setTextColor(...couleur);
     doc.text(assainir(montant), W - M - 6, y + 13, { align: 'right' });
     y += BANDEAU + 5;
   };
@@ -399,6 +461,8 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
     bandeau('TOTAL TTC', euros(chiffrage.ttc));
   } else if (ancien) {
     bandeau('MONTANT DU DEVIS', ancien);
+  } else {
+    bandeau('MONTANT', 'À établir', CORAIL);
   }
 
   // ── Conditions ──
@@ -418,14 +482,195 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(...MARINE);
-  doc.text('BON POUR ACCORD', xBon + 4, y + 6);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(...ENCRE);
-  doc.text('Date et signature du client :', xBon + 4, y + 12);
+  if (provisoire) {
+    // Un devis provisoire ne se signe pas : encadré d'attente à la place.
+    doc.text('EN ATTENTE D’INFORMATIONS', xBon + 4, y + 6);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...ENCRE);
+    couper(
+      'Ce devis provisoire ne se signe pas : un devis définitif vous sera adressé une fois le montant établi.',
+      LARGEUR_BON - 8,
+    ).forEach((ligne, i) => doc.text(ligne, xBon + 4, y + 12 + i * 3.8));
+  } else {
+    doc.text('BON POUR ACCORD', xBon + 4, y + 6);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...ENCRE);
+    doc.text('Date et signature du client :', xBon + 4, y + 12);
+  }
 
-  // ── Pied de page (identique sur chaque page) ──
-  const piedDePage = () => {
+  // ── Pages de détail : description complète de la prestation, typographiée ──
+  if (suite) {
+    const YDEBUT = 50; // haut du contenu, sous l'en-tête et le titre de section
+    const BAS = 277; // jamais de texte sous cette ligne (le pied commence à 282)
+    const LH = 4.9; // interligne confortable à 9,5 pt
+    const RETRAIT_PUCE = 6;
+
+    const enTeteSuite = (premierePage: boolean) => {
+      doc.setFillColor(...MARINE);
+      doc.rect(0, 0, W, 24, 'F');
+      let x = M;
+      if (embleme) {
+        doc.addImage(embleme, 'PNG', M, 5, 14, 14);
+        x = M + 18;
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(...CREME);
+      doc.text('HGWF CARGO', x, 14.5);
+      doc.setFontSize(titreDevis.length > 8 ? 15 : 18);
+      doc.text(titreDevis, W - M, 12, { align: 'right' });
+      doc.setFontSize(9);
+      doc.setTextColor(...OR);
+      doc.text(`N° ${d.reference}`, W - M, 18.5, { align: 'right' });
+      doc.setFillColor(...CREME);
+      doc.rect(0, 24, W, 10, 'F');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...MARINE);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Émis le ${aujourdHui}`, M, 30.4);
+      const client = d.facturationNom?.trim() || d.clientNom?.trim() || '';
+      if (client) {
+        doc.setFont('helvetica', 'bold');
+        doc.text(couper(`Client : ${client}`, 110, 1)[0] ?? '', W - M, 30.4, { align: 'right' });
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...ENCRE);
+      doc.text(
+        premierePage ? 'DÉTAIL DE LA PRESTATION' : 'DÉTAIL DE LA PRESTATION (SUITE)',
+        M,
+        43,
+        { charSpace: 0.8 },
+      );
+      doc.setCharSpace(0);
+    };
+
+    // Coupe un texte mot à mot dans la police courante ; la première ligne peut
+    // être plus courte (libellé en gras devant).
+    const enLignes = (texte: string, premiere: number, largeur: number): string[] => {
+      const lignes: string[] = [];
+      let courante = '';
+      let max = premiere;
+      for (const mot of assainir(texte).split(/\s+/).filter(Boolean)) {
+        const essai = courante ? `${courante} ${mot}` : mot;
+        if (doc.getTextWidth(essai) <= max || !courante) {
+          courante = essai;
+          continue;
+        }
+        lignes.push(courante);
+        courante = mot;
+        max = largeur;
+      }
+      if (courante) lignes.push(courante);
+      return lignes;
+    };
+
+    type Mesure = { el: Element; lignes: string[]; decalage: number; largeur: number; taille: number };
+    const mesures: Mesure[] = elementsDescription.map((el, i) => {
+      if (el.type === 'titre') return { el, lignes: [], decalage: 0, largeur: LARGE, taille: 10.5 };
+      const intro = structuree && i === 0 && !el.puce && !el.libelle;
+      const taille = intro ? 10.5 : 9.5;
+      const gauche = el.puce ? RETRAIT_PUCE : 0;
+      let decalage = 0;
+      if (el.libelle) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(taille);
+        decalage = doc.getTextWidth(`${assainir(el.libelle)} :`) + 1.8;
+      }
+      doc.setFont('helvetica', intro ? 'bold' : 'normal');
+      doc.setFontSize(taille);
+      return {
+        el,
+        lignes: enLignes(el.texte, LARGE - gauche - decalage, LARGE - gauche),
+        decalage,
+        largeur: LARGE - gauche,
+        taille,
+      };
+    });
+
+    doc.addPage();
+    enTeteSuite(true);
+    let yy = YDEBUT;
+    const nouvellePage = () => {
+      doc.addPage();
+      enTeteSuite(false);
+      yy = YDEBUT;
+    };
+
+    mesures.forEach((m, i) => {
+      const { el } = m;
+      if (el.type === 'titre') {
+        const suivant = mesures[i + 1];
+        const avant = yy > YDEBUT ? 5 : 0;
+        const apres = suivant ? Math.min(2, suivant.lignes.length) * LH : 0;
+        // Pas d'intertitre orphelin : il garde au moins deux lignes de son texte.
+        if (yy + avant + 9.4 + apres > BAS) nouvellePage();
+        else yy += avant;
+        doc.setFillColor(...OR);
+        doc.rect(M, yy + 0.9, 1.3, 4.3, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.setTextColor(...MARINE);
+        doc.text(assainir(el.texte), M + 4, yy + 4.2);
+        doc.setDrawColor(...FILET);
+        doc.setLineWidth(0.2);
+        doc.line(M, yy + 6.6, W - M, yy + 6.6);
+        yy += 9.6;
+        return;
+      }
+      const intro = structuree && i === 0 && !el.puce && !el.libelle;
+      const gauche = el.puce ? RETRAIT_PUCE : 0;
+      let restantes = m.lignes.length;
+      let debut = 0;
+      // Un paragraphe de moins de quatre lignes ne se coupe pas ; au-delà, deux
+      // lignes au moins restent de chaque côté de la coupure.
+      while (restantes > 0) {
+        let k = Math.floor((BAS - yy) / LH);
+        if (k < restantes) {
+          if (m.lignes.length < 4 || restantes - k < 2) k = Math.min(k, restantes - 2);
+          if (m.lignes.length < 4 || k < 2) k = 0;
+        } else {
+          k = restantes;
+        }
+        if (k <= 0) {
+          nouvellePage();
+          continue;
+        }
+        for (let j = 0; j < k; j++) {
+          const n = debut + j;
+          const base = yy + 3.5 + j * LH;
+          if (n === 0) {
+            if (el.puce) {
+              doc.setFillColor(...MARINE);
+              doc.circle(M + 2, base - 1.1, 0.6, 'F');
+            }
+            if (el.libelle) {
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(m.taille);
+              doc.setTextColor(...MARINE);
+              doc.text(`${assainir(el.libelle)} :`, M + gauche, base);
+            }
+          }
+          doc.setFont('helvetica', intro ? 'bold' : 'normal');
+          doc.setFontSize(m.taille);
+          doc.setTextColor(...(intro ? MARINE : [34, 44, 58] as [number, number, number]));
+          doc.text(m.lignes[n] ?? '', M + gauche + (n === 0 ? m.decalage : 0), base);
+        }
+        yy += k * LH;
+        debut += k;
+        restantes -= k;
+        if (restantes > 0) nouvellePage();
+      }
+      yy += intro ? 3.6 : el.puce ? 1.5 : 2.8;
+    });
+  }
+
+  // ── Pied de page identique sur chaque page, numérotation si plusieurs pages ──
+  const nbPages = doc.getNumberOfPages();
+  for (let p = 1; p <= nbPages; p++) {
+    doc.setPage(p);
     doc.setDrawColor(...MARINE);
     doc.setLineWidth(0.2);
     doc.line(M, 282, W - M, 282);
@@ -438,28 +683,7 @@ export async function construireDevisPdf(d: DemandePdf): Promise<jsPDF> {
       287,
       { align: 'center' },
     );
-  };
-  piedDePage();
-
-  // ── Page 2 : description complète de la prestation ──
-  if (suite) {
-    doc.addPage();
-    doc.setFillColor(...MARINE);
-    doc.rect(0, 0, W, 16, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(...CREME);
-    doc.text(assainir(`DEVIS ${d.reference} · DÉTAIL DE LA PRESTATION · PAGE 2/2`), M, 10, { charSpace: 0.8 });
-    doc.setCharSpace(0);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9.5);
-    doc.setTextColor(...MARINE);
-    const HAUT_PAGE2 = 28;
-    const PAS_PAGE2 = 4.6;
-    couper(descriptionComplete, LARGE, Math.floor((LIMITE - HAUT_PAGE2) / PAS_PAGE2)).forEach((ligne, i) =>
-      doc.text(ligne, M, HAUT_PAGE2 + i * PAS_PAGE2),
-    );
-    piedDePage();
+    if (nbPages > 1) doc.text(`Page ${p} / ${nbPages}`, W / 2, 292, { align: 'center' });
   }
 
   return doc;
