@@ -12,6 +12,7 @@
 import { readFileSync } from 'node:fs';
 import { createClient } from '@sanity/client';
 import { envoiConfigure, envoyerEmail, gabaritHtml } from './email.js';
+import { aUnMontant, calculerChiffrage, lignesMontant, montantAnnonce } from './montant.js';
 
 // ── Chargement .env (sans dépendance) : dev local uniquement ─────────────────
 try {
@@ -235,19 +236,28 @@ async function envoyerDevis(req, res, cors) {
     return json(res, 422, { ok: false, erreur: 'reference et pdfBase64 sont requis' }, cors);
   }
 
+  // Le montant ne vient que de Sanity, jamais du corps de la requête.
+  // montantHT + tauxTVA pour les devis chiffrés depuis le 29/09/2026 ;
+  // montantDevis (chaîne libre) reste lu pour les anciens documents.
   const d = await sanity.fetch(
-    `*[_type == "demandeDevis" && reference == $ref][0]{_id, reference, clientNom, contact, email, destination, montantDevis, descriptionPrestation, delaiEstime}`,
+    `*[_type == "demandeDevis" && reference == $ref][0]{_id, reference, clientNom, contact, email, destination, montantHT, tauxTVA, montantDevis, descriptionPrestation, delaiEstime}`,
     { ref: reference },
   );
   if (!d) return json(res, 404, { ok: false, erreur: 'demande introuvable' }, cors);
 
   const email = adresseClient(d);
   if (!email) return json(res, 422, { ok: false, erreur: 'aucune adresse e-mail sur cette demande' }, cors);
-  if (!d.montantDevis) return json(res, 422, { ok: false, erreur: 'montant du devis absent' }, cors);
+  // Pas de test par vérité ici : 0 % est le taux le plus courant, et un
+  // `!d.tauxTVA` bloquerait justement les devis export.
+  if (!aUnMontant(d)) {
+    const zero = calculerChiffrage(d.montantHT, d.tauxTVA)?.ht === 0;
+    const erreur = zero ? 'un devis à 0 € ne peut pas partir : vérifiez le montant HT' : 'montant HT et taux de TVA requis';
+    return json(res, 422, { ok: false, erreur }, cors);
+  }
 
   const prenom = (d.clientNom ?? '').trim().split(/\s+/)[0] || '';
   const lignes = [
-    ['Montant', d.montantDevis],
+    ...lignesMontant(d),
     d.descriptionPrestation ? ['Prestation', d.descriptionPrestation] : null,
     d.delaiEstime ? ['Délai estimé', d.delaiEstime] : null,
   ].filter(Boolean);
@@ -268,7 +278,9 @@ async function envoyerDevis(req, res, cors) {
     'Bien cordialement,',
     "L'équipe HGWF Cargo",
   ].join('\n');
-  const objetDefaut = `Votre devis HGWF Cargo — ${d.montantDevis}`;
+  // Le TTC dans l'objet : c'est la somme que le client paiera. aUnMontant(d)
+  // vient d'être vérifié, montantAnnonce ne peut donc pas rendre null ici.
+  const objetDefaut = `Votre devis HGWF Cargo — ${montantAnnonce(d)}`;
 
   // L'opérateur peut relire et retoucher avant l'envoi. Le destinataire, lui,
   // reste celui de la fiche Sanity : c'est la garantie que cet endpoint ne
@@ -283,10 +295,15 @@ async function envoyerDevis(req, res, cors) {
   // La version HTML est construite à partir du texte relu, découpé sur les
   // lignes vides. Le gabarit échappe tout : un opérateur ne peut pas injecter
   // de balises, volontairement ou par copier-coller.
-  const paragraphes = texte
-    .split(/\n\s*\n/)
-    .map((p) => p.trim().replace(/\s*\n\s*/g, ' '))
-    .filter(Boolean);
+  // Le bloc des montants (lignes indentées de deux espaces) devient le tableau
+  // récapitulatif, à sa place dans le message. Si l'opérateur l'a retiré ou
+  // réécrit, le tableau retombe en fin de message, comme avant.
+  const blocs = texte.split(/\n\s*\n/).filter((b) => b.trim());
+  const estRecap = (b) => b.split('\n').every((l) => /^ {2}\S/.test(l));
+  const iRecap = blocs.findIndex(estRecap);
+  const enParagraphe = (b) => b.trim().replace(/\s*\n\s*/g, ' ');
+  const paragraphes = (iRecap === -1 ? blocs : blocs.slice(0, iRecap)).map(enParagraphe);
+  const paragraphesApres = iRecap === -1 ? [] : blocs.slice(iRecap + 1).map(enParagraphe);
 
   const r = await envoyerEmail({
     to: email,
@@ -296,6 +313,7 @@ async function envoyerDevis(req, res, cors) {
       titre: 'Votre devis est prêt',
       paragraphes,
       lignes,
+      paragraphesApres,
     }),
     replyTo: process.env.EMAIL_INTERNE || undefined,
     attachments: [{ filename: `Devis-${d.reference}.pdf`, content: pdfBase64 }],
@@ -343,7 +361,7 @@ async function relancerDevis(req, res, cors) {
   if (!parCron && !parCle) return json(res, 401, { ok: false, erreur: 'non autorisé' }, cors);
 
   const candidats = await sanity.fetch(
-    `*[_type == "demandeDevis" && statut == 2 && !defined(relanceEnvoyeeLe) && defined(devisEnvoyeLe)]{_id, reference, clientNom, contact, email, destination, montantDevis, devisEnvoyeLe}`,
+    `*[_type == "demandeDevis" && statut == 2 && !defined(relanceEnvoyeeLe) && defined(devisEnvoyeLe)]{_id, reference, clientNom, contact, email, destination, montantHT, tauxTVA, montantDevis, devisEnvoyeLe}`,
   );
 
   const traites = [];
@@ -354,9 +372,12 @@ async function relancerDevis(req, res, cors) {
     if (!email) continue;
 
     const prenom = (d.clientNom ?? '').trim().split(/\s+/)[0] || '';
+    // Le même TTC que dans l'objet de l'envoi initial ; parenthèse omise si
+    // le devis n'a jamais été chiffré (null, pas une chaîne vide).
+    const montant = montantAnnonce(d);
     const paragraphes = [
       `Bonjour${prenom ? ' ' + prenom : ''},`,
-      `Votre devis ${d.reference}${d.destination ? ' pour ' + d.destination : ''}${d.montantDevis ? ' (' + d.montantDevis + ')' : ''} arrive à échéance.`,
+      `Votre devis ${d.reference}${d.destination ? ' pour ' + d.destination : ''}${montant != null ? ' (' + montant + ')' : ''} arrive à échéance.`,
       'Souhaitez-vous que nous le prolongions, que nous l’ajustions, ou préférez-vous ne pas donner suite ? Une réponse d’un mot nous suffit.',
       'Si le projet est reporté ou abandonné, dites-le simplement : nous arrêterons là.',
     ];

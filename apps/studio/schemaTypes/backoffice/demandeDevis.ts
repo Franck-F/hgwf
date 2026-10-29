@@ -1,4 +1,5 @@
 import { defineType, defineField } from 'sanity';
+import { erreurSiret, MENTION_EXONERATION, montantAnnonce } from '../../tools/backoffice/chiffrage';
 
 /**
  * Cycle de vie d'une demande de devis :
@@ -23,6 +24,23 @@ export const demandeDevis = defineType({
   name: 'demandeDevis',
   title: 'Demande de devis',
   type: 'document',
+  // Des fieldsets plutôt que des onglets (groups) : l'opérateur voit le
+  // chiffrage et la facturation sur la même page que la demande, sans
+  // basculer d'un onglet à l'autre pendant qu'il rédige le devis.
+  fieldsets: [
+    {
+      name: 'chiffrage',
+      title: 'Chiffrage du devis',
+      description: 'Repris dans le message de réponse et le devis PDF.',
+    },
+    {
+      name: 'facturation',
+      title: 'Facturation',
+      description:
+        'Collectée à la validation du devis, jamais dans le formulaire public. Alimente l’encadré « Client » du PDF et la préparation de la facture.',
+      options: { collapsible: true, collapsed: false },
+    },
+  ],
   fields: [
     defineField({ name: 'reference', title: 'Référence', type: 'string', validation: (r) => r.required() }),
     defineField({ name: 'clientNom', title: 'Client', type: 'string' }),
@@ -68,18 +86,67 @@ export const demandeDevis = defineType({
       validation: (r) => r.min(0).max(STATUTS_DEMANDE.length - 1),
     }),
     defineField({ name: 'message', title: 'Message', type: 'text', rows: 3 }),
-    // ── Traitement ──────────────────────────────────────────────────────────
+    // ── Traitement : chiffrage ──────────────────────────────────────────────
+    // Depuis le 29/09/2026, le montant est un nombre HT accompagné de son taux :
+    // TVA et TTC se recalculent (tools/backoffice/chiffrage.ts), au lieu d'une
+    // chaîne libre où rien ne distinguait un HT d'un TTC. Aucun des deux n'est
+    // obligatoire : une demande se crée avant d'être chiffrée.
+    defineField({
+      name: 'montantHT',
+      title: 'Montant HT (€)',
+      type: 'number',
+      fieldset: 'chiffrage',
+      description:
+        'Hors taxes, en euros, au centime près. La TVA et le total TTC se calculent à partir du taux ci-dessous : ne jamais saisir le TTC ici.',
+      validation: (r) => r.min(0).precision(2),
+    }),
+    defineField({
+      name: 'tauxTVA',
+      title: 'Taux de TVA',
+      type: 'number',
+      fieldset: 'chiffrage',
+      description: `Pratique constatée : 0 % pour le transport lié à l’export (Outre-mer compris), 20 % sinon. À faire valider par l’expert-comptable. À 0 %, le devis porte la mention « ${MENTION_EXONERATION} »`,
+      options: {
+        list: [
+          { title: '0 % — transport lié à l’export', value: 0 },
+          { title: '20 %', value: 20 },
+        ],
+        layout: 'radio',
+        direction: 'horizontal',
+      },
+      // Un montant HT sans taux ne donne aucun chiffrage : le devis partirait
+      // sans montant, ou retomberait sur l'ancien format. Avertissement
+      // seulement, pour ne pas bloquer l'enregistrement d'un brouillon.
+      // Test par == null : 0 est un taux valide, le plus courant.
+      validation: (r) =>
+        r
+          .custom((taux, { document }) =>
+            typeof document?.montantHT === 'number' && taux == null
+              ? 'Choisir un taux : sans lui, le montant HT n’apparaît ni dans le message ni dans le PDF.'
+              : true,
+          )
+          .warning(),
+    }),
+    // Ancien format, conservé pour les demandes chiffrées avant le 29/09/2026.
+    // Lu seulement quand le couple montantHT + tauxTVA est incomplet ; jamais
+    // converti, car on ne sait pas s'il était HT ou TTC. Masqué quand vide,
+    // donc sur toute nouvelle demande.
     defineField({
       name: 'montantDevis',
-      title: 'Montant du devis (ex. 1 250 €)',
+      title: 'Montant (ancien format)',
       type: 'string',
-      description: 'Repris automatiquement dans le message de réponse et le devis PDF.',
+      fieldset: 'chiffrage',
+      readOnly: true,
+      hidden: ({ value }) => !value,
+      description:
+        'Saisi en texte libre avant le 29/09/2026, repris tel quel tant que le montant HT et son taux ne sont pas tous deux renseignés. Le montant se saisit désormais en HT, avec son taux de TVA.',
     }),
     defineField({
       name: 'descriptionPrestation',
       title: 'Description de la prestation',
       type: 'text',
       rows: 2,
+      fieldset: 'chiffrage',
       description:
         'Ce que couvre le devis (ex. groupage maritime port à port, dédouanement inclus). Reprise dans le message et le PDF.',
     }),
@@ -87,6 +154,7 @@ export const demandeDevis = defineType({
       name: 'delaiEstime',
       title: 'Délai estimé (ex. 3 à 5 semaines)',
       type: 'string',
+      fieldset: 'chiffrage',
       description: 'Repris automatiquement dans le message de réponse et le devis PDF.',
     }),
     defineField({
@@ -94,6 +162,77 @@ export const demandeDevis = defineType({
       title: 'Devis envoyé le (JJ/MM/AAAA)',
       type: 'string',
       description: 'Posé automatiquement quand la demande passe à « Devis envoyé ».',
+    }),
+    // ── Facturation ─────────────────────────────────────────────────────────
+    // Champs plats préfixés, comme le volet exploitation des expéditions : ils
+    // se lisent et se vident un par un (patch.unset), sans objet imbriqué à
+    // reconstruire. Tous facultatifs : ce qui manque pour facturer est listé
+    // par manquesFacturation, pas bloqué ici.
+    defineField({
+      name: 'facturationType',
+      title: 'Type de client',
+      type: 'string',
+      fieldset: 'facturation',
+      options: {
+        list: [
+          { title: 'Particulier', value: 'particulier' },
+          { title: 'Professionnel', value: 'professionnel' },
+        ],
+        layout: 'radio',
+        direction: 'horizontal',
+      },
+    }),
+    defineField({
+      name: 'facturationNom',
+      title: 'Nom ou raison sociale',
+      type: 'string',
+      fieldset: 'facturation',
+      description: 'Tel qu’il doit figurer sur la facture.',
+    }),
+    defineField({
+      name: 'facturationAdresse',
+      title: 'Adresse',
+      type: 'text',
+      rows: 3,
+      fieldset: 'facturation',
+      description:
+        'Numéro, voie, complément : une ligne par ligne d’adresse. Code postal et ville se saisissent ci-dessous.',
+    }),
+    defineField({
+      name: 'facturationCodePostal',
+      title: 'Code postal',
+      type: 'string',
+      fieldset: 'facturation',
+    }),
+    defineField({ name: 'facturationVille', title: 'Ville', type: 'string', fieldset: 'facturation' }),
+    defineField({ name: 'facturationPays', title: 'Pays', type: 'string', fieldset: 'facturation' }),
+    // SIRET et TVA intracommunautaire ne concernent que les professionnels :
+    // masqués sinon, et ignorés par le PDF même s'ils restent en base.
+    defineField({
+      name: 'facturationSiret',
+      title: 'SIRET',
+      type: 'string',
+      fieldset: 'facturation',
+      hidden: ({ document }) => document?.facturationType !== 'professionnel',
+      description:
+        'Requis pour facturer un professionnel. SIRET à 14 chiffres de préférence ; un SIREN à 9 chiffres est accepté. Espaces tolérés.',
+      // Avertissement et non erreur : un numéro incomplet ne doit pas empêcher
+      // d'enregistrer le reste. Rien à signaler sur un champ masqué, que
+      // l'opérateur ne pourrait pas corriger.
+      validation: (r) =>
+        r
+          .custom((siret, { document }) =>
+            document?.facturationType !== 'professionnel' ? true : (erreurSiret(siret) ?? true),
+          )
+          .warning(),
+    }),
+    defineField({
+      name: 'facturationTvaIntracom',
+      title: 'N° de TVA intracommunautaire',
+      type: 'string',
+      fieldset: 'facturation',
+      hidden: ({ document }) => document?.facturationType !== 'professionnel',
+      description: 'Facultatif. Pour une entreprise française : FR suivi de 11 caractères.',
     }),
     // ── Traçabilité des envois ──────────────────────────────────────────────
     // Posés automatiquement par l'API. Sans eux, savoir si un client a reçu
@@ -145,10 +284,25 @@ export const demandeDevis = defineType({
     { title: 'Plus récentes', name: 'recentes', by: [{ field: '_createdAt', direction: 'desc' }] },
   ],
   preview: {
-    select: { title: 'reference', clientNom: 'clientNom', statut: 'statut', montant: 'montantDevis' },
-    prepare: ({ title, clientNom, statut, montant }) => ({
+    select: {
+      title: 'reference',
+      clientNom: 'clientNom',
+      statut: 'statut',
+      montantHT: 'montantHT',
+      tauxTVA: 'tauxTVA',
+      montantDevis: 'montantDevis',
+    },
+    prepare: ({ title, clientNom, statut, montantHT, tauxTVA, montantDevis }) => ({
       title: `${title} — ${clientNom ?? ''}`,
-      subtitle: [STATUTS_DEMANDE[(statut as number) ?? 0], montant].filter(Boolean).join(' · '),
+      // montantAnnonce rend déjà une chaîne (« 0,00 € TTC » compris) ou null :
+      // le filtre ne voit jamais un nombre, un montant ou un taux à zéro ne
+      // peut pas disparaître du sous-titre.
+      subtitle: [
+        STATUTS_DEMANDE[(statut as number) ?? 0],
+        montantAnnonce({ montantHT, tauxTVA, montantDevis }),
+      ]
+        .filter(Boolean)
+        .join(' · '),
     }),
   },
 });

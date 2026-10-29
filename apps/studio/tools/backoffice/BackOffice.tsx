@@ -11,6 +11,23 @@ import { STATUTS_DEMANDE } from '../../schemaTypes/backoffice/demandeDevis';
 import { ETAPES_EXPEDITION } from '../../schemaTypes/backoffice/expedition';
 import { STATUTS_CONTENEUR } from '../../schemaTypes/backoffice/conteneurOccasion';
 import { construireDevisPdf, genererDevisPdf, lireDetail, messageLibre } from './devisPdf';
+import {
+  aUnMontant,
+  calculerChiffrage,
+  CHAMPS_FACTURATION,
+  erreurSiret,
+  euros,
+  libelleMontant,
+  lignesFacturation,
+  lignesMontant,
+  lireMontantSaisi,
+  manquesFacturation,
+  montantAnnonce,
+  montantVersSaisie,
+  pourcentage,
+  TAUX_TVA,
+  type Facturation,
+} from './chiffrage';
 
 // ── Palette HGWF ──────────────────────────────────────────────────────────────
 const MARINE = '#12395B';
@@ -25,8 +42,13 @@ const SANS = "'Space Grotesk', system-ui, sans-serif";
 const MONO = "'Space Mono', monospace";
 
 // ── Types documents ───────────────────────────────────────────────────────────
-type Demande = {
+// Le bloc facturation (champs plats facturation*) vit sur la demande : collecté
+// à la validation du devis, relu par l'expédition via demandeRef.
+type Demande = Facturation & {
   _id: string;
+  // Révision chargée : l'enregistrement du panneau en dépend (ifRevisionId),
+  // pour ne jamais écraser une saisie faite ailleurs depuis le chargement.
+  _rev?: string;
   _createdAt?: string;
   _updatedAt?: string;
   reference: string;
@@ -41,6 +63,12 @@ type Demande = {
   recueLe?: string;
   statut?: number;
   message?: string;
+  // Chiffrage : montant HT en euros et taux en pourcentage (0 ou 20). TVA et
+  // TTC se recalculent (calculerChiffrage), jamais stockés.
+  montantHT?: number | null;
+  tauxTVA?: number | null;
+  // Ancienne chaîne libre (« 1 250 € ») des documents antérieurs au
+  // 29/09/2026 : lue en secours, jamais réécrite ni convertie en TVA.
   montantDevis?: string;
   descriptionPrestation?: string;
   delaiEstime?: string;
@@ -302,6 +330,118 @@ function telDe(doc?: AvecContact | null): string | null {
   return brut ? brut.replace(/[^\d+]/g, '') : extraireTel(doc?.contact);
 }
 
+// ── Saisie du chiffrage et de la facturation ─────────────────────────────────
+// Les champs du panneau restent des chaînes pendant la saisie. La saisie et la
+// valeur enregistrée passent par les mêmes conversions : c'est ce qui permet
+// de savoir s'il y a vraiment quelque chose à enregistrer (« 1 250 » face à
+// 1250 n'est pas une modification).
+type ChampFacturation = (typeof CHAMPS_FACTURATION)[number];
+type FormFacturation = Record<ChampFacturation, string>;
+
+// Taux enregistré → valeur du select. Attention au zéro : 0 % est le taux le
+// plus courant, il doit donner « 0 », pas une chaîne vide.
+function tauxVersSaisie(t?: number | null): string {
+  return typeof t === 'number' && Number.isFinite(t) ? String(t) : '';
+}
+// Valeur du select → taux ; '' → undefined (aucun taux choisi).
+function lireTauxSaisi(saisie: string): number | undefined {
+  return saisie === '' ? undefined : Number(saisie);
+}
+
+function facturationVersForm(d?: Facturation | null): FormFacturation {
+  return Object.fromEntries(CHAMPS_FACTURATION.map((c) => [c, d?.[c] ?? ''])) as FormFacturation;
+}
+
+// Formulaire → valeurs à enregistrer : texte rogné, ou undefined si vide (le
+// champ sera alors retiré du document). SIRET et TVA intracommunautaire ne
+// concernent que les professionnels : ignorés sinon, donc retirés du document
+// si l'opérateur repasse le client en particulier.
+function facturationDeSaisie(f: FormFacturation): Facturation {
+  const texte = (v: string) => v.trim() || undefined;
+  const pro = f.facturationType === 'professionnel';
+  return {
+    facturationType:
+      f.facturationType === 'particulier' || f.facturationType === 'professionnel' ? f.facturationType : undefined,
+    facturationNom: texte(f.facturationNom),
+    facturationAdresse: texte(f.facturationAdresse),
+    facturationCodePostal: texte(f.facturationCodePostal),
+    facturationVille: texte(f.facturationVille),
+    facturationPays: texte(f.facturationPays),
+    // Identifiants stockés sans espaces : Henrri attend les chiffres collés.
+    facturationSiret: pro ? texte(f.facturationSiret.replace(/\s/g, '')) : undefined,
+    facturationTvaIntracom: pro ? texte(f.facturationTvaIntracom.replace(/\s/g, '').toUpperCase()) : undefined,
+  };
+}
+
+// Types de client, dans l'ordre du select ; la valeur est celle stockée.
+const TYPES_CLIENT = [
+  { v: 'particulier', t: 'Particulier' },
+  { v: 'professionnel', t: 'Professionnel' },
+] as const;
+const libelleTypeClient = (t?: string): string => TYPES_CLIENT.find((x) => x.v === t)?.t ?? '';
+
+// Libellés des champs facturation dans les exports XLSX.
+const LIBELLES_FACTURATION: Record<ChampFacturation, string> = {
+  facturationType: 'Type de client',
+  facturationNom: 'Nom ou raison sociale',
+  facturationAdresse: 'Adresse de facturation',
+  facturationCodePostal: 'Code postal',
+  facturationVille: 'Ville',
+  facturationPays: 'Pays',
+  facturationSiret: 'SIRET',
+  facturationTvaIntracom: 'TVA intracom.',
+};
+
+// Exports XLSX : montants en cellules numériques (le tableur peut les
+// additionner), calculés comme partout ailleurs par calculerChiffrage ;
+// cellules vides si le chiffrage est incomplet. L'ancienne chaîne montantDevis
+// a sa propre colonne, en texte.
+function cellulesMontant(d: Demande): (number | string)[] {
+  const c = calculerChiffrage(d.montantHT, d.tauxTVA);
+  return c ? [c.ht, c.taux, c.tva, c.ttc] : ['', '', '', ''];
+}
+// Dans l'ordre de CHAMPS_FACTURATION, comme les en-têtes. Même règle que le
+// PDF et lignesFacturation : le SIRET et la TVA intracommunautaire d'un client
+// qui n'est pas professionnel peuvent rester en base (le Studio les masque
+// sans les effacer), mais ils ne partent pas dans l'export qui prépare la
+// facture.
+function cellulesFacturation(d: Demande): string[] {
+  const f = facturationDeSaisie(facturationVersForm(d));
+  return CHAMPS_FACTURATION.map((c) => (c === 'facturationType' ? libelleTypeClient(f[c]) : (f[c] ?? '')));
+}
+
+// Champs du panneau de traitement, enregistrés par un seul bouton.
+type Traitement = Pick<Demande, 'montantHT' | 'tauxTVA' | 'descriptionPrestation' | 'delaiEstime' | 'notes'> &
+  Facturation;
+type CleTraitement = keyof Traitement;
+// Pour nommer à l'opérateur ce qui est modifié, ou ce qui a changé ailleurs.
+const LIBELLES_TRAITEMENT: Record<CleTraitement, string> = {
+  montantHT: 'montant HT',
+  tauxTVA: 'taux de TVA',
+  descriptionPrestation: 'prestation',
+  delaiEstime: 'délai estimé',
+  notes: 'notes internes',
+  facturationType: 'type de client',
+  facturationNom: 'nom de facturation',
+  facturationAdresse: 'adresse de facturation',
+  facturationCodePostal: 'code postal',
+  facturationVille: 'ville',
+  facturationPays: 'pays',
+  facturationSiret: 'SIRET',
+  facturationTvaIntracom: 'TVA intracom.',
+};
+
+// Deux valeurs enregistrées identiques ? Un champ absent et une chaîne vide se
+// valent ; un 0 reste distinct de l'absence (0 % est un taux).
+const memeValeur = (a: unknown, b: unknown) => (a ?? '') === (b ?? '');
+
+// Réponse 409 de Sanity : la révision attendue (ifRevisionId) n'est plus celle
+// du document, quelqu'un l'a modifié entre-temps.
+const estConflit = (e: unknown) => (e as { statusCode?: number } | null)?.statusCode === 409;
+
+// Projection d'une demande, partagée par le chargement et les relectures.
+const PROJECTION_DEMANDE = `{_id, _rev, _createdAt, _updatedAt, reference, clientNom, email, telephone, preferenceContact, contact, typeEnvoi, destination, volume, recueLe, statut, message, montantHT, tauxTVA, montantDevis, descriptionPrestation, delaiEstime, devisEnvoyeLe, notes, expeditionRef, accuseReceptionLe, devisEnvoyeA, relanceEnvoyeeLe, ${CHAMPS_FACTURATION.join(', ')}}`;
+
 // ── Modèles de réponse ────────────────────────────────────────────────────────
 // L'API du site range les détails structurés dans le message de la demande
 // (« Colis : … », « Remarques colis : … », « Départ : … ») ; lireDetail et
@@ -328,7 +468,7 @@ function templateReponse(d: Demande): string {
   const proposition = [
     'Notre proposition :',
     d.descriptionPrestation ? `- Prestation : ${d.descriptionPrestation}` : null,
-    `- Montant : ${d.montantDevis ?? '[montant à compléter]'}, valable trente jours`,
+    `- Montant : ${libelleMontant(d) ?? '[montant à compléter]'}, valable trente jours`,
     d.delaiEstime ? `- Délai estimé : ${d.delaiEstime}` : null,
   ].filter(Boolean) as string[];
 
@@ -374,12 +514,23 @@ export function BackOffice() {
 
   const [clientForm, setClientForm] = useState<(Partial<ClientFiche> & { envoisTexte?: string }) | null>(null);
   const [conteneurForm, setConteneurForm] = useState<Partial<Conteneur> | null>(null);
-  // Champs de traitement du panneau détail (chiffrage, notes internes) :
-  // repris automatiquement dans le message de réponse et le devis PDF.
-  const [montantEdit, setMontantEdit] = useState('');
+  // Champs de traitement du panneau détail (chiffrage, facturation, notes
+  // internes) : repris automatiquement dans le message de réponse et le devis
+  // PDF. Montant HT et taux restent des chaînes tant qu'on saisit — un champ
+  // vide n'est pas un zéro, et 0 % est un taux à part entière.
+  const [montantHTEdit, setMontantHTEdit] = useState('');
+  const [tauxTVAEdit, setTauxTVAEdit] = useState('');
+  const [facturationEdit, setFacturationEdit] = useState<FormFacturation>(() => facturationVersForm(null));
   const [descriptionEdit, setDescriptionEdit] = useState('');
   const [delaiEdit, setDelaiEdit] = useState('');
   const [notesEdit, setNotesEdit] = useState('');
+  // Verrou d'écriture du chiffrage, et l'erreur éventuelle : elle reste
+  // affichée jusqu'au prochain essai, puisqu'elle demande une action.
+  const [traitementEnCours, setTraitementEnCours] = useState(false);
+  const [traitementErreur, setTraitementErreur] = useState<string | null>(null);
+  // Demande modifiée ailleurs depuis le chargement (Studio, autre onglet) :
+  // l'enregistrement ou l'envoi a été refusé, l'opérateur doit la recharger.
+  const [demandeARecharger, setDemandeARecharger] = useState<string | null>(null);
   // Vue expéditions : sélection, filtre d'étape et champs éditables.
   const [selectionExp, setSelectionExp] = useState<string | null>(null);
   const [filtreExp, setFiltreExp] = useState(-1);
@@ -466,7 +617,7 @@ export function BackOffice() {
       rotations: Rotation[];
       stats: Stats | null;
     }>(`{
-      "demandes": *[_type == "demandeDevis"] | order(_createdAt desc){_id, _createdAt, _updatedAt, reference, clientNom, email, telephone, preferenceContact, contact, typeEnvoi, destination, volume, recueLe, statut, message, montantDevis, descriptionPrestation, delaiEstime, devisEnvoyeLe, notes, expeditionRef, accuseReceptionLe, devisEnvoyeA, relanceEnvoyeeLe},
+      "demandes": *[_type == "demandeDevis"] | order(_createdAt desc)${PROJECTION_DEMANDE},
       "expeditions": *[_type == "expedition"] | order(_updatedAt desc){_id, _updatedAt, reference, clientNom, email, telephone, contact, demandeRef, trajet, etape, eta, statutPriseEnCharge, mode, expediteurNom, expediteurAdresse, expediteurTel, destinataireNom, destinataireAdresse, destinataireTel, colisNombre, colisPoids, colisVolume, colisNature, valeurDeclaree, reglementRecu, derogationDepart, derogationMotif, numeroReservation, numeroConteneur, notesExploitation, priseEnChargeLe, derniereEtapeNotifiee, derniereNotificationLe},
       "clients": *[_type == "clientFiche"] | order(nom asc){_id, nom, contact, destination, envois, volume},
       "conteneurs": *[_type == "conteneurOccasion"] | order(reference asc){_id, _updatedAt, reference, taille, etat, lieu, prix, statut},
@@ -485,6 +636,9 @@ export function BackOffice() {
   useEffect(() => {
     charger();
   }, [charger]);
+
+  // Une seule demande, relue dans Sanity telle qu'elle est maintenant.
+  const lireDemande = (id: string) => client.fetch<Demande | null>(`*[_id == $id][0]${PROJECTION_DEMANDE}`, { id });
 
   const q = recherche.trim().toLowerCase();
 
@@ -505,27 +659,165 @@ export function BackOffice() {
   const sel = demandes.find((d) => d._id === selection) ?? demandesFiltrees[0] ?? demandes[0] ?? null;
   const selId = sel?._id ?? null;
 
-  // À chaque changement de demande sélectionnée, resynchronise les champs de
-  // traitement (sans écraser une saisie en cours sur la même demande).
-  useEffect(() => {
-    const d = selId ? demandes.find((x) => x._id === selId) : null;
-    setMontantEdit(d?.montantDevis ?? '');
+  // Remplit le panneau de traitement depuis une demande enregistrée.
+  // L'ancienne chaîne montantDevis n'est jamais reprise dans le champ : elle
+  // n'a pas de taux, et la convertir inventerait une TVA.
+  const remplirTraitement = (d: Demande | null) => {
+    setMontantHTEdit(montantVersSaisie(d?.montantHT));
+    setTauxTVAEdit(tauxVersSaisie(d?.tauxTVA));
+    setFacturationEdit(facturationVersForm(d));
     setDescriptionEdit(d?.descriptionPrestation ?? '');
     setDelaiEdit(d?.delaiEstime ?? '');
     setNotesEdit(d?.notes ?? '');
+    setTraitementErreur(null);
+    setDemandeARecharger(null);
+  };
+
+  // À chaque changement de demande sélectionnée, resynchronise les champs de
+  // traitement (sans écraser une saisie en cours sur la même demande). Une
+  // saisie non enregistrée ne se perd pas en route : choisirDemande demande
+  // confirmation avant de changer de demande.
+  useEffect(() => {
+    remplirTraitement(selId ? (demandes.find((x) => x._id === selId) ?? null) : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selId]);
 
-  // La demande enrichie des saisies en cours : message, PDF et e-mail partent
-  // toujours avec les dernières valeurs, même avant l'enregistrement.
+  // Saisie convertie : montant (undefined si vide, NaN si illisible), taux et
+  // facturation telles qu'elles seraient enregistrées.
+  const montantSaisi = lireMontantSaisi(montantHTEdit);
+  const montantIllisible = Number.isNaN(montantSaisi);
+  const tauxSaisi = lireTauxSaisi(tauxTVAEdit);
+  const chiffrageSaisi = calculerChiffrage(montantSaisi, tauxSaisi);
+  const facturationSaisie = facturationDeSaisie(facturationEdit);
+  const proSaisi = facturationEdit.facturationType === 'professionnel';
+  // Le SIRET n'est contrôlé que s'il sera enregistré, donc pour un professionnel.
+  // Avertissement seulement, comme dans le Studio : un numéro incomplet ne sert
+  // qu'à la facture, il n'empêche ni d'enregistrer ni d'envoyer le devis.
+  const siretInvalide = proSaisi ? erreurSiret(facturationEdit.facturationSiret) : null;
+
+  // Montant HT et taux vont ensemble : l'un sans l'autre ne donne aucun
+  // chiffrage, et sur un document antérieur au 29/09/2026 la règle de lecture
+  // retomberait alors sur l'ancienne chaîne montantDevis, à l'insu de
+  // l'opérateur qui vient de saisir un autre prix. Bloquant pour l'envoi, le
+  // PDF et les modèles. Une saisie illisible a son propre message.
+  const chiffrageIncomplet = !montantIllisible && (montantSaisi !== undefined) !== (tauxSaisi !== undefined);
+  // L'ancienne chaîne, telle qu'elle partirait faute de chiffrage complet.
+  const ancienMontant = sel?.montantDevis?.trim() || null;
+  const messageIncomplet = chiffrageIncomplet
+    ? `Montant HT et taux de TVA vont ensemble : ${montantSaisi !== undefined ? 'choisissez le taux' : 'saisissez le montant HT'}${
+        ancienMontant ? `, sinon le devis reprendrait l’ancien montant « ${ancienMontant} »` : ''
+      }.`
+    : null;
+  // aUnMontant refuse un devis à 0 € : on le dit, plutôt que de réclamer un
+  // montant et un taux visiblement renseignés.
+  const devisAZero = chiffrageSaisi !== null && chiffrageSaisi.ht === 0;
+  // Saisie qui ferait partir autre chose que ce qui est affiché : le PDF, la
+  // messagerie, WhatsApp et la copie du modèle attendent qu'elle soit corrigée.
+  const raisonModelesBloques = montantIllisible
+    ? 'Montant HT illisible : corrigez-le d’abord.'
+    : messageIncomplet;
+
+  // Valeurs du panneau telles qu'elles seraient enregistrées.
+  const traitementSaisi: Traitement = {
+    montantHT: montantSaisi,
+    tauxTVA: tauxSaisi,
+    ...facturationSaisie,
+    descriptionPrestation: descriptionEdit,
+    delaiEstime: delaiEdit,
+    notes: notesEdit,
+  };
+  // Champs modifiés et non enregistrés : la valeur en base passe par la même
+  // conversion que la saisie avant comparaison. Seuls ceux-là sont écrits (voir
+  // enregistrerTraitement). Un montant illisible compte comme une modification
+  // (le bouton apparaît, désactivé, avec l'erreur).
+  const champsModifies: CleTraitement[] = (() => {
+    if (!sel) return [];
+    const facturationEnBase = facturationDeSaisie(facturationVersForm(sel));
+    return [
+      ...(Object.is(montantSaisi, lireMontantSaisi(montantVersSaisie(sel.montantHT))) ? [] : ['montantHT' as const]),
+      ...(tauxTVAEdit === tauxVersSaisie(sel.tauxTVA) ? [] : ['tauxTVA' as const]),
+      ...CHAMPS_FACTURATION.filter((c) => facturationSaisie[c] !== facturationEnBase[c]),
+      ...(descriptionEdit === (sel.descriptionPrestation ?? '') ? [] : ['descriptionPrestation' as const]),
+      ...(delaiEdit === (sel.delaiEstime ?? '') ? [] : ['delaiEstime' as const]),
+      ...(notesEdit === (sel.notes ?? '') ? [] : ['notes' as const]),
+    ];
+  })();
+  const traitementModifie = champsModifies.length > 0;
+  // Écriture proposée : les champs modifiés, plus le ménage du SIRET et de la
+  // TVA intracom. restés en base sur un client qui n'est pas professionnel (le
+  // Studio les masque sans les effacer). Ce ménage seul ne compte pas comme une
+  // modification : il accompagne le prochain enregistrement, sans bloquer
+  // l'envoi d'une demande que l'opérateur n'a pas touchée.
+  const traitementAEcrire = Object.fromEntries(
+    [
+      ...champsModifies,
+      ...(proSaisi
+        ? []
+        : (['facturationSiret', 'facturationTvaIntracom'] as const).filter(
+            (c) => !champsModifies.includes(c) && !!sel?.[c]?.trim(),
+          )),
+    ].map((k) => [k, traitementSaisi[k]]),
+  ) as Partial<Traitement>;
+
+  // Une saisie commencée sur la demande affichée par défaut (aucune choisie
+  // dans la liste) la fixe : sinon un changement de filtre ou une recherche
+  // ferait basculer le panneau sur une autre demande, et la saisie partirait
+  // avec, sans confirmation.
+  useEffect(() => {
+    if (traitementModifie && selId && selection !== selId) setSelection(selId);
+  }, [traitementModifie, selId, selection]);
+
+  // Changer de demande remet le panneau à zéro : une saisie non enregistrée
+  // passe d'abord par la fenêtre de confirmation. `ensuite` accompagne le
+  // changement (bascule de vue depuis les expéditions ou les clients).
+  const choisirDemande = (id: string, ensuite?: () => void) => {
+    const changer = () => {
+      setSelection(id);
+      ensuite?.();
+    };
+    if (!sel || id === sel._id || !traitementModifie) return changer();
+    setConfirmation({
+      titre: 'Abandonner les modifications ?',
+      texte: `Modifications non enregistrées sur ${sel.reference} (${champsModifies
+        .map((k) => LIBELLES_TRAITEMENT[k])
+        .join(', ')}) : elles seront perdues si vous ouvrez une autre demande.`,
+      libelle: 'Abandonner',
+      danger: true,
+      action: changer,
+    });
+  };
+
+  // La demande enrichie des saisies en cours : message, PDF et modèles
+  // partent avec les dernières valeurs, même avant l'enregistrement. L'e-mail
+  // via l'API, lui, est rédigé côté serveur depuis Sanity : il n'est proposé
+  // qu'une fois tout enregistré (voir « Répondre au client »).
+  // montantDevis reste celui du document (ancienne chaîne, lecture seule).
   const selPourEnvoi: Demande | null = sel
     ? {
         ...sel,
-        montantDevis: montantEdit.trim() || undefined,
+        ...facturationSaisie,
+        // Une saisie illisible ne part jamais, pas même sous forme de NaN.
+        montantHT: montantIllisible ? undefined : montantSaisi,
+        tauxTVA: tauxSaisi,
         descriptionPrestation: descriptionEdit.trim() || undefined,
         delaiEstime: delaiEdit.trim() || undefined,
       }
     : null;
+
+  // Ce qui empêche l'envoi du devis par e-mail, du plus fondamental au plus
+  // simple : enregistrer ne règle ni un montant illisible, ni un chiffrage
+  // incomplet, ni un devis à 0 €. null : rien ne bloque.
+  const raisonEnvoiBloque = montantIllisible
+    ? 'Montant HT illisible : corrigez-le avant d’envoyer.'
+    : messageIncomplet
+      ? messageIncomplet
+      : devisAZero
+        ? 'Un devis à 0 € ne peut pas partir : vérifiez le montant HT.'
+        : traitementModifie
+          ? 'Enregistrez d’abord : l’e-mail reprend les valeurs enregistrées.'
+          : !aUnMontant(selPourEnvoi)
+            ? 'Renseignez le montant HT et le taux de TVA ci-dessus : ils s’insèrent automatiquement dans le message et le PDF.'
+            : null;
 
   const kpiNouvelles = demandes.filter((d) => (d.statut ?? 0) === 0).length;
   const kpiRetard = demandes.filter(enRetard).length;
@@ -634,16 +926,103 @@ export function BackOffice() {
     const patch: Partial<Demande> = { statut };
     if (statut === 2 && !d.devisEnvoyeLe) patch.devisEnvoyeLe = dateFR();
     setDemandes((prev) => prev.map((x) => (x._id === d._id ? { ...x, ...patch } : x)));
-    await client.patch(d._id).set(patch).commit();
+    const r = await client.patch(d._id).set(patch).commit();
+    // Nouvelle révision : le prochain enregistrement du panneau part d'elle.
+    setDemandes((prev) => prev.map((x) => (x._id === d._id ? { ...x, _rev: r._rev, _updatedAt: r._updatedAt } : x)));
   };
 
-  // Enregistre le chiffrage (montant, prestation, délai) et les notes internes.
-  const enregistrerTraitement = async (
-    d: Demande,
-    traitement: Pick<Demande, 'montantDevis' | 'descriptionPrestation' | 'delaiEstime' | 'notes'>,
-  ) => {
-    setDemandes((prev) => prev.map((x) => (x._id === d._id ? { ...x, ...traitement } : x)));
-    await client.patch(d._id).set(traitement).commit();
+  // Relit une demande, la remplace dans la liste et, si elle est affichée,
+  // repart de cette version dans le panneau (la saisie non enregistrée est
+  // abandonnée : c'est le geste demandé).
+  const rechargerDemande = async (id: string): Promise<Demande | null> => {
+    const relue = await lireDemande(id);
+    if (relue) {
+      setDemandes((prev) => prev.map((x) => (x._id === id ? relue : x)));
+      if (id === selId) remplirTraitement(relue);
+    }
+    return relue;
+  };
+  // Bouton « Recharger la demande », proposé après un enregistrement ou un
+  // envoi refusé parce que la demande a changé ailleurs.
+  const recharger = async (id: string) => {
+    try {
+      await rechargerDemande(id);
+      setEnvoiMessage(null);
+    } catch (e) {
+      setTraitementErreur(`Rechargement impossible : ${e instanceof Error ? e.message : 'erreur inattendue'}`);
+    }
+  };
+
+  // Enregistre les champs du panneau que l'opérateur a modifiés (chiffrage,
+  // facturation, notes), et eux seuls : la page ne se recharge pas d'elle-même,
+  // et réécrire un champ intact y remettrait la valeur du chargement par-dessus
+  // une saisie faite entre-temps dans le Studio. Un champ vidé est retiré du
+  // document : set({ x: undefined }) n'efface rien dans Sanity, et un montant
+  // resté en base alors que l'opérateur l'a effacé repartirait dans le devis.
+  //
+  // L'écriture exige la révision chargée (ifRevisionId). Si la demande a changé
+  // ailleurs, on la relit : quand aucun des champs à écrire n'a bougé (un
+  // statut, un accusé, une relance), on écrit sur la nouvelle révision ;
+  // sinon rien n'est écrit, et l'opérateur recharge la demande avant de
+  // reprendre. L'état local n'est mis à jour qu'après l'écriture, pour ne
+  // jamais afficher comme enregistré ce que la base a refusé.
+  const enregistrerTraitement = async (d: Demande, ecriture: Partial<Traitement>) => {
+    if (traitementEnCours) return;
+    // Dernier rempart (le bouton est déjà désactivé) : NaN ne doit jamais
+    // atteindre la base, où il deviendrait null.
+    const illisible = (n?: number | null) => n != null && !Number.isFinite(n);
+    if (illisible(ecriture.montantHT) || illisible(ecriture.tauxTVA)) {
+      setTraitementErreur('Montant HT ou taux illisible : rien n’a été enregistré.');
+      return;
+    }
+    setTraitementEnCours(true);
+    setTraitementErreur(null);
+    setDemandeARecharger(null);
+    try {
+      // Tri par == null, jamais par vérité : un taux de 0 % s'enregistre.
+      const entrees = Object.entries(ecriture);
+      const aEcrire = Object.fromEntries(entrees.filter(([, v]) => v != null));
+      const aRetirer = entrees.filter(([, v]) => v == null).map(([k]) => k);
+      const ecrire = (revision?: string) => {
+        let patch = client.patch(d._id);
+        if (revision) patch = patch.ifRevisionId(revision);
+        if (Object.keys(aEcrire).length > 0) patch = patch.set(aEcrire);
+        if (aRetirer.length > 0) patch = patch.unset(aRetirer);
+        return patch.commit();
+      };
+      let base = d;
+      let resultat;
+      try {
+        resultat = await ecrire(d._rev);
+      } catch (e) {
+        if (!estConflit(e)) throw e;
+        const relue = await lireDemande(d._id);
+        if (!relue) throw new Error('demande introuvable');
+        const bouges = (Object.keys(ecriture) as CleTraitement[]).filter((k) => !memeValeur(relue[k], d[k]));
+        if (bouges.length > 0) {
+          setDemandeARecharger(d._id);
+          setTraitementErreur(
+            `Demande modifiée ailleurs depuis l’ouverture de la page (${bouges
+              .map((k) => LIBELLES_TRAITEMENT[k])
+              .join(', ')}) : rien n’a été enregistré. Rechargez-la pour repartir de la version enregistrée.`,
+          );
+          return;
+        }
+        base = relue;
+        resultat = await ecrire(relue._rev);
+      }
+      const suivante: Record<string, unknown> = { ...base, ...aEcrire, _rev: resultat._rev, _updatedAt: resultat._updatedAt };
+      for (const k of aRetirer) delete suivante[k];
+      setDemandes((prev) => prev.map((x) => (x._id === d._id ? (suivante as Demande) : x)));
+      // Écrite sur une révision plus récente : les champs que l'opérateur n'a
+      // pas touchés ont pu changer ailleurs, le panneau repart de la version
+      // enregistrée (sinon il les proposerait comme modifiés, à l'ancienne valeur).
+      if (base !== d) remplirTraitement(suivante as Demande);
+    } catch (e) {
+      setTraitementErreur(`Enregistrement impossible : ${e instanceof Error ? e.message : 'erreur inattendue'}`);
+    } finally {
+      setTraitementEnCours(false);
+    }
   };
 
   // Conversion d'une demande acceptée : crée l'expédition liée (même
@@ -662,6 +1041,8 @@ export function BackOffice() {
       email: emailDe(d) ?? undefined,
       telephone: telDe(d) ?? undefined,
       contact: d.contact,
+      // Chiffrage et facturation restent sur la demande, relue via demandeRef :
+      // une copie ici divergerait à la première correction.
       demandeRef: d.reference,
       trajet: `${depart} → ${d.destination ?? ''}`,
       etape: 0,
@@ -673,7 +1054,8 @@ export function BackOffice() {
     setDemandes((prev) =>
       prev.map((x) => (x._id === d._id ? { ...x, statut: 4, expeditionRef: d.reference } : x)),
     );
-    await client.patch(d._id).set({ statut: 4, expeditionRef: d.reference }).commit();
+    const r = await client.patch(d._id).set({ statut: 4, expeditionRef: d.reference }).commit();
+    setDemandes((prev) => prev.map((x) => (x._id === d._id ? { ...x, _rev: r._rev, _updatedAt: r._updatedAt } : x)));
 
     // Fiche client : retrouvée par e-mail (le plus fiable) sinon par nom.
     const email = emailDe(d)?.toLowerCase();
@@ -785,6 +1167,30 @@ export function BackOffice() {
   // dans une fenêtre de relecture. Le texte n'est pas rédigé ici : il vient du
   // serveur, seule source de la formulation, pour qu'aperçu et envoi ne
   // puissent pas diverger.
+  //
+  // Le PDF joint, lui, est construit ici, depuis la demande chargée dans la
+  // page. Attendre l'enregistrement ne suffit pas à les accorder : si la
+  // demande a changé ailleurs depuis le chargement (Studio, autre onglet),
+  // l'e-mail reprendrait le nouveau montant et le PDF l'ancien. On relit donc
+  // la demande avant l'aperçu et avant l'envoi, et on refuse en cas d'écart sur
+  // ce que les deux affichent : montant, prestation, délai.
+  const demandePerimee = async (d: Demande): Promise<boolean> => {
+    const relue = await lireDemande(d._id);
+    const texte = (v?: string) => (v ?? '').trim();
+    return (
+      !relue ||
+      JSON.stringify(lignesMontant(relue)) !== JSON.stringify(lignesMontant(d)) ||
+      texte(relue.descriptionPrestation) !== texte(d.descriptionPrestation) ||
+      texte(relue.delaiEstime) !== texte(d.delaiEstime)
+    );
+  };
+  const signalerDemandePerimee = (d: Demande) => {
+    setDemandeARecharger(d._id);
+    setEnvoiMessage(
+      'Demande modifiée ailleurs depuis l’ouverture de la page : rechargez-la avant d’envoyer le devis, pour que l’e-mail et le PDF disent la même chose.',
+    );
+  };
+
   const ouvrirApercuDevis = async (d: Demande) => {
     if (envoiEnCours) return;
     const cle = await obtenirCleApi();
@@ -792,6 +1198,10 @@ export function BackOffice() {
     setEnvoiEnCours(true);
     setEnvoiMessage(null);
     try {
+      if (await demandePerimee(d)) {
+        signalerDemandePerimee(d);
+        return;
+      }
       const rep = await appelerApi('/api/envoi-devis', cle, { reference: d.reference, apercu: true });
       if (!rep) return;
       const data = (await rep.json().catch(() => ({}))) as {
@@ -857,6 +1267,12 @@ export function BackOffice() {
     setEnvoiEnCours(true);
     setEnvoiMessage(null);
     try {
+      // Dernière relecture : la demande a pu changer pendant la relecture du message.
+      if (await demandePerimee(d)) {
+        setApercu(null);
+        signalerDemandePerimee(d);
+        return;
+      }
       const doc = await construireDevisPdf(d);
       const pdfBase64 = (doc.output('datauristring') as string).split(',')[1] ?? '';
       const rep = await appelerApi('/api/envoi-devis', cle, {
@@ -879,8 +1295,12 @@ export function BackOffice() {
       }
       setEnvoiMessage(`✓ Devis envoyé à ${data.destinataire}.`);
       setApercu(null);
+      // L'API vient d'horodater l'envoi dans la demande : on la relit, pour
+      // l'encart de traçabilité et pour que le prochain enregistrement parte de
+      // la bonne révision. Un échec de relecture n'annule pas l'envoi réussi.
+      const aJour = (await rechargerDemande(d._id).catch(() => null)) ?? d;
       // L'envoi réussi fait avancer la demande : c'est le geste métier attendu.
-      if (clampDemande(d.statut) < 2) await changerStatut(d, 2);
+      if (clampDemande(aJour.statut) < 2) await changerStatut(aJour, 2);
     } catch (e) {
       setEnvoiMessage(`Échec de l'envoi : ${e instanceof Error ? e.message : 'erreur inattendue'}`);
     } finally {
@@ -1063,8 +1483,35 @@ export function BackOffice() {
 
   // ── Exports XLSX ──
   const exporterTout = () => {
+    // En-têtes et largeurs déclarés ensemble : une colonne ajoutée ne peut
+    // plus décaler les largeurs des suivantes.
+    const colonnes: [string, number][] = [
+      ['Référence', 17],
+      ['Client', 20],
+      ['Contact', 32],
+      ["Type d'envoi", 22],
+      ['Destination', 16],
+      ['Volume', 10],
+      ['Reçue le', 12],
+      ['Statut', 14],
+      ['Montant HT', 12],
+      ['TVA %', 7],
+      ['TVA €', 11],
+      ['Total TTC', 12],
+      ['Montant (ancien)', 16],
+      ['Prestation', 40],
+      ['Délai estimé', 17],
+      ['Devis envoyé le', 14],
+      ['Expédition', 17],
+      ...CHAMPS_FACTURATION.map((c): [string, number] => [
+        `Facturation — ${LIBELLES_FACTURATION[c]}`,
+        c === 'facturationAdresse' ? 36 : 18,
+      ]),
+      ['Message', 60],
+      ['Notes internes', 40],
+    ];
     const rows = [
-      ['Référence', 'Client', 'Contact', "Type d'envoi", 'Destination', 'Volume', 'Reçue le', 'Statut', 'Montant devis', 'Prestation', 'Délai estimé', 'Devis envoyé le', 'Expédition', 'Message', 'Notes internes'],
+      colonnes.map(([titre]) => titre),
       ...demandes.map((d) => [
         d.reference,
         d.clientNom ?? '',
@@ -1074,17 +1521,19 @@ export function BackOffice() {
         d.volume ?? '',
         d.recueLe ?? '',
         STATUTS_DEMANDE[clampDemande(d.statut)],
+        ...cellulesMontant(d),
         d.montantDevis ?? '',
         d.descriptionPrestation ?? '',
         d.delaiEstime ?? '',
         d.devisEnvoyeLe ?? '',
         d.expeditionRef ?? '',
+        ...cellulesFacturation(d),
         d.message ?? '',
         d.notes ?? '',
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{ wch: 17 }, { wch: 20 }, { wch: 32 }, { wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 17 }, { wch: 60 }, { wch: 40 }];
+    ws['!cols'] = colonnes.map(([, wch]) => ({ wch }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Demandes de devis');
     XLSX.writeFile(wb, 'HGWF-demandes-devis.xlsx');
@@ -1092,7 +1541,9 @@ export function BackOffice() {
 
   const telechargerFiche = () => {
     if (!sel) return;
-    const rows = [
+    const [ht, taux, tva, ttc] = cellulesMontant(sel);
+    const facturation = cellulesFacturation(sel);
+    const rows: (string | number | undefined)[][] = [
       ['FICHE DE DEVIS — HGWF CARGO', ''],
       ['Référence', sel.reference],
       ['Statut', STATUTS_DEMANDE[clampDemande(sel.statut)]],
@@ -1102,13 +1553,20 @@ export function BackOffice() {
       ['Destination', sel.destination ?? ''],
       ['Volume estimé', sel.volume ?? ''],
       ['Reçue le', sel.recueLe ?? ''],
-      ['Montant du devis', sel.montantDevis ?? ''],
+      ['Montant HT', ht],
+      ['TVA %', taux],
+      ['TVA €', tva],
+      ['Total TTC', ttc],
+      ['Montant (ancien)', sel.montantDevis ?? ''],
       ['Prestation', sel.descriptionPrestation ?? ''],
       ['Délai estimé', sel.delaiEstime ?? ''],
       ['Devis envoyé le', sel.devisEnvoyeLe ?? ''],
       ['Expédition liée', sel.expeditionRef ?? ''],
       ['Message', sel.message ?? ''],
       ['Notes internes', sel.notes ?? ''],
+      ['', ''],
+      ['FACTURATION', ''],
+      ...CHAMPS_FACTURATION.map((c, i) => [LIBELLES_FACTURATION[c], facturation[i]]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [{ wch: 22 }, { wch: 70 }];
@@ -1348,7 +1806,7 @@ export function BackOffice() {
                     {demandesFiltrees.map((d) => (
                       <button
                         key={d._id}
-                        onClick={() => setSelection(d._id)}
+                        onClick={() => choisirDemande(d._id)}
                         style={{
                           display: 'grid',
                           gridTemplateColumns: 'minmax(96px,110px) minmax(0,1.2fr) minmax(0,1fr) auto',
@@ -1419,6 +1877,18 @@ export function BackOffice() {
                         {sel.devisEnvoyeLe && (
                           <LigneDetail libelle="Devis envoyé le" valeur={<span style={{ fontFamily: MONO }}>{sel.devisEnvoyeLe}</span>} />
                         )}
+                        {/* Facturation telle qu'enregistrée (la saisie en cours
+                            est dans le panneau plus bas). */}
+                        {lignesFacturation(sel).length > 0 && (
+                          <LigneDetail
+                            libelle="Facturation"
+                            valeur={
+                              <span style={{ fontSize: 13, textAlign: 'right', overflowWrap: 'anywhere' }}>
+                                {lignesFacturation(sel).join(' · ')}
+                              </span>
+                            }
+                          />
+                        )}
                         {sel.expeditionRef && (
                           <LigneDetail
                             libelle="Expédition liée"
@@ -1464,19 +1934,89 @@ export function BackOffice() {
                       </div>
 
                       {/* Traitement : chiffrage repris automatiquement dans le
-                          message de réponse et le devis PDF. */}
+                          message de réponse et le devis PDF. Le montant se
+                          saisit HT avec son taux ; TVA et TTC se calculent,
+                          ils ne se saisissent jamais. */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <span style={eyebrow}>Chiffrage du devis</span>
                         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8 }}>
                           <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
-                            Montant
-                            <input placeholder="ex. 1 250 €" value={montantEdit} onChange={(e) => setMontantEdit(e.target.value)} style={champ} />
+                            Montant HT
+                            <span style={{ position: 'relative', display: 'block' }}>
+                              <input
+                                inputMode="decimal"
+                                placeholder="ex. 1 250,00"
+                                value={montantHTEdit}
+                                onChange={(e) => setMontantHTEdit(e.target.value)}
+                                aria-invalid={montantIllisible}
+                                style={{ ...champ, paddingRight: 54, ...(montantIllisible ? { borderColor: ROUGE } : {}) }}
+                              />
+                              <span
+                                style={{
+                                  position: 'absolute',
+                                  right: 12,
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  fontSize: 12,
+                                  color: ENCRE,
+                                  pointerEvents: 'none',
+                                }}
+                              >
+                                € HT
+                              </span>
+                            </span>
                           </label>
                           <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
-                            Délai estimé
-                            <input placeholder="ex. 3 à 5 semaines" value={delaiEdit} onChange={(e) => setDelaiEdit(e.target.value)} style={champ} />
+                            TVA
+                            <select value={tauxTVAEdit} onChange={(e) => setTauxTVAEdit(e.target.value)} style={champ}>
+                              <option value="">Choisir…</option>
+                              {/* Un taux enregistré hors liste reste affiché tel
+                                  quel plutôt que de laisser croire à « Choisir… ». */}
+                              {[...new Set([...TAUX_TVA, ...(tauxSaisi !== undefined && Number.isFinite(tauxSaisi) ? [tauxSaisi] : [])])].map((t) => (
+                                <option key={t} value={String(t)}>
+                                  {t === 0 ? `${pourcentage(t)} — transport lié à l’export` : pourcentage(t)}
+                                </option>
+                              ))}
+                            </select>
                           </label>
                         </div>
+                        {montantIllisible && (
+                          <span style={{ fontSize: 12, color: ROUGE, fontWeight: 600 }}>
+                            Montant illisible : saisissez un nombre, par exemple 1 250,50.
+                          </span>
+                        )}
+                        {chiffrageSaisi && (
+                          <span style={{ fontFamily: MONO, fontSize: 12, color: MARINE, background: CREME, borderRadius: 10, padding: '8px 12px' }}>
+                            TVA : {euros(chiffrageSaisi.tva)} · Total TTC : {euros(chiffrageSaisi.ttc)}
+                          </span>
+                        )}
+                        {messageIncomplet && (
+                          <span style={{ fontSize: 12, color: ROUGE, fontWeight: 600 }}>
+                            {messageIncomplet} L’envoi, le PDF et les modèles restent bloqués d’ici là.
+                          </span>
+                        )}
+                        {devisAZero && (
+                          <span style={{ fontSize: 12, color: ROUGE, fontWeight: 600 }}>
+                            Un devis à 0 € ne peut pas partir : vérifiez le montant HT.
+                          </span>
+                        )}
+                        {/* Ancien document : la chaîne libre n'a pas de taux,
+                            elle n'est donc jamais convertie automatiquement.
+                            Elle reste ce qui part tant que la saisie ne donne
+                            pas un chiffrage complet, enregistré ou non : la
+                            condition porte sur la saisie, pas sur montantHT
+                            seul, qu'un HT sans taux suffisait à masquer. */}
+                        {ancienMontant && chiffrageSaisi === null && (
+                          <span style={{ fontSize: 12, color: ENCRE }}>
+                            Ancien montant saisi : « {ancienMontant} ». C’est lui qui figure sur le devis tant que le
+                            montant HT et son taux ne sont pas tous deux renseignés : ressaisissez-le en HT avec son
+                            taux.
+                          </span>
+                        )}
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                          Délai estimé
+                          <input placeholder="ex. 3 à 5 semaines" value={delaiEdit} onChange={(e) => setDelaiEdit(e.target.value)} style={champ} />
+                        </label>
                         <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
                           Description de la prestation
                           <textarea
@@ -1497,41 +2037,194 @@ export function BackOffice() {
                             style={{ ...champ, resize: 'vertical', fontFamily: SANS }}
                           />
                         </label>
-                        {(montantEdit !== (sel.montantDevis ?? '') ||
-                          descriptionEdit !== (sel.descriptionPrestation ?? '') ||
-                          delaiEdit !== (sel.delaiEstime ?? '') ||
-                          notesEdit !== (sel.notes ?? '')) && (
-                          <button
-                            onClick={() =>
-                              enregistrerTraitement(sel, {
-                                montantDevis: montantEdit,
-                                descriptionPrestation: descriptionEdit,
-                                delaiEstime: delaiEdit,
-                                notes: notesEdit,
-                              })
-                            }
-                            style={{ ...boutonContour, alignSelf: 'flex-start', fontSize: 13, padding: '8px 18px' }}
+                      </div>
+
+                      {/* Facturation : collectée ici, à la validation du devis,
+                          jamais dans le formulaire public. Rien n'y est
+                          obligatoire pour envoyer le devis ; la liste de ce qui
+                          manque prépare seulement la facture. */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <span style={eyebrow}>Facturation</span>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                          Type de client
+                          <select
+                            value={facturationEdit.facturationType}
+                            onChange={(e) => setFacturationEdit((f) => ({ ...f, facturationType: e.target.value }))}
+                            style={champ}
                           >
-                            Enregistrer le chiffrage
+                            <option value="">Choisir…</option>
+                            {TYPES_CLIENT.map((o) => (
+                              <option key={o.v} value={o.v}>
+                                {o.t}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                          {proSaisi
+                            ? 'Raison sociale'
+                            : facturationEdit.facturationType === 'particulier'
+                              ? 'Nom'
+                              : 'Nom ou raison sociale'}
+                          <input
+                            placeholder={sel.clientNom ?? ''}
+                            value={facturationEdit.facturationNom}
+                            onChange={(e) => setFacturationEdit((f) => ({ ...f, facturationNom: e.target.value }))}
+                            style={champ}
+                          />
+                        </label>
+                        {/* Le nom affiché en indication n'est pas une valeur :
+                            il faut le reprendre explicitement. */}
+                        {!facturationEdit.facturationNom.trim() && !!sel.clientNom?.trim() && (
+                          <button
+                            onClick={() => setFacturationEdit((f) => ({ ...f, facturationNom: sel.clientNom?.trim() ?? '' }))}
+                            style={{ ...boutonContour, alignSelf: 'flex-start', fontSize: 12, padding: '5px 12px' }}
+                          >
+                            Reprendre le nom du client
                           </button>
+                        )}
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                          Adresse
+                          <textarea
+                            placeholder="N° et rue, complément d’adresse"
+                            value={facturationEdit.facturationAdresse}
+                            onChange={(e) => setFacturationEdit((f) => ({ ...f, facturationAdresse: e.target.value }))}
+                            rows={2}
+                            style={{ ...champ, resize: 'vertical', fontFamily: SANS }}
+                          />
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,2fr)', gap: 8 }}>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                            Code postal
+                            <input
+                              value={facturationEdit.facturationCodePostal}
+                              onChange={(e) => setFacturationEdit((f) => ({ ...f, facturationCodePostal: e.target.value }))}
+                              style={champ}
+                            />
+                          </label>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                            Ville
+                            <input
+                              value={facturationEdit.facturationVille}
+                              onChange={(e) => setFacturationEdit((f) => ({ ...f, facturationVille: e.target.value }))}
+                              style={champ}
+                            />
+                          </label>
+                        </div>
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                          Pays
+                          {/* « ex. » : un « France » grisé passait pour une
+                              valeur saisie, alors que le champ restait vide. */}
+                          <input
+                            placeholder="ex. France"
+                            value={facturationEdit.facturationPays}
+                            onChange={(e) => setFacturationEdit((f) => ({ ...f, facturationPays: e.target.value }))}
+                            style={champ}
+                          />
+                        </label>
+                        {/* Le cas courant en un clic, mais saisi explicitement. */}
+                        {!facturationEdit.facturationPays.trim() && (
+                          <button
+                            onClick={() => setFacturationEdit((f) => ({ ...f, facturationPays: 'France' }))}
+                            style={{ ...boutonContour, alignSelf: 'flex-start', fontSize: 12, padding: '5px 12px' }}
+                          >
+                            Indiquer France
+                          </button>
+                        )}
+                        {proSaisi && (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8 }}>
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                              SIRET
+                              <input
+                                inputMode="numeric"
+                                placeholder="14 chiffres"
+                                value={facturationEdit.facturationSiret}
+                                onChange={(e) => setFacturationEdit((f) => ({ ...f, facturationSiret: e.target.value }))}
+                                aria-invalid={siretInvalide !== null}
+                                style={{ ...champ, ...(siretInvalide ? { borderColor: ROUGE } : {}) }}
+                              />
+                              {siretInvalide && (
+                                <span style={{ fontSize: 11, color: ROUGE, fontWeight: 600 }}>
+                                  {siretInvalide} : enregistré tel quel, à corriger avant de facturer.
+                                </span>
+                              )}
+                            </label>
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 500, color: ENCRE }}>
+                              TVA intracom.
+                              <input
+                                placeholder="ex. FR12345678901"
+                                value={facturationEdit.facturationTvaIntracom}
+                                onChange={(e) => setFacturationEdit((f) => ({ ...f, facturationTvaIntracom: e.target.value }))}
+                                style={champ}
+                              />
+                            </label>
+                          </div>
+                        )}
+                        {(manquesFacturation(facturationSaisie).length > 0 || siretInvalide) && (
+                          <span style={{ fontSize: 11, color: ENCRE }}>
+                            Pour facturer
+                            {manquesFacturation(facturationSaisie).length > 0
+                              ? `, il manque : ${manquesFacturation(facturationSaisie).join(', ')}`
+                              : ''}
+                            {siretInvalide ? `${manquesFacturation(facturationSaisie).length > 0 ? ' ;' : ' :'} SIRET à corriger` : ''}.
+                            Rien de bloquant pour envoyer le devis.
+                          </span>
                         )}
                       </div>
 
-                      {/* Réponse au client : canaux séparés — messagerie, PDF,
-                          WhatsApp. Tout part avec les valeurs du chiffrage
-                          ci-dessus, même non enregistrées. */}
+                      {/* Un seul enregistrement pour le chiffrage, la facturation
+                          et les notes, proposé seulement s'il y a quelque chose
+                          à écrire, et limité à ce qui a été modifié. Une saisie
+                          illisible n'est jamais écrite ; un SIRET mal formé
+                          l'est, tel quel, comme dans le Studio. */}
+                      {traitementModifie && (
+                        <button
+                          onClick={() => enregistrerTraitement(sel, traitementAEcrire)}
+                          disabled={traitementEnCours || montantIllisible}
+                          title={
+                            montantIllisible
+                              ? 'Montant HT illisible : corrigez-le avant d’enregistrer'
+                              : `Enregistre : ${champsModifies.map((k) => LIBELLES_TRAITEMENT[k]).join(', ')}`
+                          }
+                          style={{
+                            ...boutonContour,
+                            alignSelf: 'flex-start',
+                            fontSize: 13,
+                            padding: '8px 18px',
+                            opacity: traitementEnCours || montantIllisible ? 0.45 : 1,
+                            cursor: montantIllisible ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          {traitementEnCours ? 'Enregistrement…' : 'Enregistrer'}
+                        </button>
+                      )}
+                      {traitementErreur && (
+                        <span style={{ fontSize: 12, color: ROUGE, fontWeight: 600 }}>{traitementErreur}</span>
+                      )}
+                      {traitementErreur && demandeARecharger === sel._id && (
+                        <button
+                          onClick={() => recharger(sel._id)}
+                          style={{ ...boutonContour, alignSelf: 'flex-start', fontSize: 12, padding: '5px 12px', borderColor: ROUGE, color: ROUGE }}
+                        >
+                          Recharger la demande
+                        </button>
+                      )}
+
+                      {/* Réponse au client : canaux séparés — e-mail via l'API,
+                          messagerie, PDF, WhatsApp. PDF et modèles partent avec
+                          la saisie ci-dessus, même non enregistrée, sauf si elle
+                          ferait partir autre chose que ce qui est affiché
+                          (raisonModelesBloques) ; l'e-mail est rédigé côté
+                          serveur depuis Sanity, il attend donc l'enregistrement,
+                          et relit la demande avant de partir (demandePerimee). */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <span style={eyebrow}>Répondre au client</span>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {emailDe(sel) && selPourEnvoi && (
                             <button
                               onClick={() => ouvrirApercuDevis(selPourEnvoi)}
-                              disabled={envoiEnCours || !selPourEnvoi.montantDevis}
-                              title={
-                                selPourEnvoi.montantDevis
-                                  ? `Envoie le devis et le PDF à ${emailDe(sel)}`
-                                  : 'Renseignez le montant du devis avant de l’envoyer'
-                              }
+                              disabled={envoiEnCours || raisonEnvoiBloque !== null}
+                              title={raisonEnvoiBloque ?? `Envoie le devis et le PDF à ${emailDe(sel)}`}
                               style={{
                                 ...boutonPlein,
                                 fontSize: 13,
@@ -1539,44 +2232,92 @@ export function BackOffice() {
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 8,
-                                opacity: envoiEnCours || !selPourEnvoi.montantDevis ? 0.45 : 1,
-                                cursor: selPourEnvoi.montantDevis ? 'pointer' : 'not-allowed',
+                                opacity: envoiEnCours || raisonEnvoiBloque !== null ? 0.45 : 1,
+                                cursor: raisonEnvoiBloque === null ? 'pointer' : 'not-allowed',
                               }}
                             >
                               {envoiEnCours ? '⏳ Envoi…' : '✉ Envoyer le devis'}
                             </button>
                           )}
+                          {/* Un lien sans href ne se suit pas : c'est ainsi
+                              qu'on désactive les deux liens ci-dessous. */}
                           {emailDe(sel) && selPourEnvoi && (
                             <a
-                              href={`mailto:${emailDe(sel)}?subject=${encodeURIComponent(`Votre devis HGWF Cargo · ${sel.reference}`)}&body=${encodeURIComponent(templateReponse(selPourEnvoi))}`}
-                              style={{ ...boutonContour, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}
-                              title="Repli : ouvre votre messagerie avec le message pré-rempli, sans trace ni pièce jointe"
+                              href={
+                                raisonModelesBloques
+                                  ? undefined
+                                  : `mailto:${emailDe(sel)}?subject=${encodeURIComponent(`Votre devis HGWF Cargo · ${sel.reference}`)}&body=${encodeURIComponent(templateReponse(selPourEnvoi))}`
+                              }
+                              aria-disabled={raisonModelesBloques ? true : undefined}
+                              style={{
+                                ...boutonContour,
+                                fontSize: 13,
+                                padding: '8px 16px',
+                                textDecoration: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                ...(raisonModelesBloques ? { opacity: 0.45, cursor: 'not-allowed' } : {}),
+                              }}
+                              title={
+                                raisonModelesBloques ??
+                                'Repli : ouvre votre messagerie avec le message pré-rempli, sans trace ni pièce jointe'
+                              }
                             >
                               Ouvrir ma messagerie
                             </a>
                           )}
                           <button
                             onClick={() => selPourEnvoi && genererDevisPdf(selPourEnvoi)}
-                            style={{ ...boutonContour, display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 16px' }}
-                            title="Télécharger le devis PDF pré-rempli, à joindre au message"
+                            disabled={raisonModelesBloques !== null}
+                            style={{
+                              ...boutonContour,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              fontSize: 13,
+                              padding: '8px 16px',
+                              ...(raisonModelesBloques ? { opacity: 0.45, cursor: 'not-allowed' } : {}),
+                            }}
+                            title={raisonModelesBloques ?? 'Télécharger le devis PDF pré-rempli, à joindre au message'}
                           >
                             <IconeExport />
                             Devis PDF
                           </button>
                           {telDe(sel) && selPourEnvoi && (
                             <a
-                              href={`https://wa.me/${telDe(sel)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(templateReponse(selPourEnvoi))}`}
+                              href={
+                                raisonModelesBloques
+                                  ? undefined
+                                  : `https://wa.me/${telDe(sel)?.replace(/^\+/, '').replace(/^0/, '33')}?text=${encodeURIComponent(templateReponse(selPourEnvoi))}`
+                              }
+                              aria-disabled={raisonModelesBloques ? true : undefined}
+                              title={raisonModelesBloques ?? undefined}
                               target="_blank"
                               rel="noreferrer"
-                              style={{ ...boutonContour, fontSize: 13, padding: '8px 16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                              style={{
+                                ...boutonContour,
+                                fontSize: 13,
+                                padding: '8px 16px',
+                                textDecoration: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                ...(raisonModelesBloques ? { opacity: 0.45, cursor: 'not-allowed' } : {}),
+                              }}
                             >
                               ☎ WhatsApp (modèle pré-rempli)
                             </a>
                           )}
                           <button
                             onClick={() => selPourEnvoi && navigator.clipboard.writeText(templateReponse(selPourEnvoi))}
-                            style={{ ...boutonContour, fontSize: 13, padding: '8px 16px' }}
-                            title="Copier le modèle de réponse dans le presse-papiers"
+                            disabled={raisonModelesBloques !== null}
+                            style={{
+                              ...boutonContour,
+                              fontSize: 13,
+                              padding: '8px 16px',
+                              ...(raisonModelesBloques ? { opacity: 0.45, cursor: 'not-allowed' } : {}),
+                            }}
+                            title={raisonModelesBloques ?? 'Copier le modèle de réponse dans le presse-papiers'}
                           >
                             ⧉ Copier le modèle
                           </button>
@@ -1635,11 +2376,18 @@ export function BackOffice() {
                             {envoiMessage}
                           </span>
                         )}
+                        {envoiMessage && !envoiMessage.startsWith('✓') && demandeARecharger === sel._id && (
+                          <button
+                            onClick={() => recharger(sel._id)}
+                            style={{ ...boutonContour, alignSelf: 'flex-start', fontSize: 12, padding: '5px 12px', borderColor: ROUGE, color: ROUGE }}
+                          >
+                            Recharger la demande
+                          </button>
+                        )}
                         <span style={{ fontSize: 11, color: ENCRE }}>
                           « Envoyer le devis » part directement depuis contact@hgwf-cargo.fr, avec le PDF en pièce
                           jointe, et fait passer la demande à « Devis envoyé ».
-                          {!selPourEnvoi?.montantDevis &&
-                            ' Renseignez le chiffrage ci-dessus : il s’insère automatiquement dans le message et le PDF.'}
+                          {raisonEnvoiBloque ? ` ${raisonEnvoiBloque}` : null}
                         </span>
                       </div>
 
@@ -2162,10 +2910,7 @@ export function BackOffice() {
                               libelle="Demande d'origine"
                               valeur={
                                 <button
-                                  onClick={() => {
-                                    setSelection(demandeExp._id);
-                                    setVue('devis');
-                                  }}
+                                  onClick={() => choisirDemande(demandeExp._id, () => setVue('devis'))}
                                   style={{ fontFamily: MONO, fontSize: 12, color: MARINE, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
                                 >
                                   {demandeExp.reference}
@@ -2176,10 +2921,22 @@ export function BackOffice() {
                             {demandeExp.volume && (
                               <LigneDetail libelle="Volume" valeur={<span style={{ fontFamily: MONO }}>{demandeExp.volume}</span>} />
                             )}
-                            {demandeExp.montantDevis && (
+                            {montantAnnonce(demandeExp) !== null && (
                               <LigneDetail
                                 libelle="Montant du devis"
-                                valeur={<span style={{ fontFamily: MONO, color: CORAIL, fontWeight: 700 }}>{demandeExp.montantDevis}</span>}
+                                valeur={<span style={{ fontFamily: MONO, color: CORAIL, fontWeight: 700 }}>{montantAnnonce(demandeExp)}</span>}
+                              />
+                            )}
+                            {/* La facturation vit sur la demande : relue ici,
+                                jamais recopiée sur l'expédition. */}
+                            {lignesFacturation(demandeExp).length > 0 && (
+                              <LigneDetail
+                                libelle="Facturation"
+                                valeur={
+                                  <span style={{ fontSize: 12, textAlign: 'right', overflowWrap: 'anywhere' }}>
+                                    {lignesFacturation(demandeExp).join(' · ')}
+                                  </span>
+                                }
                               />
                             )}
                             {demandeExp.notes && (
@@ -2365,11 +3122,12 @@ export function BackOffice() {
                             {demandesClient.map((d) => (
                               <button
                                 key={d._id}
-                                onClick={() => {
-                                  setSelection(d._id);
-                                  setClientForm(null);
-                                  setVue('devis');
-                                }}
+                                onClick={() =>
+                                  choisirDemande(d._id, () => {
+                                    setClientForm(null);
+                                    setVue('devis');
+                                  })
+                                }
                                 style={{
                                   display: 'flex',
                                   justifyContent: 'space-between',
@@ -2387,7 +3145,7 @@ export function BackOffice() {
                                 <span style={{ fontFamily: MONO, fontSize: 12 }}>{d.reference}</span>
                                 <span style={{ fontSize: 12, color: ENCRE, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   {d.destination}
-                                  {d.montantDevis ? ` · ${d.montantDevis}` : ''}
+                                  {montantAnnonce(d) !== null ? ` · ${montantAnnonce(d)}` : ''}
                                 </span>
                                 <span style={{ ...badgeBase, fontSize: 10, padding: '3px 8px', ...BADGES_DEMANDE[clampDemande(d.statut)] }}>
                                   {STATUTS_DEMANDE[clampDemande(d.statut)]}

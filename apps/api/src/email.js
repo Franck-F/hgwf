@@ -95,18 +95,23 @@ const echapper = (s) =>
     .replace(/"/g, '&quot;');
 
 /**
- * @param {{titre: string, paragraphes: string[], lignes?: Array<[string, string]>}} contenu
+ * `paragraphesApres` : texte placé après le récapitulatif (le devis met ses
+ * montants au milieu du message, pas sous la signature).
+ * @param {{titre: string, paragraphes: string[], lignes?: Array<[string, string]>, paragraphesApres?: string[]}} contenu
  */
-export function gabaritHtml({ titre, paragraphes, lignes = [] }) {
-  const p = paragraphes
-    .filter(Boolean)
-    .map(
-      (x) =>
-        `<p style="margin:0 0 16px 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:26px;color:${ARDOISE};">${echapper(
-          x,
-        )}</p>`,
-    )
-    .join('');
+export function gabaritHtml({ titre, paragraphes, lignes = [], paragraphesApres = [] }) {
+  const enParagraphes = (liste) =>
+    liste
+      .filter(Boolean)
+      .map(
+        (x) =>
+          `<p style="margin:0 0 16px 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:26px;color:${ARDOISE};">${echapper(
+            x,
+          )}</p>`,
+      )
+      .join('');
+  const p = enParagraphes(paragraphes);
+  const pApres = enParagraphes(paragraphesApres);
 
   const recap = lignes.length
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${CREME};border-radius:6px;margin:0 0 16px 0;"><tr><td style="padding:18px 22px;">${lignes
@@ -133,7 +138,7 @@ export function gabaritHtml({ titre, paragraphes, lignes = [] }) {
 <h1 style="margin:0 0 16px 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:23px;line-height:31px;font-weight:700;color:${MARINE};">${echapper(
     titre,
   )}</h1>
-${p}${recap}
+${p}${recap}${pApres}
 </td></tr>
 <tr><td style="padding:20px 32px;background-color:${MARINE};border-radius:0 0 8px 8px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:22px;color:#cfe0ef;">
 <strong style="color:#ffffff;">HGWF Cargo</strong><br>Commissionnaire de transport international · Rosny-sous-Bois<br>
