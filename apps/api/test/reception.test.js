@@ -354,6 +354,15 @@ test('liste blanche des pièces jointes et contrôle du contenu', () => {
   assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, 'word/_rels/document.xml.rels': oleInterne })), false);
   const typesMacro = '<Types><Override PartName="/word/x.dat" ContentType="application/vnd.ms-office.vbaProject"/></Types>';
   assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': typesMacro })), false);
+  // Attribut préfixé qui se ferait passer pour un lien hypertexte : refus.
+  const prefixe = '<Relationships><Relationship Id="r1" Type="http://x/relationships/attachedTemplate" x:Type="http://x/relationships/hyperlink" Target="https://p.net/m" TargetMode="External"/></Relationships>';
+  assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, 'word/_rels/settings.xml.rels': prefixe })), false);
+  const double = '<Relationships><Relationship Id="r1" Type="http://x/relationships/hyperlink" Type="http://x/relationships/attachedTemplate" Target="h" TargetMode="External"/></Relationships>';
+  assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, 'word/_rels/settings.xml.rels': double })), false);
+  const commentaire = '<Relationships><!-- <x a="--><Relationship Id="r1" Type="http://x/relationships/attachedTemplate" Target="h" TargetMode="External"/>" --></Relationships>';
+  assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, 'word/_rels/settings.xml.rels': commentaire })), false);
+  // Deux [Content_Types].xml (casse différente) : refus.
+  assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, '[content_types].XML': typesMacro })), false);
   const utf16 = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('<Relationships/>', 'utf16le')]);
   assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, '_rels/.rels': utf16 })), false);
   assert.equal(contenuConforme('doc.docx', Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('pas un zip')])), false);

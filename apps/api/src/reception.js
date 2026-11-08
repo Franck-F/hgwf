@@ -279,22 +279,51 @@ function texteXml(octets) {
   return t;
 }
 
-// Attributs d'un élément, valeurs décodées (guillemets respectés, préfixe toléré).
+// Attributs d'un élément, valeurs décodées. null (refus) si un attribut est en
+// double ou porte un préfixe d'espace de noms (hors xmlns) : Office et nous
+// pourraient ne pas lire le même.
 function attributs(element) {
-  const a = {};
+  const a = Object.create(null);
   for (const m of element.matchAll(/([\w.:-]+)\s*=\s*("([^"]*)"|'([^']*)')/g)) {
-    a[m[1].replace(/^[\w.-]+:/, '')] = decoderXml(m[3] ?? m[4] ?? '');
+    const nom = m[1];
+    if (/^xmlns(:|$)/.test(nom)) continue;
+    if (nom.includes(':') || nom in a) return null;
+    a[nom] = decoderXml(m[3] ?? m[4] ?? '');
   }
   return a;
+}
+
+// Constructions XML qui pourraient masquer un élément à une lecture par motif :
+// commentaires, CDATA, DTD, entités, instructions de traitement (hors en-tête).
+const XML_AMBIGU = /<!--|<!\[CDATA\[|<!DOCTYPE|<!ENTITY|<\?(?!xml\s)/i;
+
+/** Nom de partie normalisé : sans « / » initial, %xx décodés, en minuscules. */
+function nomPartie(nom) {
+  let n = String(nom).replace(/\\/g, '/').replace(/^\/+/, '');
+  try {
+    n = decodeURIComponent(n);
+  } catch {
+    return null;
+  }
+  return n.toLowerCase();
 }
 
 /** Document Office Open XML sans macro, sans objet actif ni contenu distant. */
 export function ooxmlSain(b) {
   if (!b?.length || !b.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) return false;
-  const entrees = entreesZip(b);
-  if (!entrees) return false;
-  const types = entrees.find((e) => e.nom === '[Content_Types].xml');
-  if (!types) return false;
+  const brutes = entreesZip(b);
+  if (!brutes) return false;
+  // Noms normalisés ; deux parties de même nom (casse, « / », %xx) : refus.
+  const vus = new Set();
+  const entrees = [];
+  for (const e of brutes) {
+    const nom = nomPartie(e.nom);
+    if (nom === null || vus.has(nom)) return false;
+    vus.add(nom);
+    entrees.push({ ...e, nom });
+  }
+  const types = entrees.filter((e) => e.nom === '[content_types].xml');
+  if (types.length !== 1) return false;
   if (entrees.some((e) => PARTIES_ACTIVES.test(e.nom))) return false;
 
   let budget = XML_TOTAL_MAX;
@@ -302,20 +331,25 @@ export function ooxmlSain(b) {
     const octets = e.lire(Math.min(1_000_000, budget));
     if (!octets) return null;
     budget -= octets.length;
-    return budget < 0 ? null : texteXml(octets);
+    if (budget < 0) return null;
+    const t = texteXml(octets);
+    return t === null || XML_AMBIGU.test(t) ? null : t;
   };
 
-  const xmlTypes = lireXml(types);
+  const xmlTypes = lireXml(types[0]);
   if (xmlTypes === null || TYPES_ACTIFS.test(decoderXml(xmlTypes))) return false;
 
-  const rels = entrees.filter((x) => /\.rels$/i.test(x.nom));
+  const rels = entrees.filter((x) => x.nom.endsWith('.rels'));
   if (rels.length > RELS_MAX) return false;
   for (const e of rels) {
     const xml = lireXml(e);
     if (xml === null) return false;
     // Élément complet, guillemets compris : un « > » dans une valeur ne coupe pas la lecture.
     for (const el of xml.match(/<(?:[\w.-]+:)?Relationship\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi) ?? []) {
-      const { Type: type = '', TargetMode: mode = '' } = attributs(el);
+      const a = attributs(el);
+      if (!a) return false;
+      const type = a.Type ?? '';
+      const mode = a.TargetMode ?? '';
       if (RELATION_ACTIVE.test(type.trim())) return false;
       // Seuls les liens hypertexte peuvent pointer à l'extérieur du document.
       if (/^external$/i.test(mode.trim()) && !RELATION_HYPERLIEN.test(type.trim())) return false;
