@@ -377,13 +377,13 @@ export default defineConfig([
     plugins: [structureTool({ structure: structureOperations }), visionTool(), frFRLocale()],
     tools: (prev) => [
       {
-        name: 'operations',
+        name: 'back-office',
         title: 'Back-office',
         icon: CaseIcon,
         component: BackOffice,
       },
       {
-        name: 'operations-ancien',
+        name: 'back-office-ancien',
         title: 'Ancien back-office',
         icon: ClipboardIcon,
         component: AncienBackOffice,
