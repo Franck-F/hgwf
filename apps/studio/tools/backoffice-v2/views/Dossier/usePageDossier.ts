@@ -19,6 +19,7 @@ import { useDossier } from '../../data/useDossier';
 import { actionPrincipale } from '../../domaine/actionPrincipale';
 import type { FenetreDossier, Resultat, ResultatGeste } from '../../domaine/contrats';
 import { champsModifiesDossier } from '../../domaine/fusion';
+import { nbNonLus } from '../../domaine/echanges';
 import { phaseDe } from '../../domaine/phases';
 import type { Phase } from '../../domaine/types';
 import { enregistrerBrouillon } from './enregistrement';
@@ -37,10 +38,12 @@ const PHASES_DEVIS_OUVERT: Phase[] = [
 const PHASES_EXPEDITION_OUVERTE: Phase[] = ['accepte', 'aPreparer', 'pret', 'enRoute', 'incident'];
 
 /** Section ouverte par défaut : celle de la phase courante (4.3). */
-export function ouvertureParDefaut(nom: NomSection, phase: Phase): boolean {
+export function ouvertureParDefaut(nom: NomSection, phase: Phase, nonLus = 0): boolean {
   switch (nom) {
     case 'demande':
       return true;
+    case 'echanges':
+      return nonLus > 0;
     case 'devis':
       return PHASES_DEVIS_OUVERT.includes(phase);
     case 'expedition':
@@ -148,7 +151,7 @@ export function usePageDossier(id: string, racine: RefObject<HTMLElement | null>
     await recharger();
   }
 
-  const estOuverte = (nom: NomSection): boolean => choisies[nom] ?? (phase ? ouvertureParDefaut(nom, phase) : false);
+  const estOuverte = (nom: NomSection): boolean => choisies[nom] ?? (phase ? ouvertureParDefaut(nom, phase, dossier ? nbNonLus(dossier) : 0) : false);
   const basculer = (nom: NomSection): void => setChoisies((c) => ({ ...c, [nom]: !estOuverte(nom) }));
   const allerA = useCallback(
     (nom: NomSection): void => {

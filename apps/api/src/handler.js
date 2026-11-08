@@ -5,6 +5,7 @@
  *   GET  /api/suivi?ref=XXX  → statut d'une expédition (trajet, étape, ETA, jamais le client)
  *   GET  /api/sante          → vérification de vie
  *   POST /api/suggestion-devis → proposition Gemini pour un champ du chiffrage (back-office, clé)
+ *   POST /api/reception-email → réponses des clients (webhook Resend signé), rangées dans le dossier
  *
  * Ce module exporte le gestionnaire HTTP pur (req, res) : `src/server.js`
  * l'enveloppe dans un serveur Node pour le dev local, `api/index.js` l'expose
@@ -16,6 +17,7 @@ import { envoiConfigure, envoyerEmail, gabaritHtml } from './email.js';
 import { aUnMontant, calculerChiffrage, lignesMontant, montantAnnonce } from './montant.js';
 import { CHAMPS_SUGGESTION, MODELE_PAR_DEFAUT, construireRequete, demanderSuggestion, validerSuggestion } from './suggestion.js';
 import { facturationDepuisFormulaire } from './facturation.js';
+import { TAILLE_MAX_WEBHOOK, adresseReponse, traiterReception } from './reception.js';
 
 // ── Chargement .env (sans dépendance) : dev local uniquement ─────────────────
 try {
@@ -95,6 +97,27 @@ function lireCorps(req, max = 50_000) {
       }
     });
     req.on('end', () => resolve(data));
+    req.on('error', reject);
+  });
+}
+
+// Corps brut, en octets : la signature du webhook porte sur ce qui a été reçu,
+// pas sur un texte re-décodé (un caractère accentué coupé entre deux paquets
+// serait altéré par une concaténation de chaînes).
+function lireCorpsBrut(req, max) {
+  return new Promise((resolve, reject) => {
+    const morceaux = [];
+    let taille = 0;
+    req.on('data', (chunk) => {
+      taille += chunk.length;
+      if (taille > max) {
+        reject(new Error('corps trop volumineux'));
+        req.destroy();
+        return;
+      }
+      morceaux.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(morceaux)));
     req.on('error', reject);
   });
 }
@@ -340,7 +363,7 @@ async function envoyerDevis(req, res, cors) {
       lignes,
       paragraphesApres,
     }),
-    replyTo: process.env.EMAIL_INTERNE || undefined,
+    replyTo: adresseReponse(d.reference),
     attachments: [{ filename: `Devis-${d.reference}.pdf`, content: pdfBase64 }],
   });
 
@@ -412,7 +435,7 @@ async function relancerDevis(req, res, cors) {
       subject: `Votre devis ${d.reference} arrive à échéance`,
       text: [...paragraphes, '', 'Bien cordialement,', "L'équipe HGWF Cargo"].join('\n\n'),
       html: gabaritHtml({ titre: 'Votre devis arrive à échéance', paragraphes, lignes: [] }),
-      replyTo: process.env.EMAIL_INTERNE || undefined,
+      replyTo: adresseReponse(d.reference),
     });
 
     // L'horodatage est posé même en cas d'échec d'envoi : sans cela, un client
@@ -444,7 +467,7 @@ async function notifierExpedition(req, res, cors) {
   if (!reference) return json(res, 422, { ok: false, erreur: 'reference requise' }, cors);
 
   const x = await sanity.fetch(
-    `*[_type == "expedition" && reference == $ref][0]{_id, reference, clientNom, contact, email, trajet, etape, eta, derniereEtapeNotifiee}`,
+    `*[_type == "expedition" && reference == $ref][0]{_id, reference, clientNom, contact, email, trajet, etape, eta, derniereEtapeNotifiee, demandeRef}`,
     { ref: reference },
   );
   if (!x) return json(res, 404, { ok: false, erreur: 'expédition introuvable' }, cors);
@@ -506,7 +529,7 @@ async function notifierExpedition(req, res, cors) {
         ['Arrivée estimée', eta],
       ].filter(Boolean),
     }),
-    replyTo: process.env.EMAIL_INTERNE || undefined,
+    replyTo: adresseReponse(x.demandeRef || null),
   });
 
   if (!r.ok) return json(res, 502, { ok: false, erreur: r.raison }, cors);
@@ -565,7 +588,7 @@ async function notifierDemande({ reference, nom, email, destination, typeEnvoi, 
         ],
         lignes,
       }),
-      replyTo: process.env.EMAIL_INTERNE || undefined,
+      replyTo: adresseReponse(reference),
     }).then((r) => console.log(`[email] accusé ${reference} : ${r.ok ? 'envoyé' : 'échec — ' + r.raison}`)));
   }
 
@@ -662,7 +685,7 @@ async function envoyerComplement(req, res, cors) {
       // Les questions sont ce que le client doit traiter : liste mise en valeur.
       encadre: true,
     }),
-    replyTo: process.env.EMAIL_INTERNE || undefined,
+    replyTo: adresseReponse(d.reference),
     ...(pdfBase64 ? { attachments: [{ filename: `Devis-provisoire-${d.reference}.pdf`, content: pdfBase64 }] } : {}),
   });
   if (!r.ok) return json(res, 502, { ok: false, erreur: r.raison }, cors);
@@ -727,6 +750,20 @@ async function suggererDevis(req, res, cors) {
   }
 }
 
+// Webhook Resend : appelé par un serveur, pas par un navigateur. Ni CORS, ni
+// limitation de débit par IP (les appels viennent tous des mêmes adresses
+// Resend) : l'authentification, c'est la signature.
+async function recevoirEmail(req, res) {
+  let brut;
+  try {
+    brut = await lireCorpsBrut(req, TAILLE_MAX_WEBHOOK);
+  } catch {
+    return json(res, 413, { ok: false, erreur: 'corps trop volumineux' });
+  }
+  const { status, corps } = await traiterReception({ corps: brut, entetes: req.headers, sanity });
+  return json(res, status, corps);
+}
+
 export async function handler(req, res) {
   const cors = corsHeaders(req);
   const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
@@ -734,6 +771,9 @@ export async function handler(req, res) {
     (req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || req.socket?.remoteAddress || '?';
 
   try {
+    if (req.method === 'POST' && url.pathname === '/api/reception-email') {
+      return await recevoirEmail(req, res);
+    }
     if (req.method === 'OPTIONS') {
       res.writeHead(204, cors);
       return res.end();

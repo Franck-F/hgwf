@@ -18,6 +18,7 @@ import {
   SEUIL_ROUTE_J,
 } from './echeances';
 import { ilYa } from './format';
+import { nbNonLus, plusAncienNonLu } from './echanges';
 import { chiffrageAmorce, manquesDevis, manquesPriseEnCharge } from './manques';
 import { estTermine, phaseDe } from './phases';
 import type { Demande, Dossier, Expedition, IdGroupeAFaire, LigneAFaire, Phase } from './types';
@@ -64,6 +65,7 @@ function ligne(
     enRetard,
     actionLibelle: actionPrincipale(dossier, {}).libelle,
     phase,
+    nbNonLus: nbNonLus(dossier),
   };
 }
 
@@ -121,6 +123,13 @@ function classerDemande(dossier: Dossier, d: Demande, phase: Phase, maintenant: 
     }
     case 'devisEnvoye':
     case 'devisHorsOutil': {
+      // Le client a répondu au devis : à traiter sans attendre les 7 jours d'« à appeler ».
+      const reponse = plusAncienNonLu(dossier);
+      if (reponse) {
+        const retard = ageOuvreHeures(reponse, maintenant) > SEUIL_CHIFFRAGE_RETARD_H;
+        const raison = 'Réponse reçue au devis, à traiter';
+        return { candidat: { groupe: 'devis', rang: 1, depuis: reponse, ligne: ligne(dossier, phase, raison, reponse, maintenant, retard) } };
+      }
       const horsOutil = phase === 'devisHorsOutil';
       const envoi = lireDate(horsOutil ? d.devisEnvoyeHorsOutilLe : d.devisEnvoyeLe);
       if (!envoi) {

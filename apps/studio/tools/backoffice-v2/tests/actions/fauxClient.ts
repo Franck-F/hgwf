@@ -165,6 +165,17 @@ export function creerFauxClient(initiaux: (Doc | Demande | Expedition)[]): FauxC
       return d._rev as string;
     },
     async fetch<T>(requete: string, params?: Record<string, unknown>): Promise<T> {
+      // Réponses d'un dossier : par demande liée ou par référence (minuscules), comme la vraie requête.
+      if (requete.includes('_type == "echange"') && params && 'references' in params) {
+        const refs = (params.references as string[]) ?? [];
+        return parType('echange')
+          .filter(
+            (e) =>
+              (e.demande as { _ref?: string } | undefined)?._ref === params.demandeId ||
+              refs.includes(String(e.reference ?? '').toLowerCase()),
+          )
+          .map((e) => ({ ...e, demandeId: (e.demande as { _ref?: string } | undefined)?._ref })) as T;
+      }
       if (params && typeof params.id === 'string') {
         const d = docs.get(params.id);
         return (d ? { ...d } : null) as T;
@@ -177,6 +188,7 @@ export function creerFauxClient(initiaux: (Doc | Demande | Expedition)[]): FauxC
           conteneurs: parType('conteneurOccasion'),
           rotations: parType('rotation'),
           fiches: parType('ficheService'),
+          echanges: parType('echange').map((e) => ({ ...e, demandeId: (e.demande as { _ref?: string } | undefined)?._ref })),
         } as T;
       }
       return null as T;

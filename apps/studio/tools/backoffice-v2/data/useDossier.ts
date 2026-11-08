@@ -10,12 +10,13 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ClientLike, UseDossier } from '../domaine/contrats';
-import type { Demande, DonneesMagasin, Dossier, Expedition } from '../domaine/types';
+import { echangesDe } from '../domaine/echanges';
+import type { Demande, DonneesMagasin, Dossier, Echange, Expedition } from '../domaine/types';
 import { ecritureEnCours } from './activite';
 import { useClientSanity } from './client';
-import { revisionsDuDossier, trouverDossier } from './dossiers';
+import { empreinteEchanges, revisionsDuDossier, trouverDossier } from './dossiers';
 import { lireDonneesMagasin, useMagasin } from './magasin';
-import { REQUETE_DOSSIER } from './requetes';
+import { REQUETE_DOSSIER, REQUETE_ECHANGES_DOSSIER } from './requetes';
 
 type Document = Demande | Expedition;
 
@@ -34,7 +35,40 @@ export async function lireDetailDossier(
   const demande = docs.find((d): d is Demande => d?._type === 'demandeDevis');
   const expedition = docs.find((d): d is Expedition => d?._type === 'expedition');
   if (!demande && !expedition) return null;
-  return { id: demande?._id ?? expedition?._id ?? id, ...(demande ? { demande } : {}), ...(expedition ? { expedition } : {}) };
+  const echanges = await lireEchanges(client, donnees, demande, expedition);
+  return {
+    id: demande?._id ?? expedition?._id ?? id,
+    ...(demande ? { demande } : {}),
+    ...(expedition ? { expedition } : {}),
+    ...(echanges.length > 0 ? { echanges } : {}),
+  };
+}
+
+/**
+ * Réponses complètes du client (texte, pièces). Une lecture qui échoue ne doit
+ * pas empêcher d'ouvrir le dossier : on retombe sur la version légère du magasin
+ * (le signal et le nombre de non lus restent justes, pas le texte).
+ */
+async function lireEchanges(
+  client: ClientLike,
+  donnees: DonneesMagasin,
+  demande: Demande | undefined,
+  expedition: Expedition | undefined,
+): Promise<Echange[]> {
+  const references = [demande?.reference, expedition?.demandeRef, demande ? undefined : expedition?.reference]
+    .map((r) => (r ?? '').trim().toLowerCase())
+    .filter(Boolean);
+  if (!demande && references.length === 0) return [];
+  try {
+    const lus = await client.fetch<Echange[] | null>(REQUETE_ECHANGES_DOSSIER, {
+      demandeId: demande?._id ?? '',
+      references,
+    });
+    if (Array.isArray(lus)) return lus;
+  } catch {
+    /* repli ci-dessous */
+  }
+  return echangesDe(demande, expedition, donnees.echanges);
 }
 
 /** Vrai si toutes les révisions qui ont changé sont des écritures de ce poste. */
@@ -86,7 +120,11 @@ export const useDossier: UseDossier = (id) => {
           setConflit(false);
           return;
         }
-        if (frais && memesRevisions(actuel, frais)) return;
+        if (frais && memesRevisions(actuel, frais)) {
+          // Mêmes documents, mais une réponse est arrivée (ou a été lue ailleurs) : on l'affiche sans bruit.
+          if (empreinteEchanges(actuel) !== empreinteEchanges(frais)) setLu({ id, dossier: frais });
+          return;
+        }
         if (frais && changementsLocaux(actuel, frais, magasin.revisionsLocales)) {
           setLu({ id, dossier: frais });
           return;

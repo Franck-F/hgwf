@@ -280,6 +280,30 @@ function structureOperations(S: StructureBuilder) {
         ),
       S.documentTypeListItem('expedition').title('Expéditions').icon(MarkerIcon),
       S.documentTypeListItem('clientFiche').title('Clients').icon(UsersIcon),
+      // Réponses reçues par e-mail : créées par l'API, lues surtout depuis le dossier du back-office.
+      S.listItem()
+        .title('Réponses des clients')
+        .id('reponsesClients')
+        .icon(CommentIcon)
+        .child(
+          S.list()
+            .title('Réponses des clients')
+            .items([
+              S.listItem()
+                .title('Non lues')
+                .id('reponses-non-lues')
+                .icon(CommentIcon)
+                .child(
+                  S.documentList()
+                    .schemaType('echange')
+                    .apiVersion(STUDIO_API_VERSION)
+                    .title('Réponses non lues')
+                    .filter('_type == "echange" && lu != true')
+                    .defaultOrdering([{ field: 'recuLe', direction: 'desc' }]),
+                ),
+              S.documentTypeListItem('echange').title('Toutes les réponses').icon(DocumentsIcon),
+            ]),
+        ),
       S.documentTypeListItem('conteneurOccasion').title('Conteneurs d’occasion').icon(PackageIcon),
       S.documentTypeListItem('rotation').title('Rotations maritimes').icon(EarthGlobeIcon),
       S.listItem()
@@ -392,7 +416,7 @@ export default defineConfig([
     ],
     schema: {
       types: backofficeTypes,
-      templates: (templates) => templates.filter((t) => t.schemaType !== 'statsMensuelles'),
+      templates: (templates) => templates.filter((t) => t.schemaType !== 'statsMensuelles' && t.schemaType !== 'echange'),
     },
   },
 ]);

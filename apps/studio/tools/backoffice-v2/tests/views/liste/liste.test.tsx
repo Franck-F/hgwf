@@ -46,6 +46,7 @@ const ligne = (id: string, client: string) => ({
   enRetard: false,
   actionLibelle: 'Prendre en charge',
   phase: 'nouvelle' as const,
+  nbNonLus: 0,
 });
 
 const parc = (): Dossier[] => [

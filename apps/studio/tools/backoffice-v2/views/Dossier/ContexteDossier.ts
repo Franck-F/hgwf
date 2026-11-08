@@ -13,7 +13,7 @@ import { createContext, useContext } from 'react';
 import type { ContexteDossier, GestesSecours, Resultat, ResultatGeste } from '../../domaine/contrats';
 import type { Brouillon } from '../../domaine/types';
 
-export type NomSection = 'demande' | 'devis' | 'expedition' | 'facturation' | 'historique';
+export type NomSection = 'demande' | 'echanges' | 'devis' | 'expedition' | 'facturation' | 'historique';
 
 export interface ContexteVue extends ContexteDossier {
   /** Gestes de secours liés au brouillon courant (règle 5.5). */

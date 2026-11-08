@@ -13,6 +13,7 @@ import { calculerChiffrage, euros } from '../../domaine/chiffrage';
 import { classer } from '../../domaine/classement';
 import { ilYa } from '../../domaine/format';
 import { LIBELLES_PHASE, TON_PHASE, phaseDe } from '../../domaine/phases';
+import { nbNonLus } from '../../domaine/echanges';
 import { derniereActivite, prochaineActionTexte } from '../../domaine/priorites';
 import type { Demande, Dossier } from '../../domaine/types';
 import { Badge } from '../../ui';
@@ -53,6 +54,7 @@ export function LigneDossier({ dossier, onOuvrir, maintenant }: LigneDossierProp
   const montant = montantTTC(dossier.demande);
   const activite = derniereActivite(dossier);
   const resume = resumeDossier(dossier);
+  const nonLus = nbNonLus(dossier);
 
   // L'alerte d'âge vient du même classement qu'« À faire » : une seule règle de retard.
   const classement = classer(dossier, now);
@@ -74,6 +76,13 @@ export function LigneDossier({ dossier, onOuvrir, maintenant }: LigneDossierProp
           {LIBELLES_PHASE[phase]}
         </Badge>
         {alerte && alerte !== LIBELLES_PHASE[phase] ? <div className="bo-secondaire">{alerte}</div> : null}
+        {nonLus > 0 ? (
+          <div>
+            <Badge ton="attention" icone="enveloppe">
+              {nonLus > 1 ? `${nonLus} réponses non lues` : '1 réponse non lue'}
+            </Badge>
+          </div>
+        ) : null}
       </td>
       <td data-etiquette="Montant TTC">{montant || <span className="bo-secondaire">—</span>}</td>
       <td data-etiquette="Dernière activité">{activite ? ilYa(activite, now) : <span className="bo-secondaire">—</span>}</td>

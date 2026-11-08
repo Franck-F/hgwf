@@ -189,6 +189,39 @@ export interface Fiche extends DocumentBase {
   aCompleter?: string[];
 }
 
+/** Pièce jointe d'une réponse : `url` est lue avec l'échange (`fichier.asset->url`). */
+export interface PieceEchange {
+  _key: string;
+  nom?: string;
+  typeMime?: string;
+  taille?: number;
+  url?: string;
+}
+
+/**
+ * Réponse d'un client à un e-mail du back-office, déposée par l'API (webhook de
+ * réception). Dans la liste du magasin, `texte` et `pieces` sont absents (lus à
+ * l'ouverture du dossier) ; seul `lu` pilote le signal « Réponse reçue ».
+ */
+export interface Echange extends DocumentBase {
+  _type: 'echange';
+  /** Référence de la demande (« HGWF-2026-1234 »). */
+  reference?: string;
+  /** `_id` de la demande liée, quand elle a été trouvée. */
+  demandeId?: string;
+  sens?: 'recu';
+  de?: string;
+  a?: string;
+  objet?: string;
+  texte?: string;
+  /** Date ISO de réception. */
+  recuLe?: string;
+  pieces?: PieceEchange[];
+  lu?: boolean;
+  transfereLe?: string;
+  erreur?: string;
+}
+
 /**
  * Un dossier = une demande + son éventuelle expédition (3.1). Cas dégénéré :
  * expédition seule (`demande` absente), identifiée par l'`_id` de l'expédition.
@@ -198,6 +231,8 @@ export interface Dossier {
   id: string;
   demande?: Demande;
   expedition?: Expedition;
+  /** Réponses reçues du client ; absent = non chargé (les anciens appels n'en ont pas). */
+  echanges?: Echange[];
 }
 
 /** Phase unique que voit l'équipe, calculée par `phases.ts` (3.2). */
@@ -248,6 +283,8 @@ export interface LigneAFaire {
   /** Libellé de l'action principale du dossier. */
   actionLibelle: string;
   phase: Phase;
+  /** Réponses du client pas encore lues (0 si aucune). */
+  nbNonLus: number;
 }
 
 export interface GroupeAFaire {
@@ -283,4 +320,6 @@ export interface DonneesMagasin {
   conteneurs: Conteneur[];
   rotations: Rotation[];
   fiches: Fiche[];
+  /** Réponses des clients, version légère (sans texte ni pièces). */
+  echanges: Echange[];
 }

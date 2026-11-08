@@ -189,6 +189,16 @@ ${mobile}{.bo-frise{flex-direction:column}.bo-frise-etape::after{display:none}.b
 @keyframes bo-brille{to{background-position:-200% 0}}
 `;
 
+// Fil « Échanges » du dossier : une réponse non lue porte un liseré or, jamais la couleur seule (badge « Non lu »).
+const echanges = `
+.bo-echange{display:flex;flex-direction:column;gap:var(--bo-e2);padding:var(--bo-e3);background:var(--bo-surface);border:1px solid var(--bo-bordure);border-radius:var(--bo-rayon)}
+.bo-echange--nonlu{border-left:5px solid var(--bo-or);background:#fffaf0}
+.bo-echange-texte{white-space:pre-wrap;overflow-wrap:anywhere}
+.bo-pieces{display:flex;flex-wrap:wrap;gap:var(--bo-e2)}
+.bo-piece{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 var(--bo-e3);border:1px solid var(--bo-bordure);border-radius:var(--bo-rayon);color:var(--bo-marine);font-weight:600;text-decoration:none}
+.bo-piece:hover{background:var(--bo-creme)}
+`;
+
 const formulaires = `
 .bo-champ{display:flex;flex-direction:column;gap:6px;border:0;padding:0;margin:0;min-width:0}
 .bo-champ-entete{display:flex;align-items:center;gap:var(--bo-e2);min-height:24px}
@@ -238,4 +248,4 @@ const coque = `
 ${mobile}{.bo-haut{padding:var(--bo-e2) var(--bo-e3)}}
 `;
 
-export const FEUILLE_DE_STYLE = [base, mise, composants, formulaires, coque].join('\n').replace(/^\s*\n/gm, '');
+export const FEUILLE_DE_STYLE = [base, mise, composants, echanges, formulaires, coque].join('\n').replace(/^\s*\n/gm, '');

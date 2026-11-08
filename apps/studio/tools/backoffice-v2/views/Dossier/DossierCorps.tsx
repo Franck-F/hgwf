@@ -15,12 +15,14 @@ import { ContexteDossierReact } from './ContexteDossier';
 import type { NomSection } from './ContexteDossier';
 import { champsModifiesDossier } from '../../domaine/fusion';
 import { libelleChamp } from './champsDossier';
+import { BandeauReponse } from './BandeauReponse';
 import { SectionDevis } from './devis/SectionDevis';
 import { EnteteDossier } from './EnteteDossier';
 import { SectionExpedition } from './expedition/SectionExpedition';
 import { FenetresDossier } from './FenetresDossier';
 import { ProchaineEtape } from './ProchaineEtape';
 import { SectionDemande } from './SectionDemande';
+import { SectionEchanges } from './SectionEchanges';
 import { SectionFacturation } from './SectionFacturation';
 import { SectionHistorique } from './SectionHistorique';
 import { useGardeQuitter } from './useGardeQuitter';
@@ -100,8 +102,10 @@ export function DossierCorps({ id }: { id: string }): ReactElement {
         ) : null}
         <div className="bo-dossier-grille">
           <div className="bo-pile">
+            <BandeauReponse dossier={dossier} onLire={() => p.contexte?.allerA('echanges')} />
             <ProchaineEtape action={p.action} modifications={p.nbModifications > 0} />
             {enveloppe('demande', <SectionDemande {...section('demande')} />)}
+            {enveloppe('echanges', <SectionEchanges {...section('echanges')} />)}
             {dossier.demande && p.phase !== 'nouvelle'
               ? enveloppe('devis', <SectionDevis {...section('devis')} />)
               : null}

@@ -15,6 +15,7 @@
  */
 import type { EtapeFrise, TonBadge } from '../ui/types';
 import { lireDate } from './echeances';
+import { reponseATraiter } from './echanges';
 import { DEMANDE, ETAPE, PRISE_EN_CHARGE } from './statuts';
 import type { Dossier, Phase } from './types';
 
@@ -118,7 +119,10 @@ export function phaseDe(dossier: Dossier): Phase {
     case DEMANDE.enCours:
       // L'API a envoyé l'e-mail mais le second patch (statut 2) n'est pas passé.
       if (d.devisEnvoyeLe) return 'devisPartiStatutACorriger';
-      return reponseApresComplement(d.complementDemandeLe, d.reponseClientLe) ? 'reponseRecue' : 'aChiffrer';
+      // Le signal s'éteint quand l'équipe a lu toutes les réponses reçues (fil « Échanges »).
+      return reponseApresComplement(d.complementDemandeLe, d.reponseClientLe) && reponseATraiter(dossier)
+        ? 'reponseRecue'
+        : 'aChiffrer';
     case DEMANDE.devisEnvoye:
       return d.devisEnvoyeHorsOutilLe && !d.devisEnvoyeLe ? 'devisHorsOutil' : 'devisEnvoye';
     case DEMANDE.acceptee:

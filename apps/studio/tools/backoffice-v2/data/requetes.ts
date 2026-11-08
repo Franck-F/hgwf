@@ -58,13 +58,45 @@ const CHAMPS_DEMANDE_LISTE = [
   'numeroFacture',
 ].join(', ');
 
+/**
+ * Réponses des clients, version légère : ni le texte ni les pièces jointes
+ * (lus avec le dossier). Il suffit ici de savoir lesquelles existent et si
+ * elles sont lues, pour le signal « Réponse reçue » et le badge des listes.
+ */
+const CHAMPS_ECHANGE_LISTE = [
+  '_id',
+  '_type',
+  '_rev',
+  '_createdAt',
+  '_updatedAt',
+  'reference',
+  '"demandeId": demande._ref',
+  'sens',
+  'de',
+  'objet',
+  'recuLe',
+  'lu',
+  'erreur',
+].join(', ');
+
 export const REQUETE_MAGASIN = `{
   "demandes": *[_type == "demandeDevis"] | order(_createdAt desc){${CHAMPS_DEMANDE_LISTE}},
   "expeditions": *[_type == "expedition"] | order(_updatedAt desc),
   "clients": *[_type == "clientFiche"] | order(nom asc),
   "conteneurs": *[_type == "conteneurOccasion"] | order(reference asc),
   "rotations": *[_type == "rotation"],
-  "fiches": *[_type == "ficheService" && actif != false] | order(ordre asc)${PROJECTION_FICHE}
+  "fiches": *[_type == "ficheService" && actif != false] | order(ordre asc)${PROJECTION_FICHE},
+  "echanges": *[_type == "echange"] | order(recuLe desc){${CHAMPS_ECHANGE_LISTE}}
+}`;
+
+/**
+ * Réponses complètes d'un dossier (`params.demandeId`, `params.references` en
+ * minuscules) : texte, pièces jointes et leur adresse de téléchargement. La
+ * référence est comparée sans tenir compte de la casse.
+ */
+export const REQUETE_ECHANGES_DOSSIER = `*[_type == "echange" && (demande._ref == $demandeId || lower(reference) in $references)] | order(recuLe desc){
+  ..., "demandeId": demande._ref,
+  "pieces": pieces[]{_key, nom, typeMime, taille, "url": fichier.asset->url}
 }`;
 
 /** Détail complet d'un dossier, lu à l'ouverture (`params.id`). Un document, tous ses champs. */
@@ -87,4 +119,4 @@ export const REQUETE_REFERENCES = '{"demandes": *[_type == "demandeDevis"]{refer
 
 /** Types de documents dont une modification déclenche une relecture (écoute en direct). */
 export const REQUETE_ECOUTE =
-  '*[_type in ["demandeDevis", "expedition", "clientFiche", "conteneurOccasion", "rotation", "ficheService"]]';
+  '*[_type in ["demandeDevis", "expedition", "clientFiche", "conteneurOccasion", "rotation", "ficheService", "echange"]]';

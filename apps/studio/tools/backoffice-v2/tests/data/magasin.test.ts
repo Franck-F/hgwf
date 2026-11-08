@@ -17,7 +17,7 @@ const attendre = () => new Promise((r) => setTimeout(r, 0));
 
 describe('requête agrégée', () => {
   it('une seule requête, clés nommées entre guillemets (contrat du harnais)', () => {
-    for (const cle of ['demandes', 'expeditions', 'clients', 'conteneurs', 'rotations', 'fiches']) {
+    for (const cle of ['demandes', 'expeditions', 'clients', 'conteneurs', 'rotations', 'fiches', 'echanges']) {
       expect(REQUETE_MAGASIN).toContain(`"${cle}":`);
     }
     // Plus de limite de 180 jours : tout est chargé.

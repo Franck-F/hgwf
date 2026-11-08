@@ -28,6 +28,7 @@ export const DONNEES_VIDES: DonneesMagasin = {
   conteneurs: [],
   rotations: [],
   fiches: [],
+  echanges: [],
 };
 
 const INTERVALLE_MS = 60_000;
@@ -46,6 +47,7 @@ export function normaliserDonnees(brut: Partial<DonneesMagasin> | null | undefin
     conteneurs: liste(brut?.conteneurs),
     rotations: liste(brut?.rotations),
     fiches: liste(brut?.fiches),
+    echanges: liste(brut?.echanges),
   };
 }
 

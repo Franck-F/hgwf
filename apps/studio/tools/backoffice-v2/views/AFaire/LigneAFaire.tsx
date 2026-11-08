@@ -43,6 +43,11 @@ export function LigneAFaire({ ligne, principale, onOuvrir, attenuee }: LigneAFai
           En retard
         </Badge>
       ) : null}
+      {ligne.nbNonLus > 0 ? (
+        <Badge ton="attention" icone="enveloppe">
+          {ligne.nbNonLus > 1 ? `${ligne.nbNonLus} réponses non lues` : '1 réponse non lue'}
+        </Badge>
+      ) : null}
       <span>{ligne.raison}</span>
       {raisonDitLAge(ligne.raison) ? null : <span className="bo-secondaire">{texteAge(ligne.ageJours)}</span>}
       <span
