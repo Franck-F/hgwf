@@ -12,14 +12,15 @@
  * se lisent ensuite par l'API Resend (voir `lireEmailRecu`).
  *
  * Sécurité : connaître une référence ne suffit pas pour écrire dans un dossier.
- * L'expéditeur doit être l'adresse e-mail de la demande, et l'authentification
- * du message (SPF/DKIM/DMARC) ne doit pas avoir échoué (`verifierExpediteur`).
+ * L'expéditeur doit être l'adresse e-mail de la demande, avec une
+ * authentification positive (DMARC ou DKIM aligné) constatée par le serveur de
+ * réception (`verifierExpediteur`).
  * Sinon le message est rangé mais signalé « à vérifier », sans pièces jointes
  * ni remontée de la demande. Un message sans dossier n'est pas enregistré :
  * l'équipe en reçoit une copie texte, sans pièces jointes, avec un avertissement
  * (l'adresse ne doit pas servir à faire entrer des fichiers piégés sous le nom
- * du domaine HGWF). Les exécutables, scripts, pages HTML et documents à macros
- * sont toujours écartés (`pieceBloquee`).
+ * du domaine HGWF). Seuls les formats d'une liste blanche sont gardés, contenu
+ * vérifié (`pieceBloquee`, `contenuConforme`).
  *
  * Tout est injectable (fetch, client Sanity, envoi) pour les tests : aucun
  * appel réseau dans test/reception.test.js.
@@ -98,63 +99,141 @@ export function extraireReference(adresses, domaine = DOMAINE_PAR_DEFAUT) {
   return null;
 }
 
-/** Adresse seule d'un « Nom <adresse> ». */
+/**
+ * Adresse d'un en-tête From : « Nom <adresse> » ou « adresse ». Les noms entre
+ * guillemets et les commentaires sont ignorés (« "<marie@client.fr>"
+ * <pirate@x.net> » donne bien pirate@x.net). Vide si l'en-tête porte plusieurs
+ * adresses ou est ambigu : mieux vaut ne rien vérifier que vérifier la mauvaise.
+ */
 export function adresseDe(texte) {
-  const s = String(texte ?? '');
-  return s.match(/<([^<>\s]+@[^<>\s]+)>/)?.[1] ?? s.match(/[^\s<>",;]+@[^\s<>",;]+/)?.[0] ?? '';
+  let s = String(texte ?? '').replace(/"(?:[^"\\]|\\.)*"/g, ' ');
+  let avant;
+  do {
+    avant = s;
+    s = s.replace(/\((?:[^()\\]|\\.)*\)/g, ' ');
+  } while (s !== avant);
+  if (s.includes('"')) return '';
+  const crochets = [...s.matchAll(/<([^<>]*)>/g)].map((m) => m[1].trim());
+  const valide = (a) => /^[^@\s<>",;:()]+@[^@\s<>",;:()]+\.[^@\s<>",;:()]+$/.test(a);
+  if (crochets.length > 1 || /[<>]/.test(s.replace(/<[^<>]*>/g, ''))) return '';
+  if (crochets.length === 1) return valide(crochets[0]) ? crochets[0] : '';
+  const nues = s.match(/[^\s<>",;:()]+@[^\s<>",;:()]+/g) ?? [];
+  return nues.length === 1 && valide(nues[0]) ? nues[0] : '';
 }
 
 // ── Vérification de l'expéditeur ──────────────────────────────────────────────
+// Domaines « alignés » au sens DMARC relâché : identiques, ou l'un sous-domaine de l'autre.
+const alignes = (a, b) => Boolean(a && b) && (a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`));
+
 /**
- * Verdict tiré des en-têtes « Authentication-Results » quand Resend les
- * transmet (objet ou liste {name, value}). On ne s'en sert que pour REFUSER :
- * un expéditeur malveillant peut glisser un faux « pass » dans ses propres
- * en-têtes, jamais effacer le « fail » ajouté par le serveur de réception.
- * @returns {'echec' | 'inconnu'}
+ * Verdict des en-têtes « Authentication-Results » (objet ou liste {name, value}).
+ * - Un « fail » DMARC (ou SPF sans DKIM valide) dans N'IMPORTE QUEL en-tête suffit
+ *   à refuser : l'expéditeur ne peut pas effacer celui du serveur de réception.
+ * - Un « pass » ne compte que dans le PREMIER en-tête (le plus haut, ajouté par
+ *   le serveur de réception) et seulement s'il est aligné sur le domaine du From :
+ *   l'expéditeur peut glisser de faux « pass » plus bas dans ses propres en-têtes.
+ * @returns {'ok' | 'echec' | 'inconnu'}
  */
-export function verdictAuthentification(entetes) {
+export function verdictAuthentification(entetes, domaineFrom = '') {
   const valeurs = [];
   const garder = (nom, valeur) => {
-    if (/^authentication-results$/i.test(String(nom ?? ''))) valeurs.push(...[valeur].flat().map(String));
+    if (/^authentication-results$/i.test(String(nom ?? ''))) valeurs.push(...[valeur].flat().map((v) => String(v).toLowerCase()));
   };
   if (Array.isArray(entetes)) for (const h of entetes) garder(h?.name ?? h?.key, h?.value);
   else if (entetes && typeof entetes === 'object') for (const [k, v] of Object.entries(entetes)) garder(k, v);
-  const t = valeurs.join(' ').toLowerCase();
-  if (/\bdmarc=fail\b/.test(t)) return 'echec';
-  if (/\bspf=fail\b/.test(t) && !/\bdkim=pass\b/.test(t)) return 'echec';
+  if (valeurs.some((t) => /\bdmarc=fail\b/.test(t) || (/\bspf=fail\b/.test(t) && !/\bdkim=pass\b/.test(t)))) return 'echec';
+
+  const domaine = String(domaineFrom).toLowerCase();
+  const premier = valeurs[0] ?? '';
+  const dmarc = premier.match(/\bdmarc=pass\b[^;]*?\bheader\.from=([a-z0-9.-]+)/);
+  if (dmarc && alignes(dmarc[1], domaine)) return 'ok';
+  for (const m of premier.matchAll(/\bdkim=pass\b[^;]*?\bheader\.d=([a-z0-9.-]+)/g)) {
+    if (alignes(m[1], domaine)) return 'ok';
+  }
   return 'inconnu';
 }
 
 /**
- * Le message vient-il bien du client du dossier ? Adresse identique à celle de
- * la demande (casse ignorée) et authentification non échouée.
+ * Le message vient-il bien du client du dossier ? Il faut l'adresse e-mail de
+ * la demande (casse ignorée) ET une authentification positive (DMARC, ou DKIM
+ * aligné) constatée par le serveur de réception. Sans preuve : non vérifié.
  * @returns {{ fiable: boolean, motif?: string }}
  */
 export function verifierExpediteur({ de, demande, entetes }) {
   if (!demande) return { fiable: false, motif: 'aucun dossier correspondant' };
   const adresse = adresseDe(de).trim().toLowerCase();
   const attendue = String(demande.email ?? '').trim().toLowerCase();
-  if (!adresse) return { fiable: false, motif: 'expéditeur absent du message' };
+  if (!adresse) return { fiable: false, motif: 'expéditeur absent ou illisible dans le message' };
   if (!attendue || adresse !== attendue) {
     return { fiable: false, motif: `l’expéditeur ${adresse} n’est pas l’adresse e-mail enregistrée dans la demande` };
   }
-  if (verdictAuthentification(entetes) === 'echec') {
+  const verdict = verdictAuthentification(entetes, adresse.split('@')[1]);
+  if (verdict === 'echec') {
     return { fiable: false, motif: 'l’authentification du message (SPF/DKIM/DMARC) a échoué : l’adresse a pu être usurpée' };
+  }
+  if (verdict !== 'ok') {
+    return { fiable: false, motif: 'l’authentification du message (DKIM/DMARC) n’a pas pu être confirmée' };
   }
   return { fiable: true };
 }
 
-// Jamais conservées ni transmises : programmes, scripts, raccourcis, images
-// disque, pages HTML/SVG (scripts possibles) et documents Office à macros.
-const EXTENSIONS_BLOQUEES =
-  /\.(exe|com|scr|pif|bat|cmd|msi|msp|dll|cpl|jar|js|jse|mjs|vbs|vbe|wsf|wsh|hta|ps1|psm1|sh|lnk|url|reg|iso|img|vhdx?|html?|xhtml?|svg|docm|dotm|xlsm|xltm|xlam|pptm|potm|ppsm|sldm)$/i;
-const TYPES_BLOQUES =
-  /^(text\/html|image\/svg\+xml|application\/(x-msdownload|x-msdos-program|x-dosexec|x-ms-installer|x-msi|javascript|x-javascript|x-sh|hta|xhtml\+xml|vnd\.ms-[a-z.]*macroenabled[a-z.0-9]*))\b/i;
+// Liste blanche : seuls les formats utiles à un devis ou une expédition sont
+// conservés et transmis (PDF, images, Office sans macros, OpenDocument, texte).
+// Tout le reste (programmes, scripts, archives, HTML/SVG, Office ancien ou à
+// macros, OneNote, aide CHM…) est écarté, quel que soit le type annoncé.
+const SIGNATURES = {
+  pdf: (b) => b.subarray(0, 1024).includes('%PDF-'),
+  jpg: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+  png: (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+  gif: (b) => b.subarray(0, 4).toString('latin1') === 'GIF8',
+  webp: (b) => b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP',
+  heic: (b) => b.subarray(4, 8).toString('latin1') === 'ftyp',
+  tiff: (b) => ['II*\0', 'MM\0*'].includes(b.subarray(0, 4).toString('latin1')),
+  bmp: (b) => b.subarray(0, 2).toString('latin1') === 'BM',
+  // Office Open XML / OpenDocument : archive ZIP, et aucun projet VBA dedans
+  // (les noms de fichiers d'un ZIP sont lisibles en clair).
+  zipBureau: (b) => b.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])) && !b.includes('vbaProject.bin') && !b.includes('vbaProjectSignature'),
+  texte: (b) => !b.subarray(0, 8192).includes(0),
+};
+const FORMATS_AUTORISES = {
+  pdf: SIGNATURES.pdf,
+  jpg: SIGNATURES.jpg,
+  jpeg: SIGNATURES.jpg,
+  png: SIGNATURES.png,
+  gif: SIGNATURES.gif,
+  webp: SIGNATURES.webp,
+  heic: SIGNATURES.heic,
+  heif: SIGNATURES.heic,
+  tif: SIGNATURES.tiff,
+  tiff: SIGNATURES.tiff,
+  bmp: SIGNATURES.bmp,
+  docx: SIGNATURES.zipBureau,
+  xlsx: SIGNATURES.zipBureau,
+  pptx: SIGNATURES.zipBureau,
+  odt: SIGNATURES.zipBureau,
+  ods: SIGNATURES.zipBureau,
+  odp: SIGNATURES.zipBureau,
+  txt: SIGNATURES.texte,
+  csv: SIGNATURES.texte,
+};
+const TYPES_REFUSES = /^(text\/html|image\/svg\+xml|application\/(xhtml\+xml|javascript|x-javascript|x-sh|hta|x-msdownload|x-msdos-program|x-dosexec|x-ms-installer|x-msi|vnd\.ms-[a-z.]*macroenabled[a-z.0-9]*))\b/i;
 
-export function pieceBloquee(nom, typeMime) {
+const extension = (nom) => {
   // Windows ignore les points et espaces finaux : « facture.exe. » est un .exe.
   const propre = String(nom ?? '').replace(/[\s.]+$/, '');
-  return EXTENSIONS_BLOQUEES.test(propre) || TYPES_BLOQUES.test(String(typeMime ?? '').trim());
+  const m = propre.match(/\.([a-z0-9]+)$/i);
+  return m ? m[1].toLowerCase() : '';
+};
+
+/** Refus sur le nom et le type annoncé, avant tout téléchargement. */
+export function pieceBloquee(nom, typeMime) {
+  return !Object.hasOwn(FORMATS_AUTORISES, extension(nom)) || TYPES_REFUSES.test(String(typeMime ?? '').trim());
+}
+
+/** Le contenu téléchargé correspond-il vraiment au format de son extension ? */
+export function contenuConforme(nom, contenu) {
+  const verifier = FORMATS_AUTORISES[extension(nom)];
+  return Boolean(verifier && contenu?.length && verifier(contenu));
 }
 
 // ── Texte ─────────────────────────────────────────────────────────────────────
@@ -221,6 +300,7 @@ async function telechargerPieces(liste, fetchImpl) {
       if (!rep.ok) { omises.push(`${nom} (téléchargement ${rep.status})`); continue; }
       const contenu = Buffer.from(await rep.arrayBuffer());
       if (contenu.length > PIECE_MAX) { omises.push(`${nom} (trop volumineuse)`); continue; }
+      if (!contenuConforme(nom, contenu)) { omises.push(`${nom} (contenu non conforme à son format, bloqué par sécurité)`); continue; }
       pieces.push({ nom, typeMime: p.content_type || 'application/octet-stream', contenu });
     } catch {
       omises.push(`${nom} (téléchargement impossible)`);

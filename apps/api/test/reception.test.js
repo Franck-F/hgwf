@@ -5,7 +5,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import {
+  adresseDe,
   adresseReponse,
+  contenuConforme,
   extraireReference,
   horodatageParis,
   pieceBloquee,
@@ -43,12 +45,18 @@ function fauxSanity({ demande = { _id: 'dem-1', reference: 'HGWF-2026-1234', ema
 }
 
 // ── Faux Resend ───────────────────────────────────────────────────────────────
-function fauxFetch({ statutLecture = 200, pieces = [], from = 'Marie <marie@client.fr>', headers } = {}) {
+// En-tête ajouté par le serveur de réception pour un message authentique de client.fr.
+const AUTH_OK = { 'authentication-results': 'mx.resend.com; spf=pass smtp.mailfrom=client.fr; dkim=pass header.d=client.fr; dmarc=pass header.from=client.fr' };
+// Contenus de test dont la signature correspond à l'extension.
+const CONTENUS = { jpg: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]), pdf: Buffer.from('%PDF-1.7') };
+const tampon = (b) => b.buffer.slice(b.byteOffset, b.byteOffset + b.length);
+
+function fauxFetch({ statutLecture = 200, pieces = [], from = 'Marie <marie@client.fr>', headers = AUTH_OK } = {}) {
   const appels = [];
   const f = async (url) => {
     appels.push(String(url));
     if (url.includes('/attachments')) return { ok: true, status: 200, json: async () => ({ data: pieces.map((p) => ({ ...p, download_url: 'https://dl/' + p.filename })) }) };
-    if (url.startsWith('https://dl/')) return { ok: true, status: 200, arrayBuffer: async () => new TextEncoder().encode('contenu').buffer };
+    if (url.startsWith('https://dl/')) return { ok: true, status: 200, arrayBuffer: async () => tampon(CONTENUS[url.split('.').pop()] ?? Buffer.from('contenu')) };
     if (statutLecture !== 200) return { ok: false, status: statutLecture, json: async () => ({}) };
     return { ok: true, status: 200, json: async () => ({ text: 'Je valide.', to: ['dossier-hgwf-2026-1234@reponses.hgwf-cargo.fr'], from, subject: 'Re: Votre devis', headers, attachments: pieces.map((p) => ({ id: p.id, filename: p.filename })) }) };
   };
@@ -243,27 +251,65 @@ test('bonne adresse mais DMARC en échec : traité comme usurpé', async () => {
   assert.equal(sanity.patchs.some((p) => p.id === 'dem-1'), false);
 });
 
-test('vérification de l\'expéditeur et verdict d\'authentification', () => {
+test('adresse du From : guillemets, commentaires et adresses multiples', () => {
+  assert.equal(adresseDe('Marie <marie@client.fr>'), 'marie@client.fr');
+  assert.equal(adresseDe('marie@client.fr'), 'marie@client.fr');
+  assert.equal(adresseDe('"Dupont, Marie" <marie@client.fr>'), 'marie@client.fr');
+  // L'adresse de la demande cachée dans le nom affiché ne trompe pas la vérification.
+  assert.equal(adresseDe('"<marie@client.fr>" <pirate@x.net>'), 'pirate@x.net');
+  assert.equal(adresseDe('(marie@client.fr) pirate@x.net'), 'pirate@x.net');
+  assert.equal(adresseDe('marie@client.fr <pirate@x.net>'), 'pirate@x.net');
+  assert.equal(adresseDe('a@b.fr, c@d.fr'), '');
+  assert.equal(adresseDe('<a@b.fr> <c@d.fr>'), '');
+  assert.equal(adresseDe('"ouvert <marie@client.fr>'), '');
+  assert.equal(adresseDe(''), '');
+});
+
+test('vérification de l\'expéditeur : adresse de la demande ET authentification positive', () => {
   const demande = { _id: 'd', email: ' Marie@Client.FR ' };
-  assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande }).fiable, true);
-  assert.equal(verifierExpediteur({ de: 'marie@client.fr.pirate.net', demande }).fiable, false);
-  assert.equal(verifierExpediteur({ de: 'marie@client.fr', demande: { _id: 'd' } }).fiable, false);
-  assert.equal(verifierExpediteur({ de: 'marie@client.fr', demande: null }).fiable, false);
-  assert.equal(verdictAuthentification([{ name: 'authentication-results', value: 'spf=fail; dkim=pass' }]), 'inconnu');
-  assert.equal(verdictAuthentification([{ name: 'Authentication-Results', value: 'spf=fail; dkim=fail' }]), 'echec');
-  // Un faux « pass » glissé par l'expéditeur n'efface pas le « fail » du serveur.
-  assert.equal(verdictAuthentification({ 'authentication-results': ['dmarc=pass', 'dmarc=fail'] }), 'echec');
-  assert.equal(verdictAuthentification(undefined), 'inconnu');
+  assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, entetes: AUTH_OK }).fiable, true);
+  const sansPreuve = verifierExpediteur({ de: 'Marie <marie@client.fr>', demande });
+  assert.equal(sansPreuve.fiable, false);
+  assert.match(sansPreuve.motif, /n’a pas pu être confirmée/);
+  assert.equal(verifierExpediteur({ de: '"<marie@client.fr>" <pirate@x.net>', demande, entetes: AUTH_OK }).fiable, false);
+  assert.equal(verifierExpediteur({ de: 'marie@client.fr.pirate.net', demande, entetes: AUTH_OK }).fiable, false);
+  assert.equal(verifierExpediteur({ de: 'marie@client.fr', demande: { _id: 'd' }, entetes: AUTH_OK }).fiable, false);
+  assert.equal(verifierExpediteur({ de: 'marie@client.fr', demande: null, entetes: AUTH_OK }).fiable, false);
+});
+
+test('verdict d\'authentification : échec n\'importe où, succès seulement en tête et aligné', () => {
+  const ar = (...valeurs) => valeurs.map((value) => ({ name: 'Authentication-Results', value }));
+  assert.equal(verdictAuthentification(ar('mx; dmarc=pass header.from=client.fr'), 'client.fr'), 'ok');
+  assert.equal(verdictAuthentification(ar('mx; dkim=pass header.d=mail.client.fr'), 'client.fr'), 'ok');
+  assert.equal(verdictAuthentification(ar('mx; dkim=pass header.d=pirate.net'), 'client.fr'), 'inconnu');
+  assert.equal(verdictAuthentification(ar('mx; spf=fail; dkim=pass'), 'client.fr'), 'inconnu');
+  assert.equal(verdictAuthentification(ar('mx; spf=fail; dkim=fail'), 'client.fr'), 'echec');
+  // Faux « pass » glissé plus bas par l'expéditeur : ignoré.
+  assert.equal(verdictAuthentification(ar('mx; dmarc=none', 'x; dmarc=pass header.from=client.fr'), 'client.fr'), 'inconnu');
+  // Faux « pass » ne masque pas le « fail » du serveur.
+  assert.equal(verdictAuthentification({ 'authentication-results': ['mx; dmarc=fail', 'dmarc=pass header.from=client.fr'] }, 'client.fr'), 'echec');
+  assert.equal(verdictAuthentification(undefined, 'client.fr'), 'inconnu');
+});
+
+test('liste blanche des pièces jointes et contrôle du contenu', () => {
+  for (const nom of ['facture.exe', 'facture.EXE. ', 'tarifs.xlsm', 'archive.zip', 'ancien.doc', 'ancien.xls', 'notes.one', 'aide.chm', 'page.html', 'logo.svg', 'sansextension']) {
+    assert.equal(pieceBloquee(nom), true, nom);
+  }
+  assert.equal(pieceBloquee('page.pdf', 'text/html'), true);
+  assert.equal(pieceBloquee('liste.xlsx', 'application/vnd.ms-excel.sheet.macroEnabled.12'), true);
+  for (const nom of ['devis.pdf', 'photo.JPG', 'colis.heic', 'liste.xlsx', 'contrat.docx', 'inventaire.csv']) {
+    assert.equal(pieceBloquee(nom), false, nom);
+  }
+  assert.equal(contenuConforme('devis.pdf', Buffer.from('%PDF-1.7')), true);
+  assert.equal(contenuConforme('devis.pdf', Buffer.from('MZ\x90\x00')), false);
+  assert.equal(contenuConforme('photo.jpg', CONTENUS.jpg), true);
+  assert.equal(contenuConforme('liste.xlsx', Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('xl/workbook.xml')])), true);
+  assert.equal(contenuConforme('liste.xlsx', Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('xl/vbaProject.bin')])), false);
+  assert.equal(contenuConforme('notes.txt', Buffer.from('a\0b')), false);
+  assert.equal(contenuConforme('vide.pdf', Buffer.alloc(0)), false);
 });
 
 test('pièces dangereuses écartées, les autres conservées', async () => {
-  assert.equal(pieceBloquee('facture.exe'), true);
-  assert.equal(pieceBloquee('facture.EXE. '), true);
-  assert.equal(pieceBloquee('tarifs.xlsm'), true);
-  assert.equal(pieceBloquee('page.bin', 'text/html'), true);
-  assert.equal(pieceBloquee('liste.xlsx', 'application/vnd.ms-excel.sheet.macroEnabled.12'), true);
-  assert.equal(pieceBloquee('devis.pdf', 'application/pdf'), false);
-  assert.equal(pieceBloquee('photo.jpg', 'image/jpeg'), false);
 
   const sanity = fauxSanity();
   const envoyer = fauxEnvoi();
@@ -288,7 +334,9 @@ test('Resend refuse la lecture (clé d\'envoi seul) : échange enregistré avec 
     assert.match(echange.erreur, new RegExp(`Resend ${statut}`));
     assert.equal(echange.de, 'Marie <marie@client.fr>');
     assert.equal(echange.objet, 'Re: Votre devis');
-    assert.ok(sanity.patchs.some((p) => p.id === 'dem-1'));
+    // Sans contenu, pas d'en-têtes d'authentification : rien ne prouve l'expéditeur.
+    assert.equal(echange.expediteurVerifie, false);
+    assert.equal(sanity.patchs.some((p) => p.id === 'dem-1'), false);
     assert.match(envoyer.envoyes[0].text, /n'a pas pu être lu/);
     assert.equal(envoyer.envoyes[0].replyTo, 'marie@client.fr');
   }
@@ -310,8 +358,8 @@ test('autre type d\'événement : 200 ignoré', async () => {
 
 test('pièce trop volumineuse : omise et signalée', async () => {
   const sanity = fauxSanity();
-  const r = await lancer({ sanity, fetchImpl: fauxFetch({ pieces: [{ id: 'p1', filename: 'gros.zip', content_type: 'application/zip', size: 50_000_000 }] }) });
+  const r = await lancer({ sanity, fetchImpl: fauxFetch({ pieces: [{ id: 'p1', filename: 'gros.pdf', content_type: 'application/pdf', size: 50_000_000 }] }) });
   assert.equal(r.status, 200);
   assert.equal(sanity.uploads.length, 0);
-  assert.match(sanity.crees[0].erreur, /gros\.zip \(trop volumineuse\)/);
+  assert.match(sanity.crees[0].erreur, /gros\.pdf \(trop volumineuse\)/);
 });
