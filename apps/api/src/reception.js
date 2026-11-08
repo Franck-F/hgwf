@@ -200,6 +200,7 @@ export function verifierExpediteur({ de, demande, entetes, serveursFiables = [] 
  * l'archive est illisible ou en ZIP64 (inutile pour un document de bureau).
  */
 export function entreesZip(b) {
+  if (b.length < 22) return null;
   const fin = Math.max(0, b.length - 65_557);
   let eocd = -1;
   for (let i = b.length - 22; i >= fin; i--) {
@@ -208,8 +209,9 @@ export function entreesZip(b) {
   if (eocd < 0) return null;
   const nb = b.readUInt16LE(eocd + 10);
   let p = b.readUInt32LE(eocd + 16);
-  if (nb === 0xffff || p === 0xffffffff || p >= b.length) return null;
+  if (nb === 0xffff || nb > ZIP_ENTREES_MAX || p === 0xffffffff || p >= b.length) return null;
   const entrees = [];
+  const decalages = new Set();
   for (let k = 0; k < nb; k++) {
     if (p + 46 > b.length || b.readUInt32LE(p) !== 0x02014b50) return null;
     const methode = b.readUInt16LE(p + 10);
@@ -218,14 +220,19 @@ export function entreesZip(b) {
     const lgExtra = b.readUInt16LE(p + 30);
     const lgCom = b.readUInt16LE(p + 32);
     const local = b.readUInt32LE(p + 42);
+    // Deux entrées sur le même contenu : archive fabriquée, refusée.
+    if (decalages.has(local)) return null;
+    decalages.add(local);
     const nom = b.subarray(p + 46, p + 46 + lgNom).toString('utf8');
     entrees.push({
       nom,
       lire: (max = 1_000_000) => {
         if (local + 30 > b.length || b.readUInt32LE(local) !== 0x04034b50) return null;
         const debut = local + 30 + b.readUInt16LE(local + 26) + b.readUInt16LE(local + 28);
+        if (debut + taille > b.length) return null;
         const brut = b.subarray(debut, debut + taille);
-        if (methode === 0) return brut.subarray(0, max);
+        // Jamais de lecture tronquée : trop gros = illisible = refusé.
+        if (methode === 0) return taille > max ? null : brut;
         if (methode !== 8) return null;
         try {
           return inflateRawSync(brut, { maxOutputLength: max });
@@ -239,24 +246,79 @@ export function entreesZip(b) {
   return entrees;
 }
 
-// Parties actives d'un document Office : macros, contrôles ActiveX, objets OLE.
-const PARTIES_ACTIVES = /vbaProject|vbaData|activeX|oleObject|\/embeddings\/[^/]*\.(bin|docm|dotm|xlsm|xltm|xlsb|pptm|potm|ppsm|exe|dll|js|vbs|hta)$/i;
-// Relations externes dangereuses : modèle distant (injection de modèle), OLE,
-// cadre ou sous-document chargés depuis Internet. Les liens hypertexte restent.
-const RELATION_DANGEREUSE = /\/(attachedTemplate|oleObject|frame|subDocument)$/i;
+const ZIP_ENTREES_MAX = 2000;
+const RELS_MAX = 200;
+const XML_TOTAL_MAX = 8 * 1024 * 1024;
 
-/** Document Office Open XML sans macro, sans objet actif ni modèle distant. */
+// Parties actives d'un document Office, par leur nom : macros, ActiveX, OLE.
+const PARTIES_ACTIVES = /vbaProject|vbaData|activeX|oleObject|\/embeddings\/[^/]*\.(bin|docm|dotm|xlsm|xltm|xlsb|pptm|potm|ppsm|exe|dll|js|vbs|hta)$/i;
+// … et par leur type déclaré dans [Content_Types].xml.
+const TYPES_ACTIFS = /vbaProject|vbaData|macroEnabled|oleObject|activeX|x-msdownload/i;
+// Relations refusées même internes : objets OLE, paquets embarqués, ActiveX,
+// macros, fragments importés (altChunk : HTML/MHT), modèle, cadre, sous-document.
+const RELATION_ACTIVE = /\/(oleObject|package|activeXControl|activeXControlBinary|vbaProject|wordVbaData|aFChunk|attachedTemplate|frame|subDocument|control)$/i;
+const RELATION_HYPERLIEN = /\/hyperlink$/i;
+
+const ENTITES_XML = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+const decoderXml = (s) =>
+  s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) => {
+    if (e[0] !== '#') return ENTITES_XML[e.toLowerCase()] ?? m;
+    const code = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : Number(e.slice(1));
+    return Number.isFinite(code) && code <= 0x10ffff ? String.fromCodePoint(code) : m;
+  });
+
+/** Texte d'une partie XML en UTF-8 strict ; null si autre encodage (refus). */
+function texteXml(octets) {
+  if (!octets) return null;
+  // BOM UTF-16 ou octets nuls : encodage non contrôlé, on refuse plutôt que de mal lire.
+  if ((octets[0] === 0xff && octets[1] === 0xfe) || (octets[0] === 0xfe && octets[1] === 0xff) || octets.includes(0)) return null;
+  const t = octets.toString('utf8').replace(/^﻿/, '');
+  if (t.includes('�')) return null;
+  const decl = t.match(/^<\?xml[^>]*\bencoding\s*=\s*["']([^"']+)["']/i)?.[1];
+  if (decl && !/^utf-?8$/i.test(decl)) return null;
+  return t;
+}
+
+// Attributs d'un élément, valeurs décodées (guillemets respectés, préfixe toléré).
+function attributs(element) {
+  const a = {};
+  for (const m of element.matchAll(/([\w.:-]+)\s*=\s*("([^"]*)"|'([^']*)')/g)) {
+    a[m[1].replace(/^[\w.-]+:/, '')] = decoderXml(m[3] ?? m[4] ?? '');
+  }
+  return a;
+}
+
+/** Document Office Open XML sans macro, sans objet actif ni contenu distant. */
 export function ooxmlSain(b) {
   if (!b?.length || !b.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) return false;
   const entrees = entreesZip(b);
-  if (!entrees || !entrees.some((e) => e.nom === '[Content_Types].xml')) return false;
+  if (!entrees) return false;
+  const types = entrees.find((e) => e.nom === '[Content_Types].xml');
+  if (!types) return false;
   if (entrees.some((e) => PARTIES_ACTIVES.test(e.nom))) return false;
-  for (const e of entrees.filter((x) => /\.rels$/i.test(x.nom))) {
-    const xml = e.lire();
-    if (!xml) return false;
-    for (const rel of xml.toString('utf8').match(/<Relationship\b[^>]*>/gi) ?? []) {
-      const type = rel.match(/\bType\s*=\s*["']([^"']*)["']/i)?.[1] ?? '';
-      if (/\bTargetMode\s*=\s*["']External["']/i.test(rel) && RELATION_DANGEREUSE.test(type)) return false;
+
+  let budget = XML_TOTAL_MAX;
+  const lireXml = (e) => {
+    const octets = e.lire(Math.min(1_000_000, budget));
+    if (!octets) return null;
+    budget -= octets.length;
+    return budget < 0 ? null : texteXml(octets);
+  };
+
+  const xmlTypes = lireXml(types);
+  if (xmlTypes === null || TYPES_ACTIFS.test(decoderXml(xmlTypes))) return false;
+
+  const rels = entrees.filter((x) => /\.rels$/i.test(x.nom));
+  if (rels.length > RELS_MAX) return false;
+  for (const e of rels) {
+    const xml = lireXml(e);
+    if (xml === null) return false;
+    // Élément complet, guillemets compris : un « > » dans une valeur ne coupe pas la lecture.
+    for (const el of xml.match(/<(?:[\w.-]+:)?Relationship\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi) ?? []) {
+      const { Type: type = '', TargetMode: mode = '' } = attributs(el);
+      if (RELATION_ACTIVE.test(type.trim())) return false;
+      // Seuls les liens hypertexte peuvent pointer à l'extérieur du document.
+      if (/^external$/i.test(mode.trim()) && !RELATION_HYPERLIEN.test(type.trim())) return false;
     }
   }
   return true;

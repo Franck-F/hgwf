@@ -347,6 +347,15 @@ test('liste blanche des pièces jointes et contrôle du contenu', () => {
   const lien = '<Relationships><Relationship Id="r1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://hgwf-cargo.fr" TargetMode="External"/></Relationships>';
   assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, 'word/_rels/document.xml.rels': lien })), true);
   assert.equal(contenuConforme('doc.docx', zip({ 'word/document.xml': '<d/>' })), false);
+  // Entité, préfixe d'espace de noms, « > » dans une valeur : toujours détectés.
+  const ruse = '<Relationships><r:Relationship Target="a>b" Id="r1" TargetMode="&#69;xternal" Type="http://x/relationships/image"/></Relationships>';
+  assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, 'word/_rels/document.xml.rels': ruse })), false);
+  const oleInterne = '<Relationships><Relationship Id="r1" Type="http://x/relationships/oleObject" Target="embeddings/objet.dat"/></Relationships>';
+  assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, 'word/_rels/document.xml.rels': oleInterne })), false);
+  const typesMacro = '<Types><Override PartName="/word/x.dat" ContentType="application/vnd.ms-office.vbaProject"/></Types>';
+  assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': typesMacro })), false);
+  const utf16 = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('<Relationships/>', 'utf16le')]);
+  assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, '_rels/.rels': utf16 })), false);
   assert.equal(contenuConforme('doc.docx', Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('pas un zip')])), false);
   assert.equal(pieceBloquee('tableur.ods'), true);
   assert.equal(contenuConforme('notes.txt', Buffer.from('a\0b')), false);
