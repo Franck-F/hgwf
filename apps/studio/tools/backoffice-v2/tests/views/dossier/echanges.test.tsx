@@ -114,6 +114,27 @@ describe('SectionEchanges', () => {
     expect(alerte.textContent).toContain('pièce jointe introuvable');
   });
 
+  it('signale un expéditeur non vérifié et explique l’absence des pièces jointes', () => {
+    monter(
+      avec([
+        echange({
+          expediteurVerifie: false,
+          motifNonVerifie: 'l’expéditeur x@pirate.net n’est pas l’adresse e-mail enregistrée dans la demande',
+          erreur: 'Pièces non récupérées : 1 pièce(s) jointe(s) non récupérée(s), expéditeur non vérifié (facture.pdf)',
+        }),
+      ]),
+    );
+    const alertes = screen.getAllByRole('alert').map((a) => a.textContent ?? '');
+    expect(alertes[0]).toMatch(/^Expéditeur à vérifier : l’expéditeur x@pirate\.net/);
+    expect(alertes[0]).toContain('n’a pas fait avancer le dossier');
+    expect(alertes[1]).toMatch(/l’expéditeur n’est pas vérifié/);
+  });
+
+  it('pas d’alerte d’expéditeur pour un message vérifié ou ancien', () => {
+    monter(avec([echange({ expediteurVerifie: true }), echange({ _id: 'e-ancien' })]));
+    expect(document.querySelector('[data-alerte="expediteur"]')).toBeNull();
+  });
+
   it('replie un très long message et le déplie à la demande', () => {
     monter(avec([echange({ texte: 'x'.repeat(3000) })]));
     const texte = () => (document.querySelector('.bo-echange-texte') as HTMLElement).textContent ?? '';

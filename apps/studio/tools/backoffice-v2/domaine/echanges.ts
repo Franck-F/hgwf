@@ -94,7 +94,11 @@ export function explicationErreurEchange(erreur: string): string {
   const detail = erreur.trim();
   const t = detail.toLowerCase();
   let cause = 'Un incident est survenu au traitement de ce message.';
-  if (/pi[eè]ce|attachment|fichier|file/.test(t)) {
+  if (/non v[ée]rifi/.test(t)) {
+    cause = 'Les pièces jointes n’ont pas été conservées, car l’expéditeur n’est pas vérifié. Si c’est bien votre client, demandez-lui de les renvoyer depuis l’adresse de sa demande.';
+  } else if (/bloqu/.test(t)) {
+    cause = 'Une pièce jointe a été écartée par sécurité (programme, script, page web ou document à macros). Si elle est attendue, demandez-la au client en PDF ou en image.';
+  } else if (/pi[eè]ce|attachment|fichier|file/.test(t)) {
     cause = 'Une pièce jointe n’a pas pu être récupérée : demandez au client de la renvoyer, ou cherchez-la dans la copie reçue par l’équipe.';
   } else if (/copie|transf|forward|[ée]quipe|contact@/.test(t)) {
     cause = 'La copie pour l’équipe n’est pas partie : ce message n’est visible qu’ici.';

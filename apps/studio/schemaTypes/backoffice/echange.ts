@@ -75,6 +75,21 @@ export const echange = defineType({
       readOnly: true,
     }),
     defineField({
+      name: 'expediteurVerifie',
+      title: 'Expéditeur vérifié',
+      type: 'boolean',
+      readOnly: true,
+      description:
+        'Coché si le message vient de l’adresse e-mail de la demande. Sinon : pièces jointes non conservées et dossier non avancé, à vérifier auprès du client.',
+    }),
+    defineField({
+      name: 'motifNonVerifie',
+      title: 'Pourquoi l’expéditeur n’est pas vérifié',
+      type: 'string',
+      readOnly: true,
+      hidden: ({ document }) => document?.expediteurVerifie !== false,
+    }),
+    defineField({
       name: 'erreur',
       title: 'Incident de traitement',
       type: 'string',
@@ -86,11 +101,11 @@ export const echange = defineType({
     { title: 'Plus récentes d’abord', name: 'recuLeDesc', by: [{ field: 'recuLe', direction: 'desc' }] },
   ],
   preview: {
-    select: { objet: 'objet', de: 'de', recuLe: 'recuLe', lu: 'lu' },
-    prepare: ({ objet, de, recuLe, lu }) => {
+    select: { objet: 'objet', de: 'de', recuLe: 'recuLe', lu: 'lu', verifie: 'expediteurVerifie' },
+    prepare: ({ objet, de, recuLe, lu, verifie }) => {
       const date = recuLe ? new Date(recuLe).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
       return {
-        title: `${lu ? '' : '● '}${objet || '(sans objet)'}`,
+        title: `${lu ? '' : '● '}${verifie === false ? '[À vérifier] ' : ''}${objet || '(sans objet)'}`,
         subtitle: [de, date].filter(Boolean).join(' · '),
       };
     },

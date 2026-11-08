@@ -79,6 +79,16 @@ function Message({ echange, onLire, occupe }: MessageProps): ReactElement {
         <span className="bo-secondaire bo-espace">{date ? formaterDateHeure(date) : 'Date inconnue'}</span>
       </div>
       <p className="bo-fort">{echange.objet?.trim() || '(sans objet)'}</p>
+      {echange.expediteurVerifie === false ? (
+        <div className="bo-bandeau bo-bandeau--urgent" role="alert" data-alerte="expediteur">
+          <Icone nom="alerte" />
+          <span>
+            Expéditeur à vérifier
+            {echange.motifNonVerifie ? ` : ${echange.motifNonVerifie}` : ''}. Ce message n’a pas fait avancer le dossier.
+            Avant de répondre ou d’ouvrir un lien, confirmez auprès du client par ses coordonnées habituelles.
+          </span>
+        </div>
+      ) : null}
       {texte ? (
         <p className="bo-echange-texte">{affiche}</p>
       ) : (

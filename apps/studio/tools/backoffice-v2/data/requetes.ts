@@ -76,6 +76,7 @@ const CHAMPS_ECHANGE_LISTE = [
   'objet',
   'recuLe',
   'lu',
+  'expediteurVerifie',
   'erreur',
 ].join(', ');
 

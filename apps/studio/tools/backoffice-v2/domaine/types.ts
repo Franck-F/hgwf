@@ -219,6 +219,9 @@ export interface Echange extends DocumentBase {
   pieces?: PieceEchange[];
   lu?: boolean;
   transfereLe?: string;
+  /** `false` : le message ne vient pas de l'adresse de la demande (ou authentification en échec). */
+  expediteurVerifie?: boolean;
+  motifNonVerifie?: string;
   erreur?: string;
 }
 

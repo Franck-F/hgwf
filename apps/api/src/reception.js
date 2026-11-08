@@ -11,6 +11,16 @@
  * Le webhook ne contient que des métadonnées : le corps et les pièces jointes
  * se lisent ensuite par l'API Resend (voir `lireEmailRecu`).
  *
+ * Sécurité : connaître une référence ne suffit pas pour écrire dans un dossier.
+ * L'expéditeur doit être l'adresse e-mail de la demande, et l'authentification
+ * du message (SPF/DKIM/DMARC) ne doit pas avoir échoué (`verifierExpediteur`).
+ * Sinon le message est rangé mais signalé « à vérifier », sans pièces jointes
+ * ni remontée de la demande. Un message sans dossier n'est pas enregistré :
+ * l'équipe en reçoit une copie texte, sans pièces jointes, avec un avertissement
+ * (l'adresse ne doit pas servir à faire entrer des fichiers piégés sous le nom
+ * du domaine HGWF). Les exécutables, scripts, pages HTML et documents à macros
+ * sont toujours écartés (`pieceBloquee`).
+ *
  * Tout est injectable (fetch, client Sanity, envoi) pour les tests : aucun
  * appel réseau dans test/reception.test.js.
  */
@@ -94,6 +104,59 @@ export function adresseDe(texte) {
   return s.match(/<([^<>\s]+@[^<>\s]+)>/)?.[1] ?? s.match(/[^\s<>",;]+@[^\s<>",;]+/)?.[0] ?? '';
 }
 
+// ── Vérification de l'expéditeur ──────────────────────────────────────────────
+/**
+ * Verdict tiré des en-têtes « Authentication-Results » quand Resend les
+ * transmet (objet ou liste {name, value}). On ne s'en sert que pour REFUSER :
+ * un expéditeur malveillant peut glisser un faux « pass » dans ses propres
+ * en-têtes, jamais effacer le « fail » ajouté par le serveur de réception.
+ * @returns {'echec' | 'inconnu'}
+ */
+export function verdictAuthentification(entetes) {
+  const valeurs = [];
+  const garder = (nom, valeur) => {
+    if (/^authentication-results$/i.test(String(nom ?? ''))) valeurs.push(...[valeur].flat().map(String));
+  };
+  if (Array.isArray(entetes)) for (const h of entetes) garder(h?.name ?? h?.key, h?.value);
+  else if (entetes && typeof entetes === 'object') for (const [k, v] of Object.entries(entetes)) garder(k, v);
+  const t = valeurs.join(' ').toLowerCase();
+  if (/\bdmarc=fail\b/.test(t)) return 'echec';
+  if (/\bspf=fail\b/.test(t) && !/\bdkim=pass\b/.test(t)) return 'echec';
+  return 'inconnu';
+}
+
+/**
+ * Le message vient-il bien du client du dossier ? Adresse identique à celle de
+ * la demande (casse ignorée) et authentification non échouée.
+ * @returns {{ fiable: boolean, motif?: string }}
+ */
+export function verifierExpediteur({ de, demande, entetes }) {
+  if (!demande) return { fiable: false, motif: 'aucun dossier correspondant' };
+  const adresse = adresseDe(de).trim().toLowerCase();
+  const attendue = String(demande.email ?? '').trim().toLowerCase();
+  if (!adresse) return { fiable: false, motif: 'expéditeur absent du message' };
+  if (!attendue || adresse !== attendue) {
+    return { fiable: false, motif: `l’expéditeur ${adresse} n’est pas l’adresse e-mail enregistrée dans la demande` };
+  }
+  if (verdictAuthentification(entetes) === 'echec') {
+    return { fiable: false, motif: 'l’authentification du message (SPF/DKIM/DMARC) a échoué : l’adresse a pu être usurpée' };
+  }
+  return { fiable: true };
+}
+
+// Jamais conservées ni transmises : programmes, scripts, raccourcis, images
+// disque, pages HTML/SVG (scripts possibles) et documents Office à macros.
+const EXTENSIONS_BLOQUEES =
+  /\.(exe|com|scr|pif|bat|cmd|msi|msp|dll|cpl|jar|js|jse|mjs|vbs|vbe|wsf|wsh|hta|ps1|psm1|sh|lnk|url|reg|iso|img|vhdx?|html?|xhtml?|svg|docm|dotm|xlsm|xltm|xlam|pptm|potm|ppsm|sldm)$/i;
+const TYPES_BLOQUES =
+  /^(text\/html|image\/svg\+xml|application\/(x-msdownload|x-msdos-program|x-dosexec|x-ms-installer|x-msi|javascript|x-javascript|x-sh|hta|xhtml\+xml|vnd\.ms-[a-z.]*macroenabled[a-z.0-9]*))\b/i;
+
+export function pieceBloquee(nom, typeMime) {
+  // Windows ignore les points et espaces finaux : « facture.exe. » est un .exe.
+  const propre = String(nom ?? '').replace(/[\s.]+$/, '');
+  return EXTENSIONS_BLOQUEES.test(propre) || TYPES_BLOQUES.test(String(typeMime ?? '').trim());
+}
+
 // ── Texte ─────────────────────────────────────────────────────────────────────
 const ENTITES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 
@@ -150,6 +213,7 @@ async function telechargerPieces(liste, fetchImpl) {
   const omises = [];
   for (const p of liste.slice(0, NB_PIECES_MAX)) {
     const nom = p.filename || 'piece-jointe';
+    if (pieceBloquee(nom, p.content_type)) { omises.push(`${nom} (type de fichier bloqué par sécurité)`); continue; }
     if (!p.download_url) { omises.push(`${nom} (lien absent)`); continue; }
     if (p.size > PIECE_MAX) { omises.push(`${nom} (trop volumineuse)`); continue; }
     try {
@@ -166,29 +230,31 @@ async function telechargerPieces(liste, fetchImpl) {
   return { pieces, omises };
 }
 
-/**
- * Lit le message complet. Un échec de lecture des pièces jointes n'empêche
- * pas de garder le texte : il est consigné dans `omises`.
- */
-async function lireEmailRecu(emailId, cle, fetchImpl, meta) {
-  const id = encodeURIComponent(emailId);
+/** Lit le message (texte, en-têtes, liste des pièces), sans les pièces. */
+function lireEmailRecu(emailId, cle, fetchImpl) {
   // cid : garde les images intégrées en références, sinon le HTML embarquerait
   // chaque image en base64 et pourrait peser plusieurs dizaines de Mo.
-  const mail = await appelResend(`${id}?html_format=cid`, cle, fetchImpl);
-  let pieces = [];
-  let omises = [];
-  const attendues = mail.attachments ?? meta.attachments ?? [];
-  if (attendues.length) {
-    try {
-      const liste = await appelResend(`${id}/attachments`, cle, fetchImpl);
-      ({ pieces, omises } = await telechargerPieces(liste.data ?? [], fetchImpl));
-    } catch (err) {
-      if (!refusDefinitif(err)) throw err;
-      omises = [`${attendues.length} pièce(s) jointe(s) illisible(s) (Resend ${err.statut})`];
-    }
-  }
-  return { mail, pieces, omises };
+  return appelResend(`${encodeURIComponent(emailId)}?html_format=cid`, cle, fetchImpl);
 }
+
+/**
+ * Télécharge les pièces jointes, une fois l'expéditeur vérifié. Un refus
+ * définitif n'empêche pas de garder le texte : il est consigné dans `omises`.
+ */
+async function lirePiecesRecues(emailId, cle, fetchImpl, attendues) {
+  try {
+    const liste = await appelResend(`${encodeURIComponent(emailId)}/attachments`, cle, fetchImpl);
+    return await telechargerPieces(liste.data ?? [], fetchImpl);
+  } catch (err) {
+    if (!refusDefinitif(err)) throw err;
+    return { pieces: [], omises: [`${attendues.length} pièce(s) jointe(s) illisible(s) (Resend ${err.statut})`] };
+  }
+}
+
+const nomsPieces = (attendues) => {
+  const noms = attendues.map((p) => p?.filename).filter(Boolean);
+  return noms.length ? ` (${noms.join(', ')})` : '';
+};
 
 // ── Traitement d'un e-mail reçu ───────────────────────────────────────────────
 const idEchange = (emailId) => `echange-${String(emailId).replace(/[^A-Za-z0-9_.-]/g, '-')}`;
@@ -222,28 +288,27 @@ async function traiterEmail(data, deps) {
   const existant = await sanity.fetch(`*[_id == $id][0]{_id, transfereLe}`, { id: _id });
   if (existant?.transfereLe) return { status: 200, corps: { ok: true, doublon: true } };
 
+  // Panne passagère de Resend : mieux vaut un rejeu qu'un message perdu.
+  const rejouer = (err) => {
+    console.error(`[reception] lecture impossible (${err?.statut ?? err?.name ?? 'erreur'}), nouvel essai demandé`);
+    return { status: 503, corps: { ok: false, erreur: 'lecture temporairement impossible' } };
+  };
+
   // Lecture du contenu. Refus définitif : on garde les métadonnées du webhook.
   let mail = null;
-  let pieces = [];
-  let omises = [];
   const problemes = [];
   if (!env.RESEND_API_KEY) {
     problemes.push('RESEND_API_KEY absente : contenu non lu');
   } else {
     try {
-      ({ mail, pieces, omises } = await lireEmailRecu(emailId, env.RESEND_API_KEY, fetchImpl, data));
+      mail = await lireEmailRecu(emailId, env.RESEND_API_KEY, fetchImpl);
     } catch (err) {
-      if (!refusDefinitif(err)) {
-        // Panne passagère de Resend : mieux vaut un rejeu qu'un message perdu.
-        console.error(`[reception] lecture impossible (${err?.statut ?? err?.name ?? 'erreur'}), nouvel essai demandé`);
-        return { status: 503, corps: { ok: false, erreur: 'lecture temporairement impossible' } };
-      }
+      if (!refusDefinitif(err)) return rejouer(err);
       problemes.push(
         `Contenu du message illisible (Resend ${err.statut}) : la clé RESEND_API_KEY est probablement limitée à l'envoi. Ouvrir le message dans le tableau de bord Resend (Emails > Receiving).`,
       );
     }
   }
-  if (omises.length) problemes.push(`Pièces non récupérées : ${omises.join(', ')}`);
 
   const source = mail ?? {};
   const de = source.from ?? data.from ?? '';
@@ -260,12 +325,32 @@ async function traiterEmail(data, deps) {
   );
 
   const demande = reference
-    ? await sanity.fetch(`*[_type == "demandeDevis" && reference == $ref][0]{_id, reference}`, { ref: reference })
+    ? await sanity.fetch(`*[_type == "demandeDevis" && reference == $ref][0]{_id, reference, email}`, { ref: reference })
     : null;
+  const verification = verifierExpediteur({ de, demande, entetes: source.headers });
+  const fiable = verification.fiable;
+
+  // Pièces jointes : téléchargées seulement pour un expéditeur vérifié.
+  let pieces = [];
+  let omises = [];
+  const attendues = source.attachments ?? data.attachments ?? [];
+  if (attendues.length) {
+    if (!fiable) {
+      omises = [`${attendues.length} pièce(s) jointe(s) non récupérée(s), expéditeur non vérifié${nomsPieces(attendues)}`];
+    } else if (mail) {
+      try {
+        ({ pieces, omises } = await lirePiecesRecues(emailId, env.RESEND_API_KEY, fetchImpl, attendues));
+      } catch (err) {
+        return rejouer(err);
+      }
+    }
+  }
+  if (omises.length) problemes.push(`Pièces non récupérées : ${omises.join(', ')}`);
 
   // ── Rangement dans le dossier ──────────────────────────────────────────────
-  if (reference) {
-    if (!demande) problemes.push(`Aucune demande ${reference} dans le back-office`);
+  // Seulement pour une demande existante : une référence inventée ne doit pas
+  // créer de documents dans le back-office.
+  if (demande) {
     // Pièces envoyées à Sanity seulement à la première passe : un rejeu ne
     // doit pas les téléverser une seconde fois.
     const piecesSanity = [];
@@ -288,7 +373,7 @@ async function traiterEmail(data, deps) {
         _id,
         _type: 'echange',
         reference,
-        ...(demande ? { demande: { _type: 'reference', _weak: true, _ref: demande._id } } : {}),
+        demande: { _type: 'reference', _weak: true, _ref: demande._id },
         sens: 'recu',
         de,
         a,
@@ -297,12 +382,15 @@ async function traiterEmail(data, deps) {
         recuLe,
         pieces: piecesSanity,
         lu: false,
+        expediteurVerifie: fiable,
+        ...(fiable ? {} : { motifNonVerifie: verification.motif }),
         ...(problemes.length ? { erreur: problemes.join(' | ') } : {}),
       });
     }
     // Pose seule du champ : aucune autre valeur de la demande n'est touchée.
-    // Format du back-office V2 : « JJ/MM/AAAA à HHhMM ».
-    if (demande) {
+    // Format du back-office V2 : « JJ/MM/AAAA à HHhMM ». Un expéditeur non
+    // vérifié ne fait pas avancer le dossier : l'équipe juge d'abord.
+    if (fiable) {
       await sanity.patch(demande._id).set({ reponseClientLe: horodatageParis(new Date(maintenant())) }).commit();
     }
   }
@@ -313,17 +401,32 @@ async function traiterEmail(data, deps) {
 
   const { joints, trop } = pieceCopie(pieces);
   const notes = [...problemes, ...(trop.length ? [`Pièces trop lourdes pour la copie : ${trop.join(', ')}`] : [])];
-  const prefixe = reference ? `[Réponse client ${reference}]` : '[Réponse reçue sans dossier]';
+  const prefixe = fiable
+    ? `[Réponse client ${reference}]`
+    : demande
+      ? `[À vérifier ${reference}]`
+      : '[Message externe non vérifié]';
+  const prudence = 'Ne cliquez sur aucun lien et ne transmettez aucune information avant d’avoir vérifié l’expéditeur.';
+  const avertissement = fiable
+    ? ''
+    : demande
+      ? `ATTENTION – expéditeur à vérifier : ${verification.motif}. Les pièces jointes n’ont été ni conservées ni transmises. ${prudence}`
+      : `ATTENTION – message reçu sur ${domaine} sans dossier correspondant${reference ? ` (référence ${reference} inconnue)` : ''}. Il n’a pas été enregistré dans le back-office et ses pièces jointes n’ont pas été transmises. ${prudence}`;
   const corpsTexte = mail
     ? texte || '(message sans texte)'
     : `Le contenu de ce message n'a pas pu être lu automatiquement. Expéditeur : ${de || '?'}.`;
+  const lignes = [
+    ...(avertissement ? [avertissement, ''] : []),
+    corpsTexte,
+    ...(notes.length ? ['', `— Avertissement : ${notes.join(' | ')}`] : []),
+  ];
   const envoi = await envoyer({
     to: interne,
     subject: `${prefixe} ${objet}`,
-    text: notes.length && mail ? `${corpsTexte}\n\n— Avertissement : ${notes.join(' | ')}` : notes.length ? `${corpsTexte}\n\n${notes.join('\n')}` : corpsTexte,
-    // Répondre depuis Outlook écrit directement au client.
+    text: lignes.join('\n'),
+    // Répondre depuis Outlook écrit directement à l'expéditeur.
     replyTo: adresseDe(de) || undefined,
-    attachments: joints,
+    attachments: fiable ? joints : [],
   });
 
   if (!envoi.ok) {
@@ -333,10 +436,10 @@ async function traiterEmail(data, deps) {
     return { status: 502, corps: { ok: false, erreur: 'copie à l’équipe impossible' } };
   }
 
-  if (reference) {
+  if (demande) {
     await sanity.patch(_id).set({ transfereLe: new Date(maintenant()).toISOString() }).commit().catch(() => {});
   }
-  return { status: 200, corps: { ok: true, reference, copie: true } };
+  return { status: 200, corps: { ok: true, reference, copie: true, verifie: fiable } };
 }
 
 /**
