@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
+import { deflateRawSync } from 'node:zlib';
 import {
   adresseDe,
   adresseReponse,
@@ -46,10 +47,33 @@ function fauxSanity({ demande = { _id: 'dem-1', reference: 'HGWF-2026-1234', ema
 
 // ── Faux Resend ───────────────────────────────────────────────────────────────
 // En-tête ajouté par le serveur de réception pour un message authentique de client.fr.
-const AUTH_OK = { 'authentication-results': 'mx.resend.com; spf=pass smtp.mailfrom=client.fr; dkim=pass header.d=client.fr; dmarc=pass header.from=client.fr' };
+const SERVEUR = 'mx.resend.test';
+const AUTH_OK = { 'authentication-results': `${SERVEUR}; spf=pass smtp.mailfrom=client.fr; dkim=pass header.d=client.fr; dmarc=pass header.from=client.fr` };
 // Contenus de test dont la signature correspond à l'extension.
 const CONTENUS = { jpg: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]), pdf: Buffer.from('%PDF-1.7') };
 const tampon = (b) => b.buffer.slice(b.byteOffset, b.byteOffset + b.length);
+
+// Petit ZIP (méthode deflate) pour tester le contrôle des documents Office.
+function zip(fichiers) {
+  const locaux = [];
+  const centraux = [];
+  let decalage = 0;
+  for (const [nom, contenu] of Object.entries(fichiers)) {
+    const n = Buffer.from(nom);
+    const donnees = deflateRawSync(Buffer.from(contenu));
+    const l = Buffer.alloc(30);
+    l.writeUInt32LE(0x04034b50, 0); l.writeUInt16LE(8, 8); l.writeUInt32LE(donnees.length, 18); l.writeUInt16LE(n.length, 26);
+    const c = Buffer.alloc(46);
+    c.writeUInt32LE(0x02014b50, 0); c.writeUInt16LE(8, 10); c.writeUInt32LE(donnees.length, 20); c.writeUInt16LE(n.length, 28); c.writeUInt32LE(decalage, 42);
+    locaux.push(l, n, donnees);
+    centraux.push(c, n);
+    decalage += 30 + n.length + donnees.length;
+  }
+  const cd = Buffer.concat(centraux);
+  const e = Buffer.alloc(22);
+  e.writeUInt32LE(0x06054b50, 0); e.writeUInt16LE(Object.keys(fichiers).length, 8); e.writeUInt16LE(Object.keys(fichiers).length, 10); e.writeUInt32LE(cd.length, 12); e.writeUInt32LE(decalage, 16);
+  return Buffer.concat([...locaux, cd, e]);
+}
 
 function fauxFetch({ statutLecture = 200, pieces = [], from = 'Marie <marie@client.fr>', headers = AUTH_OK } = {}) {
   const appels = [];
@@ -71,7 +95,7 @@ function fauxEnvoi(ok = true) {
   return f;
 }
 
-const ENV = { RESEND_WEBHOOK_SECRET: SECRET, RESEND_API_KEY: 're_test', EMAIL_INTERNE: 'contact@hgwf-cargo.fr' };
+const ENV = { RESEND_WEBHOOK_SECRET: SECRET, RESEND_API_KEY: 're_test', EMAIL_INTERNE: 'contact@hgwf-cargo.fr', RECEPTION_AUTHSERV_ID: `autre.test, ${SERVEUR}` };
 
 function lancer({ corps = webhook(), entetes, sanity = fauxSanity(), fetchImpl = fauxFetch(), envoyer = fauxEnvoi(), env = ENV } = {}) {
   return traiterReception({ corps, entetes: entetes ?? signer(corps.toString()), sanity, env, fetchImpl, envoyer, maintenant: () => MAINTENANT });
@@ -267,28 +291,38 @@ test('adresse du From : guillemets, commentaires et adresses multiples', () => {
 
 test('vérification de l\'expéditeur : adresse de la demande ET authentification positive', () => {
   const demande = { _id: 'd', email: ' Marie@Client.FR ' };
-  assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, entetes: AUTH_OK }).fiable, true);
-  const sansPreuve = verifierExpediteur({ de: 'Marie <marie@client.fr>', demande });
+  const s = [SERVEUR];
+  assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, entetes: AUTH_OK, serveursFiables: s }).fiable, true);
+  const sansPreuve = verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, serveursFiables: s });
   assert.equal(sansPreuve.fiable, false);
   assert.match(sansPreuve.motif, /n’a pas pu être confirmée/);
-  assert.equal(verifierExpediteur({ de: '"<marie@client.fr>" <pirate@x.net>', demande, entetes: AUTH_OK }).fiable, false);
-  assert.equal(verifierExpediteur({ de: 'marie@client.fr.pirate.net', demande, entetes: AUTH_OK }).fiable, false);
-  assert.equal(verifierExpediteur({ de: 'marie@client.fr', demande: { _id: 'd' }, entetes: AUTH_OK }).fiable, false);
-  assert.equal(verifierExpediteur({ de: 'marie@client.fr', demande: null, entetes: AUTH_OK }).fiable, false);
+  // Aucun serveur de réception déclaré : jamais vérifié.
+  assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, entetes: AUTH_OK }).fiable, false);
+  assert.equal(verifierExpediteur({ de: '"<marie@client.fr>" <pirate@x.net>', demande, entetes: AUTH_OK, serveursFiables: s }).fiable, false);
+  assert.equal(verifierExpediteur({ de: 'marie@client.fr.pirate.net', demande, entetes: AUTH_OK, serveursFiables: s }).fiable, false);
+  assert.equal(verifierExpediteur({ de: 'marie@client.fr', demande: { _id: 'd' }, entetes: AUTH_OK, serveursFiables: s }).fiable, false);
+  assert.equal(verifierExpediteur({ de: 'marie@client.fr', demande: null, entetes: AUTH_OK, serveursFiables: s }).fiable, false);
 });
 
-test('verdict d\'authentification : échec n\'importe où, succès seulement en tête et aligné', () => {
+test('verdict d\'authentification : échec n\'importe où, succès seulement du serveur déclaré, en tête, domaine exact', () => {
   const ar = (...valeurs) => valeurs.map((value) => ({ name: 'Authentication-Results', value }));
-  assert.equal(verdictAuthentification(ar('mx; dmarc=pass header.from=client.fr'), 'client.fr'), 'ok');
-  assert.equal(verdictAuthentification(ar('mx; dkim=pass header.d=mail.client.fr'), 'client.fr'), 'ok');
-  assert.equal(verdictAuthentification(ar('mx; dkim=pass header.d=pirate.net'), 'client.fr'), 'inconnu');
-  assert.equal(verdictAuthentification(ar('mx; spf=fail; dkim=pass'), 'client.fr'), 'inconnu');
-  assert.equal(verdictAuthentification(ar('mx; spf=fail; dkim=fail'), 'client.fr'), 'echec');
+  const s = ['mx'];
+  assert.equal(verdictAuthentification(ar('mx; dmarc=pass header.from=client.fr'), 'client.fr', s), 'ok');
+  assert.equal(verdictAuthentification(ar('mx 1; dkim=pass header.d=client.fr'), 'client.fr', s), 'ok');
+  // Un « pass » d'un serveur non déclaré (forgé par l'expéditeur) ne compte pas.
+  assert.equal(verdictAuthentification(ar('pirate.net; dmarc=pass header.from=client.fr'), 'client.fr', s), 'inconnu');
+  assert.equal(verdictAuthentification(ar('mx; dmarc=pass header.from=client.fr'), 'client.fr', []), 'inconnu');
+  // Alignement strict : ni domaine parent, ni sous-domaine, ni autre domaine.
+  assert.equal(verdictAuthentification(ar('mx; dkim=pass header.d=fr'), 'client.fr', s), 'inconnu');
+  assert.equal(verdictAuthentification(ar('mx; dkim=pass header.d=mail.client.fr'), 'client.fr', s), 'inconnu');
+  assert.equal(verdictAuthentification(ar('mx; dkim=pass header.d=pirate.net'), 'client.fr', s), 'inconnu');
+  assert.equal(verdictAuthentification(ar('mx; spf=fail; dkim=pass'), 'client.fr', s), 'inconnu');
+  assert.equal(verdictAuthentification(ar('mx; spf=fail; dkim=fail'), 'client.fr', s), 'echec');
   // Faux « pass » glissé plus bas par l'expéditeur : ignoré.
-  assert.equal(verdictAuthentification(ar('mx; dmarc=none', 'x; dmarc=pass header.from=client.fr'), 'client.fr'), 'inconnu');
+  assert.equal(verdictAuthentification(ar('mx; dmarc=none', 'mx; dmarc=pass header.from=client.fr'), 'client.fr', s), 'inconnu');
   // Faux « pass » ne masque pas le « fail » du serveur.
-  assert.equal(verdictAuthentification({ 'authentication-results': ['mx; dmarc=fail', 'dmarc=pass header.from=client.fr'] }, 'client.fr'), 'echec');
-  assert.equal(verdictAuthentification(undefined, 'client.fr'), 'inconnu');
+  assert.equal(verdictAuthentification({ 'authentication-results': ['mx; dmarc=fail', 'mx; dmarc=pass header.from=client.fr'] }, 'client.fr', s), 'echec');
+  assert.equal(verdictAuthentification(undefined, 'client.fr', s), 'inconnu');
 });
 
 test('liste blanche des pièces jointes et contrôle du contenu', () => {
@@ -303,8 +337,18 @@ test('liste blanche des pièces jointes et contrôle du contenu', () => {
   assert.equal(contenuConforme('devis.pdf', Buffer.from('%PDF-1.7')), true);
   assert.equal(contenuConforme('devis.pdf', Buffer.from('MZ\x90\x00')), false);
   assert.equal(contenuConforme('photo.jpg', CONTENUS.jpg), true);
-  assert.equal(contenuConforme('liste.xlsx', Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('xl/workbook.xml')])), true);
-  assert.equal(contenuConforme('liste.xlsx', Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('xl/vbaProject.bin')])), false);
+  const types = '<?xml version="1.0"?><Types/>';
+  assert.equal(contenuConforme('liste.xlsx', zip({ '[Content_Types].xml': types, 'xl/workbook.xml': '<w/>', 'xl/printerSettings/printerSettings1.bin': 'x' })), true);
+  assert.equal(contenuConforme('liste.xlsx', zip({ '[Content_Types].xml': types, 'xl/vbaProject.bin': 'x' })), false);
+  assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, 'word/embeddings/oleObject1.bin': 'x' })), false);
+  assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, 'word/activeX/activeX1.xml': '<a/>' })), false);
+  const modeleDistant = '<Relationships><Relationship Id="r1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/attachedTemplate" Target="https://pirate.net/m.dotm" TargetMode="External"/></Relationships>';
+  assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, 'word/_rels/settings.xml.rels': modeleDistant })), false);
+  const lien = '<Relationships><Relationship Id="r1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://hgwf-cargo.fr" TargetMode="External"/></Relationships>';
+  assert.equal(contenuConforme('doc.docx', zip({ '[Content_Types].xml': types, 'word/_rels/document.xml.rels': lien })), true);
+  assert.equal(contenuConforme('doc.docx', zip({ 'word/document.xml': '<d/>' })), false);
+  assert.equal(contenuConforme('doc.docx', Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('pas un zip')])), false);
+  assert.equal(pieceBloquee('tableur.ods'), true);
   assert.equal(contenuConforme('notes.txt', Buffer.from('a\0b')), false);
   assert.equal(contenuConforme('vide.pdf', Buffer.alloc(0)), false);
 });

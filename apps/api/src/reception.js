@@ -26,6 +26,7 @@
  * appel réseau dans test/reception.test.js.
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { inflateRawSync } from 'node:zlib';
 import { envoyerEmail } from './email.js';
 
 const RESEND_RECEPTION = 'https://api.resend.com/emails/receiving';
@@ -122,36 +123,52 @@ export function adresseDe(texte) {
 }
 
 // ── Vérification de l'expéditeur ──────────────────────────────────────────────
-// Domaines « alignés » au sens DMARC relâché : identiques, ou l'un sous-domaine de l'autre.
-const alignes = (a, b) => Boolean(a && b) && (a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`));
-
-/**
- * Verdict des en-têtes « Authentication-Results » (objet ou liste {name, value}).
- * - Un « fail » DMARC (ou SPF sans DKIM valide) dans N'IMPORTE QUEL en-tête suffit
- *   à refuser : l'expéditeur ne peut pas effacer celui du serveur de réception.
- * - Un « pass » ne compte que dans le PREMIER en-tête (le plus haut, ajouté par
- *   le serveur de réception) et seulement s'il est aligné sur le domaine du From :
- *   l'expéditeur peut glisser de faux « pass » plus bas dans ses propres en-têtes.
- * @returns {'ok' | 'echec' | 'inconnu'}
- */
-export function verdictAuthentification(entetes, domaineFrom = '') {
+/** Valeurs des en-têtes « Authentication-Results », dans l'ordre (le plus haut d'abord). */
+export function resultatsAuthentification(entetes) {
   const valeurs = [];
   const garder = (nom, valeur) => {
     if (/^authentication-results$/i.test(String(nom ?? ''))) valeurs.push(...[valeur].flat().map((v) => String(v).toLowerCase()));
   };
   if (Array.isArray(entetes)) for (const h of entetes) garder(h?.name ?? h?.key, h?.value);
   else if (entetes && typeof entetes === 'object') for (const [k, v] of Object.entries(entetes)) garder(k, v);
+  return valeurs;
+}
+
+/** « mx.resend.com 1; spf=pass … » → « mx.resend.com » (RFC 8601). */
+export const authservId = (valeur) => String(valeur ?? '').split(';')[0].trim().split(/\s+/)[0] ?? '';
+
+/**
+ * Verdict des en-têtes « Authentication-Results » (objet ou liste {name, value}).
+ * - Un « fail » DMARC (ou SPF sans DKIM valide) dans N'IMPORTE QUEL en-tête suffit
+ *   à refuser : l'expéditeur ne peut pas effacer celui du serveur de réception.
+ * - Un « pass » ne compte que dans le PREMIER en-tête (le plus haut, ajouté par
+ *   le serveur de réception), seulement si son identifiant (authserv-id) est
+ *   celui du serveur de réception de Resend déclaré dans `serveursFiables`
+ *   (variable RECEPTION_AUTHSERV_ID), et seulement pour le domaine exact du From.
+ *   Sans serveur déclaré : jamais « ok » (on ne fait pas confiance par défaut).
+ * @returns {'ok' | 'echec' | 'inconnu'}
+ */
+export function verdictAuthentification(entetes, domaineFrom = '', serveursFiables = []) {
+  const valeurs = resultatsAuthentification(entetes);
   if (valeurs.some((t) => /\bdmarc=fail\b/.test(t) || (/\bspf=fail\b/.test(t) && !/\bdkim=pass\b/.test(t)))) return 'echec';
 
   const domaine = String(domaineFrom).toLowerCase();
   const premier = valeurs[0] ?? '';
+  const fiables = serveursFiables.map((s) => String(s).trim().toLowerCase()).filter(Boolean);
+  if (!domaine || !premier || !fiables.includes(authservId(premier))) return 'inconnu';
+
+  // Alignement strict : le serveur de réception a déjà appliqué la politique
+  // DMARC du domaine (alignement relâché compris) quand il écrit dmarc=pass.
   const dmarc = premier.match(/\bdmarc=pass\b[^;]*?\bheader\.from=([a-z0-9.-]+)/);
-  if (dmarc && alignes(dmarc[1], domaine)) return 'ok';
+  if (dmarc && dmarc[1] === domaine) return 'ok';
   for (const m of premier.matchAll(/\bdkim=pass\b[^;]*?\bheader\.d=([a-z0-9.-]+)/g)) {
-    if (alignes(m[1], domaine)) return 'ok';
+    if (m[1] === domaine) return 'ok';
   }
   return 'inconnu';
 }
+
+/** RECEPTION_AUTHSERV_ID : identifiants du serveur de réception, séparés par des virgules. */
+const serveursDeReception = (env) => String(env?.RECEPTION_AUTHSERV_ID ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 
 /**
  * Le message vient-il bien du client du dossier ? Il faut l'adresse e-mail de
@@ -159,7 +176,7 @@ export function verdictAuthentification(entetes, domaineFrom = '') {
  * aligné) constatée par le serveur de réception. Sans preuve : non vérifié.
  * @returns {{ fiable: boolean, motif?: string }}
  */
-export function verifierExpediteur({ de, demande, entetes }) {
+export function verifierExpediteur({ de, demande, entetes, serveursFiables = [] }) {
   if (!demande) return { fiable: false, motif: 'aucun dossier correspondant' };
   const adresse = adresseDe(de).trim().toLowerCase();
   const attendue = String(demande.email ?? '').trim().toLowerCase();
@@ -167,7 +184,7 @@ export function verifierExpediteur({ de, demande, entetes }) {
   if (!attendue || adresse !== attendue) {
     return { fiable: false, motif: `l’expéditeur ${adresse} n’est pas l’adresse e-mail enregistrée dans la demande` };
   }
-  const verdict = verdictAuthentification(entetes, adresse.split('@')[1]);
+  const verdict = verdictAuthentification(entetes, adresse.split('@')[1], serveursFiables);
   if (verdict === 'echec') {
     return { fiable: false, motif: 'l’authentification du message (SPF/DKIM/DMARC) a échoué : l’adresse a pu être usurpée' };
   }
@@ -177,8 +194,76 @@ export function verifierExpediteur({ de, demande, entetes }) {
   return { fiable: true };
 }
 
+// ── Office Open XML : lecture du répertoire central du ZIP ────────────────────
+/**
+ * Entrées d'une archive ZIP : nom et lecture du contenu (bornée). null si
+ * l'archive est illisible ou en ZIP64 (inutile pour un document de bureau).
+ */
+export function entreesZip(b) {
+  const fin = Math.max(0, b.length - 65_557);
+  let eocd = -1;
+  for (let i = b.length - 22; i >= fin; i--) {
+    if (b.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) return null;
+  const nb = b.readUInt16LE(eocd + 10);
+  let p = b.readUInt32LE(eocd + 16);
+  if (nb === 0xffff || p === 0xffffffff || p >= b.length) return null;
+  const entrees = [];
+  for (let k = 0; k < nb; k++) {
+    if (p + 46 > b.length || b.readUInt32LE(p) !== 0x02014b50) return null;
+    const methode = b.readUInt16LE(p + 10);
+    const taille = b.readUInt32LE(p + 20);
+    const lgNom = b.readUInt16LE(p + 28);
+    const lgExtra = b.readUInt16LE(p + 30);
+    const lgCom = b.readUInt16LE(p + 32);
+    const local = b.readUInt32LE(p + 42);
+    const nom = b.subarray(p + 46, p + 46 + lgNom).toString('utf8');
+    entrees.push({
+      nom,
+      lire: (max = 1_000_000) => {
+        if (local + 30 > b.length || b.readUInt32LE(local) !== 0x04034b50) return null;
+        const debut = local + 30 + b.readUInt16LE(local + 26) + b.readUInt16LE(local + 28);
+        const brut = b.subarray(debut, debut + taille);
+        if (methode === 0) return brut.subarray(0, max);
+        if (methode !== 8) return null;
+        try {
+          return inflateRawSync(brut, { maxOutputLength: max });
+        } catch {
+          return null;
+        }
+      },
+    });
+    p += 46 + lgNom + lgExtra + lgCom;
+  }
+  return entrees;
+}
+
+// Parties actives d'un document Office : macros, contrôles ActiveX, objets OLE.
+const PARTIES_ACTIVES = /vbaProject|vbaData|activeX|oleObject|\/embeddings\/[^/]*\.(bin|docm|dotm|xlsm|xltm|xlsb|pptm|potm|ppsm|exe|dll|js|vbs|hta)$/i;
+// Relations externes dangereuses : modèle distant (injection de modèle), OLE,
+// cadre ou sous-document chargés depuis Internet. Les liens hypertexte restent.
+const RELATION_DANGEREUSE = /\/(attachedTemplate|oleObject|frame|subDocument)$/i;
+
+/** Document Office Open XML sans macro, sans objet actif ni modèle distant. */
+export function ooxmlSain(b) {
+  if (!b?.length || !b.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) return false;
+  const entrees = entreesZip(b);
+  if (!entrees || !entrees.some((e) => e.nom === '[Content_Types].xml')) return false;
+  if (entrees.some((e) => PARTIES_ACTIVES.test(e.nom))) return false;
+  for (const e of entrees.filter((x) => /\.rels$/i.test(x.nom))) {
+    const xml = e.lire();
+    if (!xml) return false;
+    for (const rel of xml.toString('utf8').match(/<Relationship\b[^>]*>/gi) ?? []) {
+      const type = rel.match(/\bType\s*=\s*["']([^"']*)["']/i)?.[1] ?? '';
+      if (/\bTargetMode\s*=\s*["']External["']/i.test(rel) && RELATION_DANGEREUSE.test(type)) return false;
+    }
+  }
+  return true;
+}
+
 // Liste blanche : seuls les formats utiles à un devis ou une expédition sont
-// conservés et transmis (PDF, images, Office sans macros, OpenDocument, texte).
+// conservés et transmis (PDF, images, Office Open XML sans macros, texte).
 // Tout le reste (programmes, scripts, archives, HTML/SVG, Office ancien ou à
 // macros, OneNote, aide CHM…) est écarté, quel que soit le type annoncé.
 const SIGNATURES = {
@@ -190,9 +275,7 @@ const SIGNATURES = {
   heic: (b) => b.subarray(4, 8).toString('latin1') === 'ftyp',
   tiff: (b) => ['II*\0', 'MM\0*'].includes(b.subarray(0, 4).toString('latin1')),
   bmp: (b) => b.subarray(0, 2).toString('latin1') === 'BM',
-  // Office Open XML / OpenDocument : archive ZIP, et aucun projet VBA dedans
-  // (les noms de fichiers d'un ZIP sont lisibles en clair).
-  zipBureau: (b) => b.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])) && !b.includes('vbaProject.bin') && !b.includes('vbaProjectSignature'),
+  ooxml: (b) => ooxmlSain(b),
   texte: (b) => !b.subarray(0, 8192).includes(0),
 };
 const FORMATS_AUTORISES = {
@@ -207,12 +290,10 @@ const FORMATS_AUTORISES = {
   tif: SIGNATURES.tiff,
   tiff: SIGNATURES.tiff,
   bmp: SIGNATURES.bmp,
-  docx: SIGNATURES.zipBureau,
-  xlsx: SIGNATURES.zipBureau,
-  pptx: SIGNATURES.zipBureau,
-  odt: SIGNATURES.zipBureau,
-  ods: SIGNATURES.zipBureau,
-  odp: SIGNATURES.zipBureau,
+  // OpenDocument exclu : ses macros (Basic/, Scripts/) ne sont pas contrôlées.
+  docx: SIGNATURES.ooxml,
+  xlsx: SIGNATURES.ooxml,
+  pptx: SIGNATURES.ooxml,
   txt: SIGNATURES.texte,
   csv: SIGNATURES.texte,
 };
@@ -407,8 +488,15 @@ async function traiterEmail(data, deps) {
   const demande = reference
     ? await sanity.fetch(`*[_type == "demandeDevis" && reference == $ref][0]{_id, reference, email}`, { ref: reference })
     : null;
-  const verification = verifierExpediteur({ de, demande, entetes: source.headers });
+  const serveursFiables = serveursDeReception(env);
+  const verification = verifierExpediteur({ de, demande, entetes: source.headers, serveursFiables });
   const fiable = verification.fiable;
+  // Diagnostic sans donnée personnelle : seuls les noms des serveurs qui ont
+  // authentifié le message. Sert à renseigner RECEPTION_AUTHSERV_ID.
+  if (mail) {
+    const ids = resultatsAuthentification(source.headers).map(authservId);
+    console.log(`[reception] authserv-id : ${ids.length ? ids.join(', ') : 'aucun en-tête Authentication-Results'} ; déclarés : ${serveursFiables.join(', ') || 'aucun'}`);
+  }
 
   // Pièces jointes : téléchargées seulement pour un expéditeur vérifié.
   let pieces = [];
