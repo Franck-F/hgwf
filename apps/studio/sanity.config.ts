@@ -26,7 +26,10 @@ import {
 } from '@sanity/icons';
 import { schemaTypes, backofficeTypes } from './schemaTypes';
 import { IconeHgwf } from './components/IconeHgwf';
-import { BackOffice } from './tools/backoffice/BackOffice';
+import { BackOffice } from './tools/backoffice-v2/BackOffice';
+// Bascule douce (spec 12.4) : V1 reste accessible comme « Ancien back-office »
+// tant que la V2 n'a pas fait ses preuves ; retour arrière = retirer l'entrée V2.
+import { BackOffice as AncienBackOffice } from './tools/backoffice/BackOffice';
 
 // Palette HGWF — voir tokens/colors.css à la racine du monorepo
 const themeHgwf = buildLegacyTheme({
@@ -374,10 +377,16 @@ export default defineConfig([
     plugins: [structureTool({ structure: structureOperations }), visionTool(), frFRLocale()],
     tools: (prev) => [
       {
-        name: 'back-office',
+        name: 'operations',
         title: 'Back-office',
         icon: CaseIcon,
         component: BackOffice,
+      },
+      {
+        name: 'operations-ancien',
+        title: 'Ancien back-office',
+        icon: ClipboardIcon,
+        component: AncienBackOffice,
       },
       ...prev,
     ],

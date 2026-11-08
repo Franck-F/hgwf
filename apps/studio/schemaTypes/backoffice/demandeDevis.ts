@@ -294,6 +294,82 @@ export const demandeDevis = defineType({
       readOnly: true,
       description: 'Rempli à la conversion : la même référence sert au suivi public.',
     }),
+    // ── Traces ajoutées par le back-office V2 (additives, facultatives) ───────
+    defineField({
+      name: 'reponseClientLe',
+      title: 'Réponse du client le',
+      type: 'string',
+      readOnly: true,
+      description:
+        'Posé quand le client répond à une demande de compléments. Fait remonter la demande dans « À faire ».',
+    }),
+    defineField({
+      name: 'acceptationLe',
+      title: 'Acceptation du client le',
+      type: 'string',
+      readOnly: true,
+    }),
+    defineField({
+      name: 'acceptationPar',
+      title: 'Acceptation enregistrée par',
+      type: 'string',
+      readOnly: true,
+    }),
+    // Distincts de devisEnvoyeLe à dessein : l'API de relance ne cible que les
+    // demandes qui ont devisEnvoyeLe, aucun e-mail automatique ne part donc
+    // pour un devis envoyé hors de l'outil.
+    defineField({
+      name: 'devisEnvoyeHorsOutilLe',
+      title: 'Devis envoyé hors outil le',
+      type: 'string',
+      readOnly: true,
+    }),
+    defineField({
+      name: 'devisEnvoyeHorsOutilPar',
+      title: 'Devis envoyé hors outil, enregistré par',
+      type: 'string',
+      readOnly: true,
+    }),
+    defineField({
+      name: 'devisEnvoyeHorsOutilMoyen',
+      title: 'Devis envoyé hors outil, moyen',
+      type: 'string',
+      readOnly: true,
+      description: 'WhatsApp, e-mail personnel, remis en main propre ou autre.',
+    }),
+    defineField({
+      name: 'sourceDemande',
+      title: 'Origine de la demande',
+      type: 'string',
+      readOnly: true,
+      options: {
+        list: [
+          { title: 'Site', value: 'site' },
+          { title: 'Téléphone', value: 'telephone' },
+        ],
+      },
+      description: 'Absent = demande arrivée par le site.',
+    }),
+    defineField({
+      name: 'motifRefus',
+      title: 'Motif du refus ou de l’abandon',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'Prix', value: 'prix' },
+          { title: 'Délai', value: 'delai' },
+          { title: 'Autre transporteur', value: 'autreTransporteur' },
+          { title: 'Abandon du projet', value: 'abandon' },
+          { title: 'Autre', value: 'autre' },
+        ],
+      },
+    }),
+    defineField({
+      name: 'numeroFacture',
+      title: 'Numéro de facture',
+      type: 'string',
+      description: 'Saisi à la main : la facture est émise hors de l’outil.',
+    }),
   ],
   orderings: [
     {

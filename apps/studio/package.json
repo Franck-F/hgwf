@@ -8,7 +8,7 @@
     "deploy": "sanity deploy",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'studio lint via sanity'",
-    "test": "echo 'no studio tests'"
+    "test": "vitest run"
   },
   "dependencies": {
     "@sanity/document-internationalization": "^3.3.0",
@@ -24,8 +24,13 @@
   },
   "devDependencies": {
     "@sanity/vision": "^3",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.1.0",
     "@types/node": "^20",
     "@types/react": "^19",
-    "typescript": "^5"
+    "@types/react-dom": "^19",
+    "jsdom": "^25.0.1",
+    "typescript": "^5",
+    "vitest": "^2.1.8"
   }
 }

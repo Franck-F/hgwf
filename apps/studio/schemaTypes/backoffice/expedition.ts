@@ -270,6 +270,41 @@ export const expedition = defineType({
       readOnly: true,
       description: 'Posé automatiquement au déclenchement.',
     }),
+    // ── Traces ajoutées par le back-office V2 (additives, facultatives) ───────
+    // Pourquoi : l'incident et l'annulation écrasent statutPriseEnCharge. On
+    // garde l'état d'avant pour replacer la frise et proposer la bonne reprise.
+    defineField({
+      name: 'statutAvantIncident',
+      title: 'Statut de prise en charge avant incident ou annulation',
+      type: 'number',
+      group: 'exploitation',
+      readOnly: true,
+      description:
+        'Posé automatiquement au passage à Incident ou Annulé (0 à 3), effacé à la reprise.',
+      validation: (r) => r.integer().min(0).max(3),
+    }),
+    defineField({
+      name: 'reglementRecuLe',
+      title: 'Règlement reçu le',
+      type: 'string',
+      group: 'exploitation',
+      readOnly: true,
+      description: 'Date de la case « Règlement reçu », posée par le back-office.',
+    }),
+    defineField({
+      name: 'derogationLe',
+      title: 'Dérogation de départ accordée le',
+      type: 'string',
+      group: 'exploitation',
+      readOnly: true,
+    }),
+    defineField({
+      name: 'derogationPar',
+      title: 'Dérogation de départ accordée par',
+      type: 'string',
+      group: 'exploitation',
+      readOnly: true,
+    }),
   ],
   preview: {
     select: {

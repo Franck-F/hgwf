@@ -1,0 +1,19 @@
+/** Point d'entrée unique du kit d'interface (lot 2). */
+export * from './types';
+export { Bouton } from './Bouton';
+export { MenuActions } from './MenuActions';
+export { Badge } from './Badge';
+export { Carte } from './Carte';
+export { Section } from './Section';
+export { Champ, Saisie, Liste, ZoneTexte } from './Champ';
+export { Montant, DateChamp, ChoixTVA, lireMontant, formaterMontant } from './ChampsSpeciaux';
+export { Modale } from './Modale';
+export { Confirmation } from './Confirmation';
+export { Toasts } from './Toasts';
+export { EtatVide } from './EtatVide';
+export { Manques } from './Manques';
+export { Frise } from './Frise';
+export { LigneCliquable } from './LigneCliquable';
+export { Segments } from './Segments';
+export { Squelette } from './Squelette';
+export { Icone } from './icones';
