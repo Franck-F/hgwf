@@ -1,7 +1,7 @@
 /** Assemblage des dossiers (3.1), recherche globale (4.8), activité (verrous). */
 import { describe, expect, it } from 'vitest';
 import { avecVerrou, ecritureEnCours, reinitialiserActivite } from '../../data/activite';
-import { construireDossiers, revisionsDuDossier, trouverDossier } from '../../data/dossiers';
+import { construireDossiers, revisionsDuDossier, trouverDossier, trouverDossierParReferenceOuClient } from '../../data/dossiers';
 import { MAX_RESULTATS, rechercher } from '../../data/recherche';
 import type { ClientFiche, DonneesMagasin } from '../../domaine/types';
 import { demandeDoc, expeditionDoc } from '../actions/fauxClient';
@@ -50,6 +50,14 @@ describe('construireDossiers', () => {
     expect(trouverDossier(src, 'd1')?.id).toBe('d1');
     expect(trouverDossier(src, 'x1')?.id).toBe('d1');
     expect(trouverDossier(src, 'inconnu')).toBeNull();
+  });
+
+  it('trouverDossierParReferenceOuClient retrouve le bon dossier à partir d’un devis ou d’un nom client', () => {
+    const d = demandeDoc({ _id: 'd1', reference: 'DEV-2611-001', clientNom: 'Élodie Durand', email: 'elodie@example.fr', statut: 1 });
+    const src = donnees({ demandes: [d] });
+    expect(trouverDossierParReferenceOuClient(src, 'DEV-2611-001')?.id).toBe('d1');
+    expect(trouverDossierParReferenceOuClient(src, 'elodie durand')?.id).toBe('d1');
+    expect(trouverDossier(src, 'DEV-2611-001')?.id).toBe('d1');
   });
 
   it('revisionsDuDossier liste les révisions des documents présents', () => {

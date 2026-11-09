@@ -8,6 +8,7 @@
  * `expeditionRef` : `expedition.demandeRef` égale à la référence de la demande.
  */
 import { echangesDe } from '../domaine/echanges';
+import { retrouverDossiersParReferenceOuClient } from '../domaine/rapprochement';
 import type { Demande, DonneesMagasin, Dossier, Echange, Expedition } from '../domaine/types';
 
 type DonneesDossiers = Pick<DonneesMagasin, 'demandes' | 'expeditions'> & { echanges?: Echange[] };
@@ -50,7 +51,16 @@ export function construireDossiers(donnees: DonneesDossiers): Dossier[] {
 }
 
 /**
- * Retrouve un dossier par son identifiant. On accepte aussi l'`_id` de
+/** Retrouve un dossier par son identifiant, ou par un libellé métier :
+ * référence de devis, nom client ou e-mail. Cela sert à rattacher une réponse
+ * Outlook déjà reçue à la bonne fiche sans passer par un `_id` technique.
+ */
+export function trouverDossierParReferenceOuClient(donnees: DonneesDossiers, texte: string): Dossier | null {
+  const dossiers = construireDossiers(donnees);
+  return retrouverDossiersParReferenceOuClient(texte, dossiers)[0] ?? null;
+}
+
+/** Retrouve un dossier par son identifiant. On accepte aussi l'`_id` de
  * l'expédition liée : un lien ou une recherche ne doit jamais mener à un
  * « dossier introuvable » parce qu'on a désigné le même dossier par sa moitié.
  */
@@ -62,7 +72,7 @@ export function trouverDossier(
   return (
     dossiers.find((d) => d.id === id) ??
     dossiers.find((d) => d.demande?._id === id || d.expedition?._id === id) ??
-    null
+    trouverDossierParReferenceOuClient(donnees, id)
   );
 }
 

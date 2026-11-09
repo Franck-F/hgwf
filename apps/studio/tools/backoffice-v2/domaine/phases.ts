@@ -15,7 +15,7 @@
  */
 import type { EtapeFrise, TonBadge } from '../ui/types';
 import { lireDate } from './echeances';
-import { reponseATraiter } from './echanges';
+import { derniereReponse, reponseATraiter } from './echanges';
 import { DEMANDE, ETAPE, PRISE_EN_CHARGE } from './statuts';
 import type { Dossier, Phase } from './types';
 
@@ -94,14 +94,15 @@ function phaseExpedition(dossier: Dossier): Phase {
 }
 
 /** Vrai si le client a répondu après la demande de compléments. */
-function reponseApresComplement(complement: string | undefined, reponse: string | undefined): boolean {
+function reponseApresComplement(dossier: Dossier): boolean {
+  const complement = dossier.demande?.complementDemandeLe;
+  const reponse = derniereReponse(dossier);
   if (!reponse) return false;
   if (!complement) return true;
-  const r = lireDate(reponse);
   const c = lireDate(complement);
   // Dates illisibles : la présence d'une réponse l'emporte (rien ne doit se perdre).
-  if (!r || !c) return true;
-  return r.getTime() > c.getTime();
+  if (!c) return true;
+  return reponse.getTime() > c.getTime();
 }
 
 export function phaseDe(dossier: Dossier): Phase {
@@ -120,9 +121,7 @@ export function phaseDe(dossier: Dossier): Phase {
       // L'API a envoyé l'e-mail mais le second patch (statut 2) n'est pas passé.
       if (d.devisEnvoyeLe) return 'devisPartiStatutACorriger';
       // Le signal s'éteint quand l'équipe a lu toutes les réponses reçues (fil « Échanges »).
-      return reponseApresComplement(d.complementDemandeLe, d.reponseClientLe) && reponseATraiter(dossier)
-        ? 'reponseRecue'
-        : 'aChiffrer';
+      return reponseApresComplement(dossier) && reponseATraiter(dossier) ? 'reponseRecue' : 'aChiffrer';
     case DEMANDE.devisEnvoye:
       return d.devisEnvoyeHorsOutilLe && !d.devisEnvoyeLe ? 'devisHorsOutil' : 'devisEnvoye';
     case DEMANDE.acceptee:

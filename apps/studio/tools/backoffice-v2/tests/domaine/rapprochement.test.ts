@@ -7,6 +7,8 @@ import {
   memeTelephone,
   normaliserNom,
   normaliserTelephone,
+  retrouverDossiersParReferenceOuClient,
+  retrouverFichesClientParNomOuEmail,
 } from '../../domaine/rapprochement';
 import type { ClientFiche } from '../../domaine/types';
 import { dossierDemande } from './fabrique';
@@ -63,6 +65,31 @@ describe('dossiersDuClient (4.6)', () => {
   it('jamais par « contient »', () => {
     const r = dossiersDuClient(client({ nom: 'Dupont' }), [dossiers[1]!]);
     expect(r).toEqual([]);
+  });
+});
+
+describe('retrouverDossiersParReferenceOuClient', () => {
+  const dossiers = [
+    dossierDemande({ reference: 'DEV-2611-001', clientNom: 'Élodie Durand', email: 'elodie@example.fr' }, 'd1'),
+    dossierDemande({ reference: 'DEV-2611-002', clientNom: 'Martin Dupont', email: 'martin@example.fr' }, 'd2'),
+  ];
+
+  it('retrouve un dossier par numéro de devis ou par nom client normalisé', () => {
+    expect(retrouverDossiersParReferenceOuClient('DEV-2611-001', dossiers).map((d) => d.id)).toEqual(['d1']);
+    expect(retrouverDossiersParReferenceOuClient('elodie durand', dossiers).map((d) => d.id)).toEqual(['d1']);
+  });
+});
+
+describe('retrouverFichesClientParNomOuEmail', () => {
+  const fiches = [
+    { _id: 'c1', _rev: 'r', _type: 'clientFiche' as const, nom: 'Élodie Durand', contact: 'elodie@example.fr · 06 12 34 56 78' },
+    { _id: 'c2', _rev: 'r', _type: 'clientFiche' as const, nom: 'Martin Dupont', contact: 'martin@example.fr' },
+  ];
+
+  it('retrouve une fiche client depuis le nom ou l’e-mail', () => {
+    expect(retrouverFichesClientParNomOuEmail('DEV-2611-001', fiches)).toHaveLength(0);
+    expect(retrouverFichesClientParNomOuEmail('elodie durand', fiches).map((c) => c._id)).toEqual(['c1']);
+    expect(retrouverFichesClientParNomOuEmail('martin@example.fr', fiches).map((c) => c._id)).toEqual(['c2']);
   });
 });
 

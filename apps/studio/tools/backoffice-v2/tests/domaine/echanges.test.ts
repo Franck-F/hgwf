@@ -91,6 +91,19 @@ describe('signal « Réponse reçue »', () => {
     expect(groupes[0]?.lignes[0]).toMatchObject({ phase: 'reponseRecue', raison: 'Réponse reçue, à chiffrer', nbNonLus: 1 });
   });
 
+  it('une réponse reçue par e-mail sans reponseClientLe ne reste pas comptée comme « compléments demandés »', () => {
+    const d = avec(
+      dossierDemande({ statut: 1, complementDemandeLe: '02/11/2026 à 10h00' }),
+      [echange({ recuLe: '2026-11-05T09:00:00.000Z', lu: false })],
+    );
+    expect(phaseDe(d)).toBe('reponseRecue');
+    expect(calculerAFaire([d], [], MAINTENANT).groupes[0]?.lignes[0]?.raison).toBe('Réponse reçue, à chiffrer');
+
+    const lu = avec(d, [echange({ recuLe: '2026-11-05T09:00:00.000Z', lu: true })]);
+    expect(phaseDe(lu)).toBe('aChiffrer');
+    expect(calculerAFaire([lu], [], MAINTENANT).groupes[0]?.lignes[0]?.raison).toBe('Montant à saisir');
+  });
+
   it('le signal disparaît quand tout est lu, mais le dossier reste dans « À faire »', () => {
     const d = avec(dossierDemande(repondu), [echange({ lu: true })]);
     expect(phaseDe(d)).toBe('aChiffrer');

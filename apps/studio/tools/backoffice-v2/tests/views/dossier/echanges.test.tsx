@@ -15,6 +15,7 @@ vi.mock('../../../views/Dossier/contexteEcriture', () => ({ useContexteEcritureD
 import { LigneAFaire } from '../../../views/AFaire/LigneAFaire';
 import { BandeauReponse } from '../../../views/Dossier/BandeauReponse';
 import { ContexteDossierReact } from '../../../views/Dossier/ContexteDossier';
+import { SectionDemande } from '../../../views/Dossier/SectionDemande';
 import { resumeEchanges, SectionEchanges } from '../../../views/Dossier/SectionEchanges';
 import { LigneDossier } from '../../../views/Dossiers/LigneDossier';
 import { dossierDemande } from '../../domaine/fabrique';
@@ -162,6 +163,39 @@ describe('SectionEchanges', () => {
   it('sans contexte de page (affichage seul), aucun bouton d’écriture', () => {
     monter(avec([echange()]), false);
     expect(screen.queryByRole('button', { name: 'Marquer comme lu' })).toBeNull();
+  });
+});
+
+describe('SectionDemande', () => {
+  it('permet de modifier directement le texte et les informations clés de la demande dans le dossier', () => {
+    const modifier = vi.fn();
+    const dossier = dossierDemande({
+      typeEnvoi: 'Groupage maritime',
+      destination: 'Dakar',
+      volume: '8 m³',
+      message: 'Bonjour\nColis : 1\nDépart : Marseille',
+    });
+
+    render(
+      <SectionDemande
+        dossier={dossier}
+        brouillon={{}}
+        modifier={modifier}
+        lectureSeule={false}
+        ouverte
+        onBasculer={() => undefined}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Type d’envoi'), { target: { value: 'FCL' } });
+    fireEvent.change(screen.getByLabelText('Destination'), { target: { value: 'Abidjan' } });
+    fireEvent.change(screen.getByLabelText('Volume'), { target: { value: '12 m³' } });
+    fireEvent.change(screen.getByLabelText('Message du client'), { target: { value: 'Bonjour\nMerci de confirmer.' } });
+
+    expect(modifier).toHaveBeenCalledWith('typeEnvoi', 'FCL');
+    expect(modifier).toHaveBeenCalledWith('destination', 'Abidjan');
+    expect(modifier).toHaveBeenCalledWith('volume', '12 m³');
+    expect(modifier).toHaveBeenCalledWith('message', 'Bonjour\nMerci de confirmer.');
   });
 });
 

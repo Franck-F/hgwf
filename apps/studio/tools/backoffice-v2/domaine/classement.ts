@@ -18,7 +18,7 @@ import {
   SEUIL_ROUTE_J,
 } from './echeances';
 import { ilYa } from './format';
-import { nbNonLus, plusAncienNonLu } from './echanges';
+import { derniereReponse, nbNonLus, plusAncienNonLu } from './echanges';
 import { chiffrageAmorce, manquesDevis, manquesPriseEnCharge } from './manques';
 import { estTermine, phaseDe } from './phases';
 import type { Demande, Dossier, Expedition, IdGroupeAFaire, LigneAFaire, Phase } from './types';
@@ -105,7 +105,8 @@ function classerDemande(dossier: Dossier, d: Demande, phase: Phase, maintenant: 
       return { candidat: { groupe: 'devis', rang: 1, depuis: reponse, ligne: ligne(dossier, phase, raison, reponse, maintenant, retard) } };
     }
     case 'aChiffrer': {
-      if (d.complementDemandeLe && !d.reponseClientLe) {
+      const reponseConnue = derniereReponse(dossier) !== null;
+      if (d.complementDemandeLe && !reponseConnue) {
         const demande = premiereDate([d.complementDemandeLe], recue);
         const raison = `Compléments demandés ${ilYa(demande, maintenant)}, sans réponse`;
         return { candidat: { groupe: 'devis', rang: 3, depuis: demande, ligne: ligne(dossier, phase, raison, demande, maintenant, false) } };

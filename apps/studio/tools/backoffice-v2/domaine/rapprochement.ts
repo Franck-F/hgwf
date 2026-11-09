@@ -39,6 +39,51 @@ export function normaliserNom(texte: string | null | undefined): string {
     .toLowerCase();
 }
 
+/**
+ * Recherche fragmentaire sur une référence de devis, un nom client ou un e-mail,
+ * sans dépendre d'un outil de recherche externe. Utilisé pour relier une réponse
+ * Outlook à un dossier déjà existant ou à une fiche client.
+ */
+export function retrouverDossiersParReferenceOuClient(texte: string | null | undefined, dossiers: Dossier[]): Dossier[] {
+  const requete = (texte ?? '').trim();
+  if (!requete) return [];
+  const cherche = normaliserNom(requete);
+  const refRecherche = requete.toLowerCase();
+
+  return dossiers.filter((d) => {
+    const refs = [d.demande?.reference, d.expedition?.reference, d.expedition?.demandeRef].filter(Boolean) as string[];
+    if (refs.some((ref) => {
+      const n = normaliserNom(ref);
+      return n && (n === cherche || n.includes(cherche) || cherche.includes(n));
+    })) return true;
+    if (refs.some((ref) => {
+      const refLower = ref.toLowerCase();
+      return refLower === refRecherche || refLower.includes(refRecherche) || refRecherche.includes(refLower);
+    })) return true;
+
+    const noms = nomsDuDossier(d).map(normaliserNom);
+    if (noms.some((nom) => nom === cherche || nom.includes(cherche) || cherche.includes(nom))) return true;
+
+    const emails = emailsDuDossier(d).map((email) => email.toLowerCase());
+    return emails.some((email) => email === refRecherche || email.includes(refRecherche) || refRecherche.includes(email));
+  });
+}
+
+export function retrouverFichesClientParNomOuEmail(texte: string | null | undefined, clients: ClientFiche[]): ClientFiche[] {
+  const requete = (texte ?? '').trim();
+  if (!requete) return [];
+  const cherche = normaliserNom(requete);
+  const refRecherche = requete.toLowerCase();
+
+  return clients.filter((client) => {
+    const nom = normaliserNom(client.nom);
+    const email = extraireContact(client.contact).email.toLowerCase();
+    if (nom && (nom === cherche || nom.includes(cherche) || cherche.includes(nom))) return true;
+    if (email && (email === refRecherche || email.includes(refRecherche) || refRecherche.includes(email))) return true;
+    return false;
+  });
+}
+
 /** Extrait e-mail et téléphone de la chaîne historique « mail · tél ». */
 export function extraireContact(contact: string | null | undefined): { email: string; telephone: string } {
   if (typeof contact !== 'string') return { email: '', telephone: '' };

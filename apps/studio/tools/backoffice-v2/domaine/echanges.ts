@@ -65,6 +65,19 @@ export function nbNonLus(dossier: Dossier): number {
   return echangesNonLus(dossier).length;
 }
 
+/** Dernière réponse connue côté client, depuis le champ dédié ou les échanges. */
+export function derniereReponse(dossier: Dossier): Date | null {
+  const dates: Date[] = [];
+  const reponseClientLe = lireDate(dossier.demande?.reponseClientLe);
+  if (reponseClientLe) dates.push(reponseClientLe);
+  for (const e of dossier.echanges ?? []) {
+    const d = dateEchange(e);
+    if (d) dates.push(d);
+  }
+  if (dates.length === 0) return null;
+  return new Date(Math.max(...dates.map((d) => d.getTime())));
+}
+
 /** Plus ancienne réception parmi les non lus : l'attente se compte depuis elle. */
 export function plusAncienNonLu(dossier: Dossier): Date | null {
   let min: Date | null = null;
