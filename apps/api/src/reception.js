@@ -85,20 +85,65 @@ export function adresseReponse(reference, env = process.env) {
   const domaine = env.REPONSES_DOMAINE === undefined ? DOMAINE_PAR_DEFAUT : env.REPONSES_DOMAINE.trim();
   const ref = String(reference ?? '').trim();
   if (!domaine || !ref) return env.EMAIL_INTERNE || undefined;
-  return `dossier-${ref.toLowerCase()}@${domaine}`;
+  const jeton = jetonReponse(ref, env);
+  return `dossier-${ref.toLowerCase()}${jeton ? `-${jeton}` : ''}@${domaine}`;
 }
 
-/** « dossier-HGWF-2026-1234@domaine » → « HGWF-2026-1234 » (null si aucune).
- * Accepte toute référence de demande (HGWF-AAAA-N du site, DEV-AAMM-NNN des
- * demandes saisies à la main), car adresseReponse() les écrit toutes. */
-export function extraireReference(adresses, domaine = DOMAINE_PAR_DEFAUT) {
-  const re = new RegExp(`(?<![a-z0-9._-])dossier-([a-z0-9][a-z0-9-]{2,40})@${echapper(domaine)}`, 'i');
+/**
+ * Jeton de l'adresse de réponse : 10 caractères dérivés (HMAC) de la référence
+ * et du secret du webhook. Il ne figure que dans les e-mails envoyés au client :
+ * connaître une référence ne suffit plus pour écrire dans un dossier. Resend ne
+ * transmet pas de résultat SPF/DKIM/DMARC pour les e-mails reçus : ce jeton,
+ * avec l'adresse de l'expéditeur, est la preuve que la réponse vient du fil.
+ * Changer RESEND_WEBHOOK_SECRET invalide les jetons des e-mails déjà partis.
+ */
+const LONGUEUR_JETON = 10;
+export function jetonReponse(reference, env = process.env) {
+  const secret = env.RESEND_WEBHOOK_SECRET;
+  if (!secret) return '';
+  return createHmac('sha256', `reponses:${secret}`)
+    .update(String(reference).trim().toUpperCase())
+    .digest('hex')
+    .slice(0, LONGUEUR_JETON);
+}
+
+/**
+ * Adresse de dossier trouvée parmi les destinataires : référence et état du
+ * jeton (« valide », « invalide », ou « absent » pour les adresses écrites avant
+ * l'arrivée du jeton). null si aucune adresse de dossier.
+ */
+export function analyserAdresseDossier(adresses, domaine = DOMAINE_PAR_DEFAUT, env = process.env) {
+  const re = new RegExp(`(?<![a-z0-9._-])dossier-([a-z0-9][a-z0-9-]{2,60})@${echapper(domaine)}`, 'i');
   for (const a of adresses) {
     const m = String(a).match(re);
-    if (m) return m[1].toUpperCase();
+    if (!m) continue;
+    const brut = m[1].toLowerCase();
+    // Aucune référence ne finit par 10 caractères hexadécimaux : c'est un jeton.
+    const avecJeton = brut.match(new RegExp(`^(.+)-([0-9a-f]{${LONGUEUR_JETON}})$`));
+    if (!avecJeton) return { reference: brut.toUpperCase(), jeton: 'absent' };
+    const reference = avecJeton[1].toUpperCase();
+    const attendu = jetonReponse(reference, env);
+    const valide =
+      attendu.length === LONGUEUR_JETON &&
+      timingSafeEqual(Buffer.from(attendu), Buffer.from(avecJeton[2]));
+    return { reference, jeton: valide ? 'valide' : 'invalide' };
   }
   return null;
 }
+
+/** « dossier-HGWF-2026-1234[-jeton]@domaine » → « HGWF-2026-1234 » (null si aucune).
+ * Accepte toute référence de demande (HGWF-AAAA-N du site, DEV-AAMM-NNN des
+ * demandes saisies à la main), car adresseReponse() les écrit toutes. */
+export function extraireReference(adresses, domaine = DOMAINE_PAR_DEFAUT, env = process.env) {
+  return analyserAdresseDossier(adresses, domaine, env)?.reference ?? null;
+}
+
+/**
+ * Réponses aux e-mails partis avant le jeton (adresse « dossier-<réf>@ » seule) :
+ * acceptées sur la seule adresse de l'expéditeur jusqu'à cette date, le temps
+ * que les fils en cours se terminent. Ensuite : « à vérifier ».
+ */
+export const FIN_ADRESSES_SANS_JETON = Date.UTC(2026, 11, 31);
 
 /**
  * Adresse d'un en-tête From : « Nom <adresse> » ou « adresse ». Les noms entre
@@ -172,11 +217,14 @@ const serveursDeReception = (env) => String(env?.RECEPTION_AUTHSERV_ID ?? '').sp
 
 /**
  * Le message vient-il bien du client du dossier ? Il faut l'adresse e-mail de
- * la demande (casse ignorée) ET une authentification positive (DMARC, ou DKIM
- * aligné) constatée par le serveur de réception. Sans preuve : non vérifié.
+ * la demande (casse ignorée), aucun échec d'authentification, ET une preuve :
+ * le jeton de l'adresse de réponse (qui ne figure que dans nos e-mails au
+ * client), ou une authentification positive (DMARC, ou DKIM aligné) d'un
+ * serveur de réception déclaré. Les adresses sans jeton (e-mails partis avant
+ * lui) restent acceptées jusqu'à FIN_ADRESSES_SANS_JETON.
  * @returns {{ fiable: boolean, motif?: string }}
  */
-export function verifierExpediteur({ de, demande, entetes, serveursFiables = [] }) {
+export function verifierExpediteur({ de, demande, entetes, serveursFiables = [], jeton = 'absent', maintenant = Date.now() }) {
   if (!demande) return { fiable: false, motif: 'aucun dossier correspondant' };
   const adresse = adresseDe(de).trim().toLowerCase();
   const attendue = String(demande.email ?? '').trim().toLowerCase();
@@ -188,10 +236,12 @@ export function verifierExpediteur({ de, demande, entetes, serveursFiables = [] 
   if (verdict === 'echec') {
     return { fiable: false, motif: 'l’authentification du message (SPF/DKIM/DMARC) a échoué : l’adresse a pu être usurpée' };
   }
-  if (verdict !== 'ok') {
-    return { fiable: false, motif: 'l’authentification du message (DKIM/DMARC) n’a pas pu être confirmée' };
+  if (jeton === 'invalide') {
+    return { fiable: false, motif: 'l’adresse de réponse utilisée n’est pas celle de nos e-mails (jeton incorrect)' };
   }
-  return { fiable: true };
+  if (jeton === 'valide' || verdict === 'ok') return { fiable: true };
+  if (maintenant < FIN_ADRESSES_SANS_JETON) return { fiable: true };
+  return { fiable: false, motif: 'réponse à une ancienne adresse de dossier, expéditeur non confirmé' };
 }
 
 // ── Office Open XML : lecture du répertoire central du ZIP ────────────────────
@@ -576,16 +626,25 @@ async function traiterEmail(data, deps) {
 
   // Destinataires possibles de la référence : to/cc, mais aussi received_for
   // (cas d'une redirection où l'adresse de dossier n'est qu'en enveloppe).
-  const reference = extraireReference(
+  const adresseDossier = analyserAdresseDossier(
     toutesAdresses(data.to, data.cc, data.bcc, source.to, source.cc, source.received_for, data.received_for),
     domaine,
+    env,
   );
+  const reference = adresseDossier?.reference ?? null;
 
   const demande = reference
     ? await sanity.fetch(`*[_type == "demandeDevis" && reference == $ref][0]{_id, reference, email}`, { ref: reference })
     : null;
   const serveursFiables = serveursDeReception(env);
-  const verification = verifierExpediteur({ de, demande, entetes: source.headers, serveursFiables });
+  const verification = verifierExpediteur({
+    de,
+    demande,
+    entetes: source.headers,
+    serveursFiables,
+    jeton: adresseDossier?.jeton ?? 'absent',
+    maintenant: maintenant(),
+  });
   const fiable = verification.fiable;
   // Diagnostic sans donnée personnelle : seuls les noms des serveurs qui ont
   // authentifié le message. Sert à renseigner RECEPTION_AUTHSERV_ID.

@@ -6,6 +6,9 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { deflateRawSync } from 'node:zlib';
 import {
+  FIN_ADRESSES_SANS_JETON,
+  analyserAdresseDossier,
+  jetonReponse,
   adresseDe,
   adresseReponse,
   contenuConforme,
@@ -154,6 +157,35 @@ test('adresse de réponse : dossier, domaine configurable, ancien comportement',
   assert.equal(adresseReponse(null, { EMAIL_INTERNE: 'c@h.fr' }), 'c@h.fr');
 });
 
+test('adresse de réponse signée : jeton lu, vérifié, et référence intacte', () => {
+  const env = { RESEND_WEBHOOK_SECRET: SECRET };
+  const jeton = jetonReponse('HGWF-2026-1234', env);
+  assert.match(jeton, /^[0-9a-f]{10}$/);
+  const adresse = adresseReponse('HGWF-2026-1234', env);
+  assert.equal(adresse, `dossier-hgwf-2026-1234-${jeton}@reponses.hgwf-cargo.fr`);
+  assert.deepEqual(analyserAdresseDossier([`Client <${adresse}>`], undefined, env), { reference: 'HGWF-2026-1234', jeton: 'valide' });
+  // Jeton d'un autre dossier recollé sur une référence : refusé.
+  const autre = jetonReponse('HGWF-2026-9999', env);
+  assert.equal(analyserAdresseDossier([`dossier-hgwf-2026-1234-${autre}@reponses.hgwf-cargo.fr`], undefined, env).jeton, 'invalide');
+  // Ancienne adresse sans jeton, y compris une référence saisie à la main.
+  assert.deepEqual(analyserAdresseDossier(['dossier-dev-2611-001@reponses.hgwf-cargo.fr'], undefined, env), { reference: 'DEV-2611-001', jeton: 'absent' });
+  assert.equal(extraireReference([adresse], undefined, env), 'HGWF-2026-1234');
+});
+
+test('réponse à une adresse signée : vérifiée sans en-tête d’authentification, pièces gardées', async () => {
+  const sanity = fauxSanity();
+  const envoyer = fauxEnvoi();
+  const adresse = adresseReponse('HGWF-2026-1234', ENV);
+  const fetchImpl = fauxFetch({ headers: {}, pieces: [{ id: 'p1', filename: 'photo.jpg', content_type: 'image/jpeg', size: 7 }] });
+  const corps = webhook({ to: [adresse] });
+  const t = FIN_ADRESSES_SANS_JETON + 86_400_000;
+  const r = await traiterReception({ corps, entetes: signer(corps.toString(), { ts: Math.floor(t / 1000) }), sanity, env: ENV, fetchImpl, envoyer, maintenant: () => t });
+  assert.equal(r.status, 200);
+  assert.equal(r.corps.verifie, true);
+  assert.equal(sanity.crees[0].expediteurVerifie, true);
+  assert.equal(sanity.uploads.length, 1);
+});
+
 test('horodatage au format du back-office, en heure de Paris', () => {
   assert.equal(horodatageParis(new Date(Date.UTC(2026, 10, 8, 10, 5))), '08/11/2026 à 11h05');
   assert.equal(horodatageParis(new Date(Date.UTC(2026, 6, 8, 10, 5))), '08/07/2026 à 12h05');
@@ -292,12 +324,20 @@ test('adresse du From : guillemets, commentaires et adresses multiples', () => {
 test('vérification de l\'expéditeur : adresse de la demande ET authentification positive', () => {
   const demande = { _id: 'd', email: ' Marie@Client.FR ' };
   const s = [SERVEUR];
-  assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, entetes: AUTH_OK, serveursFiables: s }).fiable, true);
-  const sansPreuve = verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, serveursFiables: s });
+  const apres = FIN_ADRESSES_SANS_JETON + 1;
+  assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, entetes: AUTH_OK, serveursFiables: s, maintenant: apres }).fiable, true);
+  const sansPreuve = verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, serveursFiables: s, maintenant: apres });
   assert.equal(sansPreuve.fiable, false);
-  assert.match(sansPreuve.motif, /n’a pas pu être confirmée/);
-  // Aucun serveur de réception déclaré : jamais vérifié.
-  assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, entetes: AUTH_OK }).fiable, false);
+  assert.match(sansPreuve.motif, /ancienne adresse de dossier/);
+  // Aucun serveur de réception déclaré et pas de jeton : non vérifié (après la transition).
+  assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, entetes: AUTH_OK, maintenant: apres }).fiable, false);
+  // Jeton valide : vérifié sans en-tête d'authentification ; jeton faux : refusé.
+  assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, jeton: 'valide', maintenant: apres }).fiable, true);
+  assert.match(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, jeton: 'invalide' }).motif, /jeton incorrect/);
+  // Transition : ancienne adresse acceptée sur la seule adresse de l'expéditeur.
+  assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, maintenant: FIN_ADRESSES_SANS_JETON - 1 }).fiable, true);
+  // Le jeton ne couvre jamais un autre expéditeur.
+  assert.equal(verifierExpediteur({ de: 'pirate@x.net', demande, jeton: 'valide' }).fiable, false);
   assert.equal(verifierExpediteur({ de: '"<marie@client.fr>" <pirate@x.net>', demande, entetes: AUTH_OK, serveursFiables: s }).fiable, false);
   assert.equal(verifierExpediteur({ de: 'marie@client.fr.pirate.net', demande, entetes: AUTH_OK, serveursFiables: s }).fiable, false);
   assert.equal(verifierExpediteur({ de: 'marie@client.fr', demande: { _id: 'd' }, entetes: AUTH_OK, serveursFiables: s }).fiable, false);
@@ -396,9 +436,9 @@ test('Resend refuse la lecture (clé d\'envoi seul) : échange enregistré avec 
     assert.match(echange.erreur, new RegExp(`Resend ${statut}`));
     assert.equal(echange.de, 'Marie <marie@client.fr>');
     assert.equal(echange.objet, 'Re: Votre devis');
-    // Sans contenu, pas d'en-têtes d'authentification : rien ne prouve l'expéditeur.
-    assert.equal(echange.expediteurVerifie, false);
-    assert.equal(sanity.patchs.some((p) => p.id === 'dem-1'), false);
+    // Ancienne adresse (sans jeton) pendant la transition : l'adresse de l'expéditeur suffit.
+    assert.equal(echange.expediteurVerifie, true);
+    assert.ok(sanity.patchs.some((p) => p.id === 'dem-1'));
     assert.match(envoyer.envoyes[0].text, /n'a pas pu être lu/);
     assert.equal(envoyer.envoyes[0].replyTo, 'marie@client.fr');
   }
