@@ -28,7 +28,11 @@ export type IconeNom =
   | 'croix'
   | 'chevron'
   | 'recherche'
-  | 'lienExterne';
+  | 'lienExterne'
+  | 'info'
+  | 'euro'
+  | 'camion'
+  | 'facture';
 
 export type TonBadge = 'neutre' | 'info' | 'attention' | 'urgent' | 'ok';
 

@@ -6,7 +6,7 @@
  * rien. Aucun autre champ n'est jamais touché.
  */
 import type { ContexteEcriture, Resultat, ResultatGeste } from '../domaine/contrats';
-import { estNonLu } from '../domaine/echanges';
+import { echangeARelire, estNonLu } from '../domaine/echanges';
 import type { Echange } from '../domaine/types';
 import { echec, identifiantInterdit, traduireErreur } from './ecriture';
 
@@ -41,4 +41,19 @@ export async function marquerEchangesLus(
     message: n > 1 ? `${n} réponses marquées comme lues.` : 'Réponse marquée comme lue.',
     champsEnregistres: [],
   };
+}
+
+/**
+ * « Relire le message » : l'API va rechercher chez Resend le texte et les
+ * pièces d'une réponse rangée vide, et refait la vérification de l'expéditeur.
+ * Rien n'est écrit ici : c'est l'API qui met l'échange à jour.
+ */
+export async function relireEchange(ctx: ContexteEcriture, echange: Echange): Promise<Resultat<ResultatGeste>> {
+  if (!echangeARelire(echange)) return echec('refus', 'Ce message n’a rien à relire.');
+  const r = await ctx.appelerApi('/api/relire-echange', { echangeId: echange._id });
+  if (!r.ok) return r;
+  const c = r.reponse.corps;
+  const pieces = typeof c.pieces === 'number' && c.pieces > 0 ? ` et ${c.pieces} pièce${c.pieces > 1 ? 's' : ''} jointe${c.pieces > 1 ? 's' : ''}` : '';
+  const message = c.texte === false && !pieces ? 'Message relu : il ne contient pas de texte.' : `Message relu : texte${pieces} récupéré${pieces ? 's' : ''}.`;
+  return { ok: true, patchs: 1, message, champsEnregistres: [] };
 }

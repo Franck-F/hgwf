@@ -17,7 +17,7 @@ import { envoiConfigure, envoyerEmail, gabaritHtml } from './email.js';
 import { aUnMontant, calculerChiffrage, lignesMontant, montantAnnonce } from './montant.js';
 import { CHAMPS_SUGGESTION, MODELE_PAR_DEFAUT, construireRequete, demanderSuggestion, validerSuggestion } from './suggestion.js';
 import { facturationDepuisFormulaire } from './facturation.js';
-import { TAILLE_MAX_WEBHOOK, adresseReponse, traiterReception } from './reception.js';
+import { TAILLE_MAX_WEBHOOK, adresseReponse, relireEchange, traiterReception } from './reception.js';
 
 // ── Chargement .env (sans dépendance) : dev local uniquement ─────────────────
 try {
@@ -750,6 +750,22 @@ async function suggererDevis(req, res, cors) {
   }
 }
 
+// Relecture d'un message client rangé sans contenu (back-office, même clé que
+// l'envoi). Le corps ne porte que l'identifiant de l'échange.
+async function relireMessage(req, res, cors) {
+  const cle = process.env.BACKOFFICE_API_CLE;
+  if (!cle) return json(res, 503, { ok: false, erreur: 'back-office non configuré' }, cors);
+  if (req.headers['x-hgwf-cle'] !== cle) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
+  let corps;
+  try {
+    corps = JSON.parse((await lireCorps(req)) || '{}');
+  } catch {
+    return json(res, 400, { ok: false, erreur: 'JSON invalide' }, cors);
+  }
+  const { status, corps: reponse } = await relireEchange({ echangeId: nettoyer(corps.echangeId, 120), sanity });
+  return json(res, status, reponse, cors);
+}
+
 // Webhook Resend : appelé par un serveur, pas par un navigateur. Ni CORS, ni
 // limitation de débit par IP (les appels viennent tous des mêmes adresses
 // Resend) : l'authentification, c'est la signature.
@@ -797,6 +813,9 @@ export async function handler(req, res) {
     }
     if (req.method === 'POST' && url.pathname === '/api/suggestion-devis') {
       return await suggererDevis(req, res, cors);
+    }
+    if (req.method === 'POST' && url.pathname === '/api/relire-echange') {
+      return await relireMessage(req, res, cors);
     }
     if (req.method === 'GET' && url.pathname === '/api/suivi') {
       return await chercherSuivi(req, res, cors, url);

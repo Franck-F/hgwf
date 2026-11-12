@@ -6,11 +6,12 @@
  */
 import { useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
-import { marquerEchangesLus } from '../../actions/echanges';
+import { marquerEchangesLus, relireEchange } from '../../actions/echanges';
 import type { SectionDossierProps } from '../../domaine/contrats';
 import {
   adresseReponse,
   dateEchange,
+  echangeARelire,
   estNonLu,
   explicationErreurEchange,
   formaterTaille,
@@ -55,10 +56,12 @@ function LignePiece({ piece }: { piece: PieceEchange }): ReactElement {
 interface MessageProps {
   echange: Echange;
   onLire?: () => void;
+  /** Message rangé vide (lecture refusée à l'arrivée) : demander à l'API de le relire. */
+  onRelire?: () => void;
   occupe: boolean;
 }
 
-function Message({ echange, onLire, occupe }: MessageProps): ReactElement {
+function Message({ echange, onLire, onRelire, occupe }: MessageProps): ReactElement {
   const [deplie, setDeplie] = useState(false);
   const nonLu = estNonLu(echange);
   const date = dateEchange(echange);
@@ -114,11 +117,18 @@ function Message({ echange, onLire, occupe }: MessageProps): ReactElement {
           <span>{explicationErreurEchange(echange.erreur)}</span>
         </div>
       ) : null}
-      {nonLu && onLire ? (
-        <div>
-          <Bouton variante="secondaire" taille="s" desactive={occupe} onClick={onLire}>
-            Marquer comme lu
-          </Bouton>
+      {(onRelire && echangeARelire(echange)) || (nonLu && onLire) ? (
+        <div className="bo-rangee">
+          {onRelire && echangeARelire(echange) ? (
+            <Bouton variante="primaire" taille="s" desactive={occupe} onClick={onRelire}>
+              Relire le message
+            </Bouton>
+          ) : null}
+          {nonLu && onLire ? (
+            <Bouton variante="secondaire" taille="s" desactive={occupe} onClick={onLire}>
+              Marquer comme lu
+            </Bouton>
+          ) : null}
         </div>
       ) : null}
     </li>
@@ -138,6 +148,16 @@ export function SectionEchanges({ dossier, ouverte, onBasculer }: SectionDossier
     setOccupe(true);
     try {
       await contexte.lancer(() => marquerEchangesLus(ctxEcriture, cibles));
+    } finally {
+      setOccupe(false);
+    }
+  }
+
+  async function relire(cible: Echange): Promise<void> {
+    if (!contexte || occupe) return;
+    setOccupe(true);
+    try {
+      await contexte.lancer(() => relireEchange(ctxEcriture, cible));
     } finally {
       setOccupe(false);
     }
@@ -163,7 +183,12 @@ export function SectionEchanges({ dossier, ouverte, onBasculer }: SectionDossier
           ) : null}
           <ol className="bo-pile">
             {echanges.map((e) => (
-              <Message key={e._id} echange={e} occupe={occupe} {...(contexte ? { onLire: () => void lire([e]) } : {})} />
+              <Message
+                key={e._id}
+                echange={e}
+                occupe={occupe}
+                {...(contexte ? { onLire: () => void lire([e]), onRelire: () => void relire(e) } : {})}
+              />
             ))}
           </ol>
         </>

@@ -15,6 +15,7 @@ import {
   extraireReference,
   horodatageParis,
   pieceBloquee,
+  relireEchange,
   traiterReception,
   verdictAuthentification,
   verifierExpediteur,
@@ -468,4 +469,64 @@ test('pièce trop volumineuse : omise et signalée', async () => {
   assert.equal(r.status, 200);
   assert.equal(sanity.uploads.length, 0);
   assert.match(sanity.crees[0].erreur, /gros\.pdf \(trop volumineuse\)/);
+});
+
+// ── Relecture d'un message rangé sans contenu ────────────────────────────────
+const ID_RESEND = '0b8e2f4c-1a2b-4c3d-8e9f-001122334455';
+
+function sanityRelecture({ echange = { _id: `echange-${ID_RESEND}`, reference: 'HGWF-2026-1234', nbPieces: 0 } } = {}) {
+  const s = fauxSanity();
+  const demande = { _id: 'dem-1', _createdAt: '2026-11-01T10:00:00Z', reference: 'HGWF-2026-1234', email: 'Marie@Client.fr' };
+  s.fetch = async (q) => (q.includes('_type == "echange"') ? echange : q.includes('demandeDevis') ? demande : null);
+  s.patch = (id) => {
+    const p = { id, champs: null, retires: [] };
+    const chaine = {
+      set: (c) => { p.champs = c; return chaine; },
+      unset: (l) => { p.retires = l; return chaine; },
+      commit: async () => { s.patchs.push(p); },
+    };
+    return chaine;
+  };
+  return s;
+}
+
+test('relireEchange : refuse un échange qui ne vient pas du webhook (import OVH)', async () => {
+  const r = await relireEchange({ echangeId: 'echange-ovh-216', sanity: sanityRelecture(), env: ENV, fetchImpl: fauxFetch() });
+  assert.equal(r.status, 422);
+});
+
+test('relireEchange : clé limitée à l’envoi, message clair et rien d’écrit', async () => {
+  const sanity = sanityRelecture();
+  const r = await relireEchange({ echangeId: `echange-${ID_RESEND}`, sanity, env: ENV, fetchImpl: fauxFetch({ statutLecture: 401 }), maintenant: () => MAINTENANT });
+  assert.equal(r.status, 503);
+  assert.match(r.corps.erreur, /Full access/);
+  assert.equal(sanity.patchs.length, 0);
+});
+
+test('relireEchange : remplit le texte, récupère les pièces d’un expéditeur vérifié et efface l’erreur', async () => {
+  const sanity = sanityRelecture();
+  const fetchImpl = fauxFetch({ pieces: [{ id: 'a1', filename: 'photo.jpg', content_type: 'image/jpeg', size: 7 }] });
+  const r = await relireEchange({ echangeId: `echange-${ID_RESEND}`, sanity, env: ENV, fetchImpl, maintenant: () => MAINTENANT });
+  assert.equal(r.status, 200);
+  assert.equal(r.corps.verifie, true);
+  const [p] = sanity.patchs;
+  assert.equal(p.id, `echange-${ID_RESEND}`);
+  assert.equal(p.champs.texte, 'Je valide.');
+  assert.equal(p.champs.expediteurVerifie, true);
+  assert.equal(p.champs.pieces.length, 1);
+  assert.deepEqual(p.retires.sort(), ['erreur', 'motifNonVerifie']);
+  assert.equal(sanity.uploads.length, 1);
+});
+
+test('relireEchange : expéditeur différent de la demande, texte relu mais pièces non conservées', async () => {
+  const sanity = sanityRelecture();
+  const fetchImpl = fauxFetch({ from: 'Pirate <x@autre.fr>', pieces: [{ id: 'a1', filename: 'photo.jpg', content_type: 'image/jpeg', size: 7 }] });
+  const r = await relireEchange({ echangeId: `echange-${ID_RESEND}`, sanity, env: ENV, fetchImpl, maintenant: () => MAINTENANT });
+  assert.equal(r.status, 200);
+  const [p] = sanity.patchs;
+  assert.equal(p.champs.expediteurVerifie, false);
+  assert.ok(p.champs.motifNonVerifie);
+  assert.equal(p.champs.pieces, undefined);
+  assert.match(p.champs.erreur, /non vérifié/);
+  assert.equal(sanity.uploads.length, 0);
 });

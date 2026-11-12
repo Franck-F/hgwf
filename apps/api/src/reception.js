@@ -806,3 +806,98 @@ export async function traiterReception({
     return { status: 500, corps: { ok: false, erreur: 'traitement impossible' } };
   }
 }
+
+// ── Relecture d'un message déjà rangé ─────────────────────────────────────────
+// Un message rangé sans contenu (clé Resend limitée à l'envoi, panne) ne repasse
+// jamais par le webhook : la copie à l'équipe est partie, un rejeu est ignoré.
+// Le back-office demande donc sa relecture. Seul un échange créé par le webhook
+// (identifiant = « echange- » + identifiant Resend) peut être relu ; la
+// vérification de l'expéditeur est refaite sur le message complet, et les
+// pièces ne sont téléchargées que pour un expéditeur vérifié, comme à l'arrivée.
+const ID_ECHANGE_RESEND = /^echange-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+export async function relireEchange({ echangeId, sanity, env = process.env, fetchImpl = fetch, maintenant = () => Date.now() }) {
+  const m = ID_ECHANGE_RESEND.exec(String(echangeId ?? ''));
+  if (!m) return { status: 422, corps: { ok: false, erreur: 'ce message n’a pas été reçu par la réception automatique' } };
+  const _id = m[0];
+  const emailId = m[1];
+  const echange = await sanity.fetch(`*[_id == $id && _type == "echange"][0]{_id, reference, "nbPieces": count(pieces)}`, { id: _id });
+  if (!echange) return { status: 404, corps: { ok: false, erreur: 'message introuvable dans le back-office' } };
+  if (!env.RESEND_API_KEY) return { status: 503, corps: { ok: false, erreur: 'lecture non configurée (RESEND_API_KEY absente)' } };
+
+  let mail;
+  try {
+    mail = await lireEmailRecu(emailId, env.RESEND_API_KEY, fetchImpl);
+  } catch (err) {
+    const statut = err instanceof ErreurResend ? err.statut : null;
+    if (statut === 401 || statut === 403) {
+      return { status: 503, corps: { ok: false, erreur: 'Resend refuse la lecture : la clé RESEND_API_KEY ne permet que l’envoi. Il faut la remplacer par une clé « Full access ».' } };
+    }
+    if (statut === 404) return { status: 404, corps: { ok: false, erreur: 'Resend ne trouve plus ce message' } };
+    console.error(`[reception] relecture impossible (${statut ?? err?.name ?? 'erreur'})`);
+    return { status: 502, corps: { ok: false, erreur: 'Resend ne répond pas, réessayez dans un instant' } };
+  }
+
+  const domaine = env.REPONSES_DOMAINE || DOMAINE_PAR_DEFAUT;
+  const de = mail.from ?? '';
+  const adresseDossier = analyserAdresseDossier(toutesAdresses(mail.to, mail.cc, mail.received_for), domaine, env);
+  const reference = adresseDossier?.reference ?? echange.reference ?? null;
+  const demande = reference
+    ? await sanity.fetch(`*[_type == "demandeDevis" && reference == $ref][0]{_id, _createdAt, reference, email}`, { ref: reference })
+    : null;
+  const verification = verifierExpediteur({
+    de,
+    demande,
+    entetes: mail.headers,
+    serveursFiables: serveursDeReception(env),
+    jeton: adresseDossier?.jeton ?? 'absent',
+    maintenant: maintenant(),
+  });
+  const fiable = verification.fiable;
+
+  const problemes = [];
+  const piecesSanity = [];
+  const attendues = mail.attachments ?? [];
+  if (attendues.length && (echange.nbPieces ?? 0) === 0) {
+    if (!fiable) {
+      problemes.push(`Pièces non récupérées : ${attendues.length} pièce(s) jointe(s) non récupérée(s), expéditeur non vérifié${nomsPieces(attendues)}`);
+    } else {
+      let lues;
+      try {
+        lues = await lirePiecesRecues(emailId, env.RESEND_API_KEY, fetchImpl, attendues);
+      } catch {
+        return { status: 502, corps: { ok: false, erreur: 'pièces jointes illisibles pour le moment, réessayez' } };
+      }
+      if (lues.omises.length) problemes.push(`Pièces non récupérées : ${lues.omises.join(', ')}`);
+      for (const [i, p] of lues.pieces.entries()) {
+        try {
+          const asset = await sanity.assets.upload('file', p.contenu, { filename: p.nom, contentType: p.typeMime });
+          piecesSanity.push({
+            _key: `r${i}`,
+            nom: p.nom,
+            typeMime: p.typeMime,
+            taille: p.contenu.length,
+            fichier: { _type: 'file', asset: { _type: 'reference', _ref: asset._id } },
+          });
+        } catch {
+          problemes.push(`Pièce ${p.nom} non enregistrée dans Sanity`);
+        }
+      }
+    }
+  }
+
+  const champs = {
+    de,
+    objet: (mail.subject ?? '(sans objet)').trim(),
+    texte: (mail.text || htmlEnTexte(mail.html) || '').trim(),
+    expediteurVerifie: fiable,
+    ...(fiable ? {} : { motifNonVerifie: verification.motif }),
+    ...(problemes.length ? { erreur: problemes.join(' | ') } : {}),
+    ...(piecesSanity.length ? { pieces: piecesSanity } : {}),
+  };
+  const aRetirer = [...(problemes.length ? [] : ['erreur']), ...(fiable ? ['motifNonVerifie'] : [])];
+  let patch = sanity.patch(_id).set(champs);
+  if (aRetirer.length) patch = patch.unset(aRetirer);
+  await patch.commit();
+  return { status: 200, corps: { ok: true, verifie: fiable, pieces: piecesSanity.length, texte: Boolean(champs.texte) } };
+}

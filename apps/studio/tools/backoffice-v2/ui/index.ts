@@ -5,7 +5,7 @@ export { MenuActions } from './MenuActions';
 export { Badge } from './Badge';
 export { Pastille } from './Pastille';
 export { Carte } from './Carte';
-export { Section } from './Section';
+export { Section, SectionsFixes } from './Section';
 export { Champ, Saisie, Liste, ZoneTexte } from './Champ';
 export { Montant, DateChamp, ChoixTVA, lireMontant, formaterMontant } from './ChampsSpeciaux';
 export { Modale } from './Modale';

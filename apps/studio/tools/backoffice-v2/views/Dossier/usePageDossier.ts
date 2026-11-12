@@ -6,7 +6,8 @@
  *   des champs enregistrés, relit le dossier, signale un conflit. Un verrou
  *   interdit deux gestes en même temps (double clic).
  * - `enregistrer` : écrit le brouillon (barre d'enregistrement).
- * - Sections : ouvertes selon la phase, repliables, `allerA` les ouvre et y défile.
+ * - Sous-dossiers : un seul ouvert, celui de la phase à l'arrivée ; `allerA`
+ *   ouvre celui d'une section et y défile.
  *
  * Fichier ajouté au lot 10.
  */
@@ -19,39 +20,17 @@ import { useDossier } from '../../data/useDossier';
 import { actionPrincipale } from '../../domaine/actionPrincipale';
 import type { FenetreDossier, Resultat, ResultatGeste } from '../../domaine/contrats';
 import { champsModifiesDossier } from '../../domaine/fusion';
-import { nbNonLus } from '../../domaine/echanges';
 import { phaseDe } from '../../domaine/phases';
 import type { Phase } from '../../domaine/types';
 import { enregistrerBrouillon } from './enregistrement';
 import { useContexteEcritureDossier } from './contexteEcriture';
 import { texteEchec } from './ContexteDossier';
 import type { ContexteVue, NomSection } from './ContexteDossier';
+import { sousDossierDeSection, sousDossierParDefaut, sousDossiersDe } from './rangement';
+import type { IdSousDossier } from './rangement';
+import { idOnglet } from './SousDossiers';
 
 const PHASES_CLOSES: Phase[] = ['livre', 'annule', 'sansSuite'];
-const PHASES_DEVIS_OUVERT: Phase[] = [
-  'aChiffrer',
-  'reponseRecue',
-  'devisPartiStatutACorriger',
-  'devisEnvoye',
-  'devisHorsOutil',
-];
-const PHASES_EXPEDITION_OUVERTE: Phase[] = ['accepte', 'aPreparer', 'pret', 'enRoute', 'incident'];
-
-/** Section ouverte par défaut : celle de la phase courante (4.3). */
-export function ouvertureParDefaut(nom: NomSection, phase: Phase, nonLus = 0): boolean {
-  switch (nom) {
-    case 'demande':
-      return true;
-    case 'echanges':
-      return nonLus > 0;
-    case 'devis':
-      return PHASES_DEVIS_OUVERT.includes(phase);
-    case 'expedition':
-      return PHASES_EXPEDITION_OUVERTE.includes(phase);
-    default:
-      return false;
-  }
-}
 
 const REFUS_EN_COURS: Resultat<ResultatGeste> = {
   ok: false,
@@ -70,11 +49,23 @@ export function usePageDossier(id: string, racine: RefObject<HTMLElement | null>
   const [correction, setCorrection] = useState(false);
   const [conflitLocal, setConflitLocal] = useState(false);
   const [enregistrement, setEnregistrement] = useState(false);
-  const [choisies, setChoisies] = useState<Partial<Record<NomSection, boolean>>>({});
+  const [ongletChoisi, setOngletChoisi] = useState<IdSousDossier | null>(null);
   const occupe = useRef(false);
 
   const phase = dossier ? phaseDe(dossier) : null;
   const action = useMemo(() => (dossier ? actionPrincipale(dossier, brouillon) : null), [dossier, brouillon]);
+  const sousDossiers = useMemo(
+    () => (dossier && phase ? sousDossiersDe(dossier, brouillon, phase) : []),
+    [dossier, brouillon, phase],
+  );
+  const defaut = phase ? sousDossierParDefaut(phase, sousDossiers) : 'infos';
+  // Le sous-dossier d'arrivée est retenu au premier chargement : lire une réponse
+  // (qui éteint le signal) ne doit pas faire changer de sous-dossier sous les yeux.
+  useEffect(() => {
+    if (dossier && ongletChoisi === null) setOngletChoisi(defaut);
+  }, [dossier, ongletChoisi, defaut]);
+  // Un sous-dossier qui n'existe plus (dossier relu) retombe sur celui de la phase.
+  const onglet = ongletChoisi && sousDossiers.some((s) => s.id === ongletChoisi) ? ongletChoisi : defaut;
 
   // Après une relecture, les champs du brouillon devenus identiques au dossier
   // enregistré (écrits par une fenêtre des lots 11 ou 12, qui ne vident pas le
@@ -151,13 +142,12 @@ export function usePageDossier(id: string, racine: RefObject<HTMLElement | null>
     await recharger();
   }
 
-  const estOuverte = (nom: NomSection): boolean => choisies[nom] ?? (phase ? ouvertureParDefaut(nom, phase, dossier ? nbNonLus(dossier) : 0) : false);
-  const basculer = (nom: NomSection): void => setChoisies((c) => ({ ...c, [nom]: !estOuverte(nom) }));
   const allerA = useCallback(
     (nom: NomSection): void => {
-      setChoisies((c) => ({ ...c, [nom]: true }));
+      const id = sousDossierDeSection(nom);
+      setOngletChoisi(id);
       requestAnimationFrame(() => {
-        racine.current?.querySelector(`[data-section="${nom}"]`)?.scrollIntoView?.({ block: 'start' });
+        racine.current?.querySelector(`#${idOnglet(id)}`)?.scrollIntoView?.({ block: 'start' });
       });
     },
     [racine],
@@ -198,7 +188,8 @@ export function usePageDossier(id: string, racine: RefObject<HTMLElement | null>
       setFenetre(null);
       setCorrection(false);
     },
-    estOuverte,
-    basculer,
+    sousDossiers,
+    onglet,
+    choisirOnglet: setOngletChoisi,
   };
 }

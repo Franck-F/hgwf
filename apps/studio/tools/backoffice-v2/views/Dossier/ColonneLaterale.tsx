@@ -1,8 +1,8 @@
 /** @jsxRuntime automatic @jsxImportSource react */
 /**
- * Colonne latérale (4.3) : le client (fiche, ses autres dossiers), les notes
- * internes (toujours visibles : c'est ce que l'on consulte au téléphone) et
- * les trois derniers événements.
+ * Colonne latérale (4.3) : le client (fiche, ses autres dossiers) et les notes
+ * internes (toujours visibles : c'est ce que l'on consulte au téléphone). Les
+ * événements sont dans le sous-dossier « Historique ».
  */
 import { useMemo } from 'react';
 import type { ReactElement } from 'react';
@@ -10,7 +10,6 @@ import { useRoute } from '../../app/Contexte';
 import { useClients } from '../../data/useClients';
 import { useDossiers } from '../../data/useDossiers';
 import { fusionner } from '../../domaine/fusion';
-import { construireHistorique } from '../../domaine/historique';
 import { LIBELLES_PHASE, phaseDe } from '../../domaine/phases';
 import type { Brouillon, Dossier, ValeurBrouillon } from '../../domaine/types';
 import { Bouton, Carte, ZoneTexte } from '../../ui';
@@ -29,7 +28,6 @@ export function ColonneLaterale({ dossier, brouillon, modifier }: ColonneLateral
 
   const fiche = useMemo(() => ficheDuDossier(dossier, clients), [dossier, clients]);
   const autres = useMemo(() => autresDossiers(dossier, dossiers), [dossier, dossiers]);
-  const derniers = useMemo(() => construireHistorique(dossier).slice(0, 3), [dossier]);
 
   // Notes internes : celles de la demande ; une expédition seule garde les siennes.
   const champNotes = dossier.demande ? 'notes' : 'notesExploitation';
@@ -75,19 +73,6 @@ export function ColonneLaterale({ dossier, brouillon, modifier }: ColonneLateral
         />
       </Carte>
 
-      {derniers.length > 0 ? (
-        <Carte titre="Derniers événements">
-          <ul className="bo-pile">
-            {derniers.map((e, i) => (
-              <li key={`${e.libelle}-${i}`}>
-                <span className="bo-secondaire">{e.dateTexte}</span>
-                <br />
-                {e.libelle}
-              </li>
-            ))}
-          </ul>
-        </Carte>
-      ) : null}
     </aside>
   );
 }

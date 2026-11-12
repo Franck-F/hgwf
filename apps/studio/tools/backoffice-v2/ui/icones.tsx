@@ -33,6 +33,11 @@ const TRACES: Record<IconeNom, string> = {
   chevron: 'm6 9 6 6 6-6',
   recherche: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm5-2 5 5',
   lienExterne: 'M14 4h6v6m0-6-9 9M18 14v6H4V6h6',
+  info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-10v6m0-9v.01',
+  euro: 'M17.5 7A6.5 6.5 0 1 0 17.5 17M4 10.5h9M4 13.5h9',
+  camion:
+    'M3 6h11v10H3V6Zm11 4h4l3 3v3h-7v-6ZM7.5 19.5a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5Zm10 0a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5Z',
+  facture: 'M6 3h9l3 3v15H6V3Zm3 6h6m-6 4h6m-6 4h4',
 };
 
 /** Les points de « menu » doivent être pleins et épais pour rester lisibles. */

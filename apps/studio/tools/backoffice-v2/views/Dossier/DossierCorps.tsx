@@ -1,18 +1,21 @@
 /** @jsxRuntime automatic @jsxImportSource react */
 /**
- * Page d'un dossier existant (4.3) : une colonne principale (prochaine étape,
- * sections) et une colonne latérale. Gère les états : chargement (squelette),
- * erreur de lecture, dossier introuvable, conflit, dossier clos.
+ * Page d'un dossier existant (4.3), rangée comme un dossier papier : en haut la
+ * prochaine étape, puis les sous-dossiers (Infos, Échanges, Devis, Expédition,
+ * Facturation, Historique) dont un seul est ouvert à la fois, à côté de la
+ * colonne latérale (client, notes internes). Gère les états : chargement
+ * (squelette), erreur de lecture, dossier introuvable, conflit, dossier clos.
  */
 import { useRef } from 'react';
 import type { ReactElement } from 'react';
 import { useRoute } from '../../app/Contexte';
 import type { SectionDossierProps } from '../../domaine/contrats';
-import { Bouton, EtatVide, Icone, Squelette } from '../../ui';
+import { Bouton, EtatVide, Icone, SectionsFixes, Squelette } from '../../ui';
 import { BarreEnregistrement } from './BarreEnregistrement';
 import { ColonneLaterale } from './ColonneLaterale';
 import { ContexteDossierReact } from './ContexteDossier';
-import type { NomSection } from './ContexteDossier';
+import { SousDossiers, idOnglet, idPanneau } from './SousDossiers';
+import type { IdSousDossier } from './rangement';
 import { champsModifiesDossier } from '../../domaine/fusion';
 import { libelleChamp } from './champsDossier';
 import { BandeauReponse } from './BandeauReponse';
@@ -68,17 +71,22 @@ export function DossierCorps({ id }: { id: string }): ReactElement {
   }
 
   const { dossier, brouillon, modifier } = p;
-  const section = (nom: NomSection): SectionDossierProps => ({
+  // Dans un sous-dossier, la carte n'est plus repliable (`SectionsFixes`) : `ouverte` est toujours vrai.
+  const section: SectionDossierProps = {
     dossier,
     brouillon,
     modifier,
     lectureSeule: p.lectureSeule,
-    ouverte: p.estOuverte(nom),
-    onBasculer: () => p.basculer(nom),
-  });
-  const enveloppe = (nom: NomSection, contenu: ReactElement): ReactElement => (
-    <div data-section={nom}>{contenu}</div>
-  );
+    ouverte: true,
+    onBasculer: () => undefined,
+  };
+  // Tous les panneaux restent montés (`hidden`) : une saisie en cours survit au changement de sous-dossier.
+  const panneau = (id: IdSousDossier, contenu: ReactElement): ReactElement | null =>
+    p.sousDossiers.some((s) => s.id === id) ? (
+      <div role="tabpanel" id={idPanneau(id)} aria-labelledby={idOnglet(id)} hidden={p.onglet !== id} data-section={id}>
+        {contenu}
+      </div>
+    ) : null;
   const modifiesLocalement = p.conflit ? champsModifiesDossier(dossier, brouillon).map(libelleChamp) : [];
 
   return (
@@ -100,19 +108,22 @@ export function DossierCorps({ id }: { id: string }): ReactElement {
             </Bouton>
           </div>
         ) : null}
+        {p.onglet !== 'echanges' ? (
+          <BandeauReponse dossier={dossier} onLire={() => p.contexte?.allerA('echanges')} />
+        ) : null}
+        <ProchaineEtape action={p.action} modifications={p.nbModifications > 0} />
+        <SousDossiers liste={p.sousDossiers} choisi={p.onglet} onChoisir={p.choisirOnglet} />
         <div className="bo-dossier-grille">
-          <div className="bo-pile">
-            <BandeauReponse dossier={dossier} onLire={() => p.contexte?.allerA('echanges')} />
-            <ProchaineEtape action={p.action} modifications={p.nbModifications > 0} />
-            {enveloppe('demande', <SectionDemande {...section('demande')} />)}
-            {enveloppe('echanges', <SectionEchanges {...section('echanges')} />)}
-            {dossier.demande && p.phase !== 'nouvelle'
-              ? enveloppe('devis', <SectionDevis {...section('devis')} />)
-              : null}
-            {dossier.expedition ? enveloppe('expedition', <SectionExpedition {...section('expedition')} />) : null}
-            {dossier.demande ? enveloppe('facturation', <SectionFacturation {...section('facturation')} />) : null}
-            {enveloppe('historique', <SectionHistorique {...section('historique')} />)}
-          </div>
+          <SectionsFixes>
+            <div className="bo-pile">
+              {panneau('infos', <SectionDemande {...section} />)}
+              {panneau('echanges', <SectionEchanges {...section} />)}
+              {panneau('devis', <SectionDevis {...section} />)}
+              {panneau('expedition', <SectionExpedition {...section} />)}
+              {panneau('facturation', <SectionFacturation {...section} />)}
+              {panneau('historique', <SectionHistorique {...section} />)}
+            </div>
+          </SectionsFixes>
           <ColonneLaterale dossier={dossier} brouillon={brouillon} modifier={modifier} />
         </div>
       </div>

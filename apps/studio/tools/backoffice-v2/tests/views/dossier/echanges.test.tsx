@@ -7,9 +7,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Dossier, Echange } from '../../../domaine/types';
 import type { ContexteVue } from '../../../views/Dossier/ContexteDossier';
 
-const m = vi.hoisted(() => ({ marquer: vi.fn(async () => ({ ok: true as const, patchs: 1, champsEnregistres: [] })) }));
+const m = vi.hoisted(() => ({
+  marquer: vi.fn(async () => ({ ok: true as const, patchs: 1, champsEnregistres: [] })),
+  relire: vi.fn(async () => ({ ok: true as const, patchs: 1, champsEnregistres: [] })),
+}));
 
-vi.mock('../../../actions/echanges', () => ({ marquerEchangesLus: m.marquer }));
+vi.mock('../../../actions/echanges', () => ({ marquerEchangesLus: m.marquer, relireEchange: m.relire }));
 vi.mock('../../../views/Dossier/contexteEcriture', () => ({ useContexteEcritureDossier: () => ({ marqueur: 'ctx' }) }));
 
 import { LigneAFaire } from '../../../views/AFaire/LigneAFaire';
@@ -158,6 +161,21 @@ describe('SectionEchanges', () => {
     monter(avec([a, b]));
     fireEvent.click(screen.getByRole('button', { name: 'Tout marquer comme lu' }));
     await waitFor(() => expect(m.marquer).toHaveBeenCalledWith({ marqueur: 'ctx' }, [a, b]));
+  });
+
+  it('message rangé vide (lecture Resend refusée) : explication simple et « Relire le message »', async () => {
+    const vide = echange({
+      _id: 'echange-0b8e2f4c-1a2b-4c3d-8e9f-001122334455',
+      texte: '',
+      erreur: "Contenu du message illisible (Resend 401) : la clé RESEND_API_KEY est probablement limitée à l'envoi.",
+    });
+    monter(avec([vide, echange({ _id: 'echange-ovh-1', erreur: 'Contenu du message illisible (Resend 401)' })]));
+    expect(screen.getAllByText(/n’a pas pu être lu à son arrivée/)).toHaveLength(2);
+    // Un message importé de la boîte OVH n'a rien à relire chez Resend : un seul bouton.
+    const boutons = screen.getAllByRole('button', { name: 'Relire le message' });
+    expect(boutons).toHaveLength(1);
+    fireEvent.click(boutons[0] as HTMLElement);
+    await waitFor(() => expect(m.relire).toHaveBeenCalledWith({ marqueur: 'ctx' }, vide));
   });
 
   it('sans contexte de page (affichage seul), aucun bouton d’écriture', () => {

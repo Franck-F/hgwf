@@ -107,6 +107,9 @@ export function explicationErreurEchange(erreur: string): string {
   const detail = erreur.trim();
   const t = detail.toLowerCase();
   let cause = 'Un incident est survenu au traitement de ce message.';
+  if (/illisible|resend_api_key/.test(t)) {
+    return 'Le contenu de ce message n’a pas pu être lu à son arrivée. « Relire le message » va le rechercher.';
+  }
   if (/non v[ée]rifi/.test(t)) {
     cause = 'Les pièces jointes n’ont pas été conservées, car l’expéditeur n’est pas vérifié. Si c’est bien votre client, demandez-lui de les renvoyer depuis l’adresse de sa demande.';
   } else if (/bloqu/.test(t)) {
@@ -119,6 +122,11 @@ export function explicationErreurEchange(erreur: string): string {
     cause = 'Ce message n’a pas pu être rattaché sûrement à une demande.';
   }
   return detail ? `${cause} (Détail : ${detail})` : cause;
+}
+
+/** Un message rangé sans contenu : la lecture chez Resend a échoué à l'arrivée (clé, panne). */
+export function echangeARelire(e: Echange): boolean {
+  return /^echange-[0-9a-f-]{36}$/i.test(e._id) && /illisible|non lu|RESEND_API_KEY/i.test(e.erreur ?? '');
 }
 
 /** « 1,2 Mo », « 340 Ko » : taille d'une pièce jointe. */

@@ -90,6 +90,26 @@ const accesRapide = `
 .bo-acces-retard{margin-top:auto;padding-bottom:12px;font-size:12px;font-weight:500}
 `;
 
+/* Sous-dossiers de la page Dossier : même onglet de dossier que l'accès rapide,
+   dessiné en deux pièces (languette + corps) pour s'étirer à toute largeur. */
+const sousDossiers = `
+.bo-sous-dossiers{display:flex;flex-wrap:wrap;gap:var(--bo-e3);margin-top:-6px}
+.bo-sous-dossier{position:relative;flex:1 1 150px;max-width:230px;min-height:116px;display:flex;flex-direction:column;gap:4px;padding:28px 16px 14px;color:var(--bo-marine);text-align:left;isolation:isolate}
+.bo-sous-dossier::before,.bo-sous-dossier::after{content:"";position:absolute;z-index:-1;background:var(--bo-creme);transition:background var(--bo-mvt)}
+.bo-sous-dossier::before{left:0;top:0;width:52%;height:26px;border-radius:12px 0 0 0;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 100%,0 100%)}
+.bo-sous-dossier::after{left:0;right:0;top:12px;bottom:0;border-radius:0 14px 14px 14px}
+.bo-sous-dossier:hover::before,.bo-sous-dossier:hover::after{background:var(--bo-bordure)}
+.bo-sous-dossier--actif{color:#fff}
+.bo-sous-dossier--actif::before,.bo-sous-dossier--actif::after,.bo-sous-dossier--actif:hover::before,.bo-sous-dossier--actif:hover::after{background:var(--bo-accent)}
+.bo-sous-dossier-haut{display:flex;align-items:center;gap:var(--bo-e2);min-height:24px;color:var(--bo-accent)}
+.bo-sous-dossier--actif .bo-sous-dossier-haut{color:#fff}
+.bo-sous-dossier-signal{margin-left:auto;padding:0 8px;border-radius:var(--bo-rayon-badge);background:var(--bo-corail);color:var(--bo-marine);font-size:12px;font-weight:700;line-height:22px;white-space:nowrap}
+.bo-sous-dossier-nom{margin-top:4px;font-size:16px;font-weight:600;line-height:1.25}
+.bo-sous-dossier-detail{font-size:12px;font-weight:500;line-height:1.35;color:var(--bo-ardoise);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bo-sous-dossier--actif .bo-sous-dossier-detail{color:rgba(255,255,255,.88)}
+.bo-section--fixe .bo-section-entete{padding:var(--bo-e4) var(--bo-e4) var(--bo-e2);font-size:18px;font-weight:600;color:var(--bo-marine)}
+`;
+
 const listes = `
 .bo-lignes{display:flex;flex-direction:column}
 .bo-ligne{display:flex;align-items:center;gap:var(--bo-e3);flex-wrap:wrap;width:100%;min-height:56px;padding:10px 14px;background:transparent;border:0;border-bottom:1.5px solid var(--bo-bordure);border-radius:0;text-align:left;transition:background var(--bo-mvt),opacity var(--bo-mvt)}
@@ -190,4 +210,4 @@ ${MOBILE}{
 }
 `;
 
-export const COQUE = [grille, accesRapide, listes, resserre, mobile].join('\n');
+export const COQUE = [grille, accesRapide, sousDossiers, listes, resserre, mobile].join('\n');
