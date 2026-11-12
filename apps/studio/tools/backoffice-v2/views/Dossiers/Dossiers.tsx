@@ -77,7 +77,7 @@ export function Dossiers({ vue }: DossiersProps): ReactElement {
       ) : lignes.length === 0 ? (
         <EtatVide titre={definition.vide.titre} phrase={definition.vide.phrase} />
       ) : (
-        <table className="bo-tableau">
+        <div className="bo-tableau-boite"><table className="bo-tableau">
           <thead>
             <tr>
               <th scope="col">Client</th>
@@ -92,7 +92,7 @@ export function Dossiers({ vue }: DossiersProps): ReactElement {
               <LigneDossier key={d.id} dossier={d} onOuvrir={(id) => naviguer(`/dossier/${id}`)} />
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
     </div>
   );

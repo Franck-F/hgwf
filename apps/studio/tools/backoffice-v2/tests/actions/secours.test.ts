@@ -3,7 +3,7 @@
  * dossier saisi à la main (critères 6, 8, 9sexies).
  */
 import { describe, expect, it } from 'vitest';
-import { accepter, accepterSansDevis, creerDossierManuel, devisHorsOutil, genererReference, prendreEnCharge } from '../../actions/demande';
+import { accepter, accepterSansDevis, creerDossierManuel, complementHorsOutil, devisHorsOutil, genererReference, prendreEnCharge } from '../../actions/demande';
 import { convertirEnExpedition } from '../../actions/conversion';
 import { appliquerGeste } from '../../actions/gestes';
 import { creerContexte, creerFauxClient, demandeDoc, dossierDe } from './fauxClient';
@@ -53,6 +53,36 @@ describe('gestes de la demande', () => {
     const d = dossierDe(client, 'demande-1');
     expect((await devisHorsOutil(ctx, d, {}, { date: '20/12/2026', moyen: 'autre' })).ok).toBe(false);
     expect((await devisHorsOutil(ctx, d, {}, { date: 'hier', moyen: 'autre' })).ok).toBe(false);
+  });
+
+  it('complementHorsOutil écrit date, moyen, auteur et passe le statut de 0 à 1', async () => {
+    const client = creerFauxClient([demandeDoc({ statut: 0 })]);
+    const { ctx } = creerContexte(client);
+    const r = await complementHorsOutil(ctx, dossierDe(client, 'demande-1'), {}, { date: '05/11/2026', moyen: 'email' });
+    expect(r.ok).toBe(true);
+    expect(client.journal).toHaveLength(1);
+    expect(client.journal[0]?.set).toEqual({
+      statut: 1,
+      complementDemandeLe: '05/11/2026',
+      complementDemandeHorsOutil: 'email',
+      complementDemandePar: 'Marie',
+    });
+  });
+
+  it('complementHorsOutil ne touche pas au statut d’une demande déjà en cours', async () => {
+    const client = creerFauxClient([demandeDoc({ statut: 1 })]);
+    const { ctx } = creerContexte(client);
+    await complementHorsOutil(ctx, dossierDe(client, 'demande-1'), {}, { date: '05/11/2026', moyen: 'whatsapp' });
+    expect(client.journal[0]?.set).not.toHaveProperty('statut');
+  });
+
+  it('complementHorsOutil refuse une date future ou illisible', async () => {
+    const client = creerFauxClient([demandeDoc({ statut: 1 })]);
+    const { ctx } = creerContexte(client);
+    const d = dossierDe(client, 'demande-1');
+    expect((await complementHorsOutil(ctx, d, {}, { date: '20/12/2026', moyen: 'email' })).ok).toBe(false);
+    expect((await complementHorsOutil(ctx, d, {}, { date: 'hier', moyen: 'email' })).ok).toBe(false);
+    expect(client.journal).toHaveLength(0);
   });
 
   it('accepterSansDevis exige un montant', async () => {

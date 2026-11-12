@@ -20,9 +20,9 @@ interface DocumentBase {
   _updatedAt?: string;
 }
 
-export type SourceDemande = 'site' | 'telephone';
+export type SourceDemande = 'site' | 'telephone' | 'email';
 export type MotifRefus = 'prix' | 'delai' | 'autreTransporteur' | 'abandon' | 'autre';
-export type MoyenHorsOutil = 'whatsapp' | 'emailPersonnel' | 'mainPropre' | 'autre';
+export type MoyenHorsOutil = 'email' | 'whatsapp' | 'emailPersonnel' | 'mainPropre' | 'autre';
 export type TypeFacturation = 'particulier' | 'professionnel';
 
 export interface Demande extends DocumentBase {
@@ -56,6 +56,9 @@ export interface Demande extends DocumentBase {
   relanceEnvoyeeLe?: string;
   complementDemandeLe?: string;
   complementDemandeA?: string;
+  /** Compléments demandés hors de l'outil (Outlook…) : moyen utilisé. */
+  complementDemandeHorsOutil?: MoyenHorsOutil;
+  complementDemandePar?: string;
   notes?: string;
   /** Référence (texte) de l'expédition liée, jamais son `_id`. */
   expeditionRef?: string;

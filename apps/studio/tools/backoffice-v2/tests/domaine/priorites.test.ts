@@ -47,16 +47,36 @@ describe('calculerAFaire (4.1)', () => {
       'a-devis-parti',
       'b-reponse',
       'c-montant',
-      'd-complements',
       'e-accepte',
     ]);
     const lignes = groupe(r, 'devis')?.lignes ?? [];
     expect(lignes[0]?.raison).toBe('Devis parti, statut à corriger');
     expect(lignes[1]?.raison).toBe('Réponse reçue, à chiffrer');
     expect(lignes[2]?.raison).toBe('Montant à saisir');
-    expect(lignes[3]?.raison).toBe('Compléments demandés il y a 4 jours, sans réponse');
-    expect(lignes[4]?.raison).toBe('Accepté il y a 5 jours, expédition à créer');
-    expect(lignes[4]?.enRetard).toBe(true);
+    expect(lignes[3]?.raison).toBe('Accepté il y a 5 jours, expédition à créer');
+    expect(lignes[3]?.enRetard).toBe(true);
+    // Compléments demandés il y a 4 jours : on attend le client, ce n’est pas une tâche.
+    expect(r.attente.map((l) => l.dossierId)).toEqual(['d-complements']);
+    expect(r.attente[0]?.attente).toBe('Compléments demandés il y a 4 jours, en attente du client');
+  });
+
+  it('compléments demandés : en attente, puis à relancer après 5 jours ouvrés, jamais en retard', () => {
+    const r = calcul([
+      dossierDemande({ statut: 1, complementDemandeLe: '05/11/2026 à 10h00' }, 'recent'),
+      dossierDemande({ statut: 1, complementDemandeLe: '28/10/2026 à 10h00' }, 'ancien'),
+      dossierDemande({ statut: 1, complementDemandeHorsOutil: 'email' }, 'inconnue'),
+      dossierDemande({ statut: 1, complementDemandeLe: '28/10/2026', complementDemandeHorsOutil: 'email' }, 'horsoutil'),
+    ]);
+    expect(r.attente.map((l) => l.dossierId).sort()).toEqual(['inconnue', 'recent']);
+    expect(r.attente.find((l) => l.dossierId === 'inconnue')?.attente).toBe(
+      'Compléments demandés (date inconnue), en attente du client',
+    );
+    const g = groupe(r, 'sansReponse');
+    expect(g?.titre).toBe('Clients à relancer');
+    expect(g?.lignes.map((l) => l.dossierId).sort()).toEqual(['ancien', 'horsoutil']);
+    expect(g?.lignes[0]?.raison).toContain('sans réponse : relancer le client');
+    expect(r.groupes.flatMap((x) => x.lignes).some((l) => l.enRetard)).toBe(false);
+    expect(r.attente.some((l) => l.enRetard)).toBe(false);
   });
 
   it('un statut 1 ne sort jamais : la réponse du client le fait remonter', () => {

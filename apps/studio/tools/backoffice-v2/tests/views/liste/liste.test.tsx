@@ -113,14 +113,29 @@ describe('Dossiers', () => {
 });
 
 describe('À faire', () => {
-  it('un seul bouton plein, sur la première ligne ; aucune écriture au clic', () => {
+  it('un tableau, une action par ligne, aucun bouton plein ; aucune écriture au clic', () => {
     donnees.groupes = [
       { id: 'aOuvrir', titre: 'Demandes à ouvrir', lignes: [ligne('a', 'Alice'), ligne('b', 'Bruno')] },
     ];
     const { container } = render(<AFaire />);
-    expect(container.querySelectorAll('.bo-bouton--primaire')).toHaveLength(1);
+    expect(container.querySelectorAll('.bo-bouton--primaire')).toHaveLength(0);
+    expect(screen.getByRole('columnheader', { name: 'Où en est le dossier' })).toBeTruthy();
+    expect(container.querySelectorAll('[data-action="ligne"]')).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: /Bruno/ }));
     expect(naviguer).toHaveBeenCalledWith('/dossier/b');
+  });
+  it('replie les groupes de plus de 8 lignes et filtre au clic sur une carte', () => {
+    const beaucoup = Array.from({ length: 11 }, (_, i) => ligne(`x${i}`, `Client ${i}`));
+    donnees.groupes = [
+      { id: 'aOuvrir', titre: 'Demandes à ouvrir', lignes: beaucoup },
+      { id: 'devis', titre: 'Devis à chiffrer', lignes: [ligne('d', 'Denis')] },
+    ];
+    const { container } = render(<AFaire />);
+    expect(container.querySelectorAll('[data-action="ligne"]')).toHaveLength(9);
+    fireEvent.click(screen.getByRole('button', { name: 'Voir les 3 autres' }));
+    expect(container.querySelectorAll('[data-action="ligne"]')).toHaveLength(12);
+    fireEvent.click(screen.getByRole('button', { name: /Devis à chiffrer : 1 dossier/ }));
+    expect(container.querySelectorAll('[data-action="ligne"]')).toHaveLength(1);
   });
   it('état vide : « Rien d’urgent » avec accès aux dossiers en cours', () => {
     render(<AFaire />);

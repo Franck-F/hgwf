@@ -12,6 +12,7 @@
 import { useId, useState } from 'react';
 import type { ReactElement } from 'react';
 import type { FenetreGesteProps } from '../../domaine/contrats';
+import { MOYENS_HORS_OUTIL } from '../../domaine/complements';
 import { fusionner } from '../../domaine/fusion';
 import { manquesDevis } from '../../domaine/manques';
 import type { MoyenHorsOutil, MotifRefus } from '../../domaine/types';
@@ -26,12 +27,7 @@ const MOTIFS: { valeur: MotifRefus; libelle: string }[] = [
   { valeur: 'autre', libelle: 'Autre raison' },
 ];
 
-const MOYENS: { valeur: MoyenHorsOutil; libelle: string }[] = [
-  { valeur: 'whatsapp', libelle: 'WhatsApp' },
-  { valeur: 'emailPersonnel', libelle: 'E-mail personnel' },
-  { valeur: 'mainPropre', libelle: 'Remis en main propre' },
-  { valeur: 'autre', libelle: 'Autre' },
-];
+const MOYENS = MOYENS_HORS_OUTIL;
 
 const deuxChiffres = (n: number): string => String(n).padStart(2, '0');
 
@@ -47,11 +43,11 @@ export function isoVersJourMoisAnnee(iso: string): string {
 }
 
 export function FenetreGeste({ dossier, fenetre, onFermer, onTermine }: FenetreGesteProps): ReactElement {
-  return fenetre === 'refus' ? (
-    <FenetreRefus dossier={dossier} onFermer={onFermer} onTermine={onTermine} />
-  ) : (
-    <FenetreHorsOutil dossier={dossier} onFermer={onFermer} onTermine={onTermine} />
-  );
+  if (fenetre === 'refus') return <FenetreRefus dossier={dossier} onFermer={onFermer} onTermine={onTermine} />;
+  if (fenetre === 'complementHorsOutil') {
+    return <FenetreComplementHorsOutil dossier={dossier} onFermer={onFermer} onTermine={onTermine} />;
+  }
+  return <FenetreHorsOutil dossier={dossier} onFermer={onFermer} onTermine={onTermine} />;
 }
 
 type Corps = Pick<FenetreGesteProps, 'dossier' | 'onFermer' | 'onTermine'>;
@@ -162,6 +158,69 @@ function FenetreHorsOutil({ dossier, onFermer, onTermine }: Corps): ReactElement
       }
     >
       <DateChamp etiquette="Date d’envoi" requis valeur={date} onChange={setDate} />
+      <Liste
+        etiquette="Moyen utilisé"
+        requis
+        valeur={moyen}
+        vide="Choisir…"
+        options={MOYENS.map((m) => ({ valeur: m.valeur, libelle: m.libelle }))}
+        onChange={(v) => setMoyen(MOYENS.find((m) => m.valeur === v)?.valeur ?? '')}
+      />
+      <Manques manques={manques} id={idManques} />
+    </Modale>
+  );
+}
+
+/** Compléments demandés en dehors de l'outil (Outlook…) : date et moyen, rien ne part depuis l'outil. */
+function FenetreComplementHorsOutil({ dossier, onFermer, onTermine }: Corps): ReactElement {
+  const ctx = useContexteDossier();
+  const [date, setDate] = useState(() => versIso(new Date()));
+  const [moyen, setMoyen] = useState<MoyenHorsOutil | ''>('email');
+  const [enCours, setEnCours] = useState(false);
+  const idManques = useId();
+  const nom = dossier.demande?.clientNom || 'ce client';
+  const futur = date > versIso(new Date());
+  const manques = [
+    ...(date === '' ? ['la date de la demande'] : []),
+    ...(futur ? ['une date qui ne soit pas dans le futur'] : []),
+    ...(moyen === '' ? ['le moyen utilisé'] : []),
+  ];
+
+  async function valider(): Promise<void> {
+    if (moyen === '' || manques.length > 0 || enCours) return;
+    setEnCours(true);
+    try {
+      const r = await ctx.lancer(() =>
+        ctx.secours.complementHorsOutil({ date: isoVersJourMoisAnnee(date), moyen }),
+      );
+      if (r.ok) onTermine();
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  return (
+    <Modale
+      titre={`Compléments demandés à ${nom} hors outil`}
+      onFermer={onFermer}
+      pied={
+        <>
+          <Bouton variante="discret" onClick={onFermer}>
+            Annuler
+          </Bouton>
+          <Bouton
+            variante="primaire"
+            desactive={manques.length > 0}
+            chargement={enCours}
+            aria-describedby={manques.length > 0 ? idManques : undefined}
+            onClick={() => void valider()}
+          >
+            Noter la demande
+          </Bouton>
+        </>
+      }
+    >
+      <DateChamp etiquette="Date de la demande" requis valeur={date} onChange={setDate} />
       <Liste
         etiquette="Moyen utilisé"
         requis

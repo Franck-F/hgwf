@@ -1,6 +1,7 @@
 /** @jsxRuntime automatic @jsxImportSource react */
 /**
- * Navigation principale (3, 2.3) : quatre entrées. Barre latérale marine à
+ * Navigation principale (3, 2.3) : quatre entrées, chacune avec son icône au
+ * trait. Barre latérale bleue à
  * partir de 900 px, barre d'onglets collante en bas de `.bo-racine` en dessous
  * (la mise en page est dans la feuille de style, ce composant ne change pas).
  *
@@ -8,6 +9,8 @@
  * « N urgents » par les lecteurs d'écran.
  */
 import type { ReactElement } from 'react';
+import { Icone } from '../ui';
+import type { IconeNom } from '../ui';
 import type { EntreeNavigation } from './routes';
 
 export interface NavigationProps {
@@ -18,11 +21,11 @@ export interface NavigationProps {
   onChoisir: (entree: EntreeNavigation) => void;
 }
 
-export const ENTREES: readonly { id: EntreeNavigation; libelle: string }[] = [
-  { id: 'afaire', libelle: 'À faire' },
-  { id: 'dossiers', libelle: 'Dossiers' },
-  { id: 'clients', libelle: 'Clients' },
-  { id: 'outils', libelle: 'Outils' },
+export const ENTREES: readonly { id: EntreeNavigation; libelle: string; icone: IconeNom }[] = [
+  { id: 'afaire', libelle: 'À faire', icone: 'afaire' },
+  { id: 'dossiers', libelle: 'Dossiers', icone: 'dossiers' },
+  { id: 'clients', libelle: 'Clients', icone: 'clients' },
+  { id: 'outils', libelle: 'Outils', icone: 'outils' },
 ];
 
 export function Navigation({ active, nbUrgents, onChoisir }: NavigationProps): ReactElement {
@@ -37,7 +40,8 @@ export function Navigation({ active, nbUrgents, onChoisir }: NavigationProps): R
             aria-current={active === e.id ? 'page' : undefined}
             onClick={() => onChoisir(e.id)}
           >
-            {e.libelle}
+            <Icone nom={e.icone} taille={20} trait={1.8} />
+            <span className="bo-nav-texte">{e.libelle}</span>
             {e.id === 'afaire' && nbUrgents > 0 ? (
               <span className="bo-nav-pastille">
                 {nbUrgents}

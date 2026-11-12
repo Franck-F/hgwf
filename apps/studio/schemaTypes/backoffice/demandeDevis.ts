@@ -281,6 +281,28 @@ export const demandeDevis = defineType({
       readOnly: true,
     }),
     defineField({
+      name: 'complementDemandeHorsOutil',
+      title: 'Compléments demandés hors outil, moyen',
+      type: 'string',
+      readOnly: true,
+      options: {
+        list: [
+          { title: 'E-mail (Outlook)', value: 'email' },
+          { title: 'WhatsApp', value: 'whatsapp' },
+          { title: 'E-mail personnel', value: 'emailPersonnel' },
+          { title: 'Remis en main propre', value: 'mainPropre' },
+          { title: 'Autre', value: 'autre' },
+        ],
+      },
+      description: 'Renseigné quand les compléments ont été demandés en dehors de l’outil (Outlook, téléphone…).',
+    }),
+    defineField({
+      name: 'complementDemandePar',
+      title: 'Compléments demandés, enregistré par',
+      type: 'string',
+      readOnly: true,
+    }),
+    defineField({
       name: 'notes',
       title: 'Notes internes',
       type: 'text',
@@ -346,6 +368,7 @@ export const demandeDevis = defineType({
         list: [
           { title: 'Site', value: 'site' },
           { title: 'Téléphone', value: 'telephone' },
+          { title: 'E-mail', value: 'email' },
         ],
       },
       description: 'Absent = demande arrivée par le site.',

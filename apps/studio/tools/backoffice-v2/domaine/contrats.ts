@@ -56,7 +56,8 @@ export type FenetreDossier =
   | 'notifier'
   | 'reprise'
   | 'refus'
-  | 'horsOutil';
+  | 'horsOutil'
+  | 'complementHorsOutil';
 
 export type IdAction =
   | 'prendreEnCharge'
@@ -88,7 +89,7 @@ export interface ActionPrincipale {
 }
 
 /** Signature de `domaine/actionPrincipale.ts` (registre unique, fonction pure). */
-export type CalculerActionPrincipale = (dossier: Dossier, brouillon: Brouillon) => ActionPrincipale;
+export type CalculerActionPrincipale = (dossier: Dossier, brouillon: Brouillon, maintenant?: Date) => ActionPrincipale;
 
 // ── (c) Geste gardé (5.5) ───────────────────────────────────────────────────
 
@@ -101,6 +102,7 @@ export type Geste =
   | { type: 'accepter' }
   | { type: 'accepterSansDevis' }
   | { type: 'devisHorsOutil'; date: string; moyen: MoyenHorsOutil }
+  | { type: 'complementHorsOutil'; date: string; moyen: MoyenHorsOutil }
   | { type: 'refuser'; motif: MotifRefus }
   | { type: 'creerExpedition' }
   | { type: 'declencherPEC' }
@@ -183,7 +185,7 @@ export interface ReprisePanelProps {
 /** Fenêtre de geste de secours (refus, devis hors outil) : montée par le lot 10. */
 export interface FenetreGesteProps {
   dossier: Dossier;
-  fenetre: 'refus' | 'horsOutil';
+  fenetre: 'refus' | 'horsOutil' | 'complementHorsOutil';
   onFermer: () => void;
   onTermine: () => void;
 }

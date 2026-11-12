@@ -7,6 +7,7 @@
  * l'utilisateur voit (5.5).
  */
 import type { ActionPrincipale, CalculerActionPrincipale, IdAction } from './contrats';
+import { complementARelancer, complementEnAttente, dateComplement, libelleMoyen } from './complements';
 import { champsModifiesDossier, documentsEffectifs } from './fusion';
 import { formaterDate } from './format';
 import { lireDate } from './echeances';
@@ -46,7 +47,7 @@ function aucune(phrase: string): ActionPrincipale {
 }
 
 /** Action de la phase « à chiffrer » : envoyer le devis, ou demander des compléments. */
-function actionChiffrage(dossier: Dossier, demande: Demande, apresReponse: boolean): ActionPrincipale {
+function actionChiffrage(dossier: Dossier, demande: Demande, apresReponse: boolean, maintenant: Date): ActionPrincipale {
   const prenom = appelClient(demande.clientNom, demande.facturationType) || 'le client';
   if (chiffrageAmorce(demande)) {
     const manques = manquesDevis(demande);
@@ -61,6 +62,19 @@ function actionChiffrage(dossier: Dossier, demande: Demande, apresReponse: boole
     };
   }
   const manquesMontantDevis = manquesMontant(demande);
+  if (complementEnAttente(dossier)) {
+    // Compléments déjà demandés : on attend le client, la phrase le dit clairement.
+    const date = dateComplement(demande);
+    const quand = date ? `le ${formaterDate(date)}` : '(date inconnue)';
+    const moyen = libelleMoyen(demande.complementDemandeHorsOutil) || 'E-mail';
+    return {
+      id: 'demanderComplements',
+      libelle: complementARelancer(dossier, maintenant) ? 'Relancer le client' : 'Demander des compléments',
+      ouvre: 'complement',
+      manques: manquesEnvoiComplement(demande),
+      phrase: `Compléments demandés ${quand} (${moyen}). En attente de la réponse de ${prenom}.`,
+    };
+  }
   const debut = apresReponse ? `${prenom} a répondu à vos questions. ` : '';
   return {
     id: 'demanderComplements',
@@ -161,7 +175,7 @@ function avecEnregistrement(action: ActionPrincipale, nbModifications: number): 
   return { ...action, libelle: `Enregistrer et ${verbe}` };
 }
 
-export const actionPrincipale: CalculerActionPrincipale = (dossier, brouillon) => {
+export const actionPrincipale: CalculerActionPrincipale = (dossier, brouillon, maintenant = new Date()) => {
   const phase = phaseDe(dossier);
   const { demande, expedition } = documentsEffectifs(dossier, brouillon);
   const modifications = champsModifiesDossier(dossier, brouillon).length;
@@ -180,7 +194,7 @@ export const actionPrincipale: CalculerActionPrincipale = (dossier, brouillon) =
     case 'aChiffrer':
     case 'reponseRecue':
       action = demande
-        ? actionChiffrage(dossier, demande, phase === 'reponseRecue')
+        ? actionChiffrage(dossier, demande, phase === 'reponseRecue', maintenant)
         : aucune('Demande introuvable.');
       break;
     case 'devisPartiStatutACorriger':

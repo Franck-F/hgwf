@@ -99,7 +99,7 @@ describe('formats', () => {
   });
   it('ilYa', () => {
     const now = d(2026, 11, 6, 9);
-    expect(ilYa(d(2026, 11, 6, 7), now)).toBe("aujourd'hui");
+    expect(ilYa(d(2026, 11, 6, 7), now)).toBe('aujourd’hui');
     expect(ilYa(d(2026, 11, 5, 7), now)).toBe('hier');
     expect(ilYa(d(2026, 11, 3, 7), now)).toBe('il y a 3 jours');
   });

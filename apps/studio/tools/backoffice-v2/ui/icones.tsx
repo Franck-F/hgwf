@@ -1,9 +1,10 @@
 /** @jsxRuntime automatic @jsxImportSource react */
 /**
- * Jeu d'icônes SVG maison, limité aux 14 icônes réellement utilisées
- * (plafond de la spécification, section 6 : pas d'icône « au cas où »).
+ * Jeu d'icônes SVG maison, limité aux icônes réellement utilisées (pas d'icône
+ * « au cas où »).
  *
- * Dessin sur une grille de 24 px, trait de 2 px, `currentColor` : la couleur
+ * Dessin sur une grille de 24 px, trait de 2 px par défaut (1,8 px dans la
+ * navigation, comme la maquette), `currentColor` : la couleur
  * vient du texte voisin, et l'icône ne porte jamais seule une information
  * (elle est décorative, `aria-hidden`, le sens est dans le mot à côté).
  */
@@ -11,6 +12,12 @@ import type { ReactElement } from 'react';
 import type { IconeNom } from './types';
 
 const TRACES: Record<IconeNom, string> = {
+  afaire: 'M9 4h6v3H9V4Zm-2 1.5H5a1 1 0 0 0-1 1V20a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6.5a1 1 0 0 0-1-1h-2M8.5 13l2.5 2.5 4.5-5',
+  dossiers: 'M21 18.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5V6a1.5 1.5 0 0 1 1.5-1.5h4.8l2 2.5h8.2A1.5 1.5 0 0 1 21 8.5v10Z',
+  dossierPlus: 'M21 18.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5V6a1.5 1.5 0 0 1 1.5-1.5h4.8l2 2.5h8.2A1.5 1.5 0 0 1 21 8.5v10ZM12 10.5v6m-3-3h6',
+  clients: 'M17 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-7A3.5 3.5 0 0 0 3 18.5V20m18 0v-1.5a3.5 3.5 0 0 0-2.5-3.35M16 4.2a3.5 3.5 0 0 1 0 6.6M10 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z',
+  outils: 'M14.7 6.3a4 4 0 0 0 5 5L10 21l-3-3 9.7-9.7ZM14.7 6.3l-3-3-1.4 1.4 3 3',
+  chevronDroite: 'm9 6 6 6-6 6',
   alerte: 'M12 3 2.5 20h19L12 3Zm0 6v5m0 3v.01',
   horloge: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-14v5l3 2',
   enveloppe: 'M3 6h18v12H3V6Zm0 0 9 7 9-7',
@@ -33,7 +40,7 @@ const TRAIT_EPAIS: IconeNom[] = ['menu'];
 
 export const NOMS_ICONES = Object.keys(TRACES) as IconeNom[];
 
-export function Icone({ nom, taille = 18 }: { nom: IconeNom; taille?: number }): ReactElement {
+export function Icone({ nom, taille = 18, trait }: { nom: IconeNom; taille?: number; trait?: number }): ReactElement {
   return (
     <svg
       className={`bo-icone bo-icone--${nom}`}
@@ -42,7 +49,7 @@ export function Icone({ nom, taille = 18 }: { nom: IconeNom; taille?: number }):
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={TRAIT_EPAIS.includes(nom) ? 4 : 2}
+      strokeWidth={TRAIT_EPAIS.includes(nom) ? 4 : (trait ?? 2)}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"

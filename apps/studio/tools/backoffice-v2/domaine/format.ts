@@ -109,7 +109,7 @@ export function formaterDateHeure(date: Date): string {
 /** « il y a 3 jours », « hier », « aujourd'hui ». */
 export function ilYa(date: Date, maintenant: Date): string {
   const j = ageJours(date, maintenant);
-  if (j <= 0) return "aujourd'hui";
+  if (j <= 0) return 'aujourd’hui';
   if (j === 1) return 'hier';
   return `il y a ${j} jours`;
 }

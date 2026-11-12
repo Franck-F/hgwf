@@ -5,7 +5,7 @@
 import type { Fiche } from './types'
 
 export const PROJECTION_FICHE =
-  '{_id, titre, ordre, libellesFormulaire, resume, methodeTarif, grille, fraisAnnexes, tauxTVADefaut, delais, inclus, nonInclus, documents, infosAObtenir, vigilance, modeleDescription, modeleMessage, modeleNote, aCompleter}'
+  '{_id, _rev, _type, titre, ordre, actif, libellesFormulaire, resume, methodeTarif, grille, fraisAnnexes, tauxTVADefaut, delais, inclus, nonInclus, documents, infosAObtenir, vigilance, modeleDescription, modeleMessage, modeleNote, aCompleter}'
 
 // « Véhicule / Bateau » et « vehicule/bateau » sont le même libellé : casse,
 // accents, apostrophes typographiques et espaces ne comptent pas.

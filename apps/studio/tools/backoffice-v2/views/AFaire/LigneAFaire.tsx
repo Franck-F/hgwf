@@ -1,16 +1,17 @@
 /** @jsxRuntime automatic @jsxImportSource react */
 /**
- * Une ligne de l'accueil « À faire » (4.1) : un `<button>` entier cliquable
- * (client en gras, raison, âge, libellé de l'action du dossier en fin de ligne).
+ * Une ligne du tableau de l'accueil « À faire » (4.1) : Client (pastille de la
+ * phase, nom), Référence, « Où en est le dossier » (raison, au plus UN badge
+ * « En retard », réponses non lues en clair), Depuis (âge) et UNE action.
  *
- * Cliquer ouvre le dossier : aucune écriture depuis l'accueil, une seule
- * façon de faire une action (dans le dossier). Le libellé d'action est donc un
- * simple texte de fin de ligne, pas un second bouton imbriqué ; il n'est
- * « plein » que sur la première ligne de l'écran (un seul bouton plein par écran).
+ * Cliquer la ligne ou l'action ouvre le dossier : aucune écriture depuis
+ * l'accueil, une seule façon de faire une action (dans le dossier). Le nom est
+ * un vrai bouton (accès clavier) ; l'action a le même style partout.
  */
-import type { ReactElement } from 'react';
+import type { MouseEvent, ReactElement } from 'react';
 import type { LigneAFaireProps } from '../../domaine/contrats';
-import { Badge, LigneCliquable } from '../../ui';
+import { TON_PHASE } from '../../domaine/phases';
+import { Badge, Icone, Pastille } from '../../ui';
 
 /**
  * « en attente depuis 3 jours » : le libellé dit de quelle durée il s'agit (depuis
@@ -18,14 +19,16 @@ import { Badge, LigneCliquable } from '../../ui';
  * « dernière activité » de la liste ou l'ancienneté de la demande du dossier.
  */
 export function texteAge(jours: number): string {
-  if (jours <= 0) return "en attente depuis aujourd'hui";
+  if (jours <= 0) return 'en attente depuis aujourd’hui';
   if (jours === 1) return 'en attente depuis hier';
   return `en attente depuis ${jours} jours`;
 }
 
-/** Vrai si la raison dit déjà l'âge : on ne le répète pas. */
-function raisonDitLAge(raison: string): boolean {
-  return /il y a \d+ jours?|hier|aujourd'hui/i.test(raison);
+/** Colonne « Depuis » : « aujourd'hui », « hier », « 3 jours ». */
+export function texteDepuis(jours: number): string {
+  if (jours <= 0) return 'aujourd’hui';
+  if (jours === 1) return 'hier';
+  return `${jours} jours`;
 }
 
 export interface LigneAFaireVueProps extends LigneAFaireProps {
@@ -33,29 +36,55 @@ export interface LigneAFaireVueProps extends LigneAFaireProps {
   attenuee?: boolean;
 }
 
-export function LigneAFaire({ ligne, principale, onOuvrir, attenuee }: LigneAFaireVueProps): ReactElement {
+export function LigneAFaire({ ligne, onOuvrir, attenuee }: LigneAFaireVueProps): ReactElement {
+  // Ligne mise en avant : une réponse du client attend d'être lue.
+  const vive = ligne.nbNonLus > 0;
+  const ouvrir = (e: MouseEvent): void => {
+    e.stopPropagation();
+    onOuvrir(ligne.dossierId);
+  };
   return (
-    <LigneCliquable onClick={() => onOuvrir(ligne.dossierId)} attenuee={attenuee}>
-      <span className="bo-fort">{ligne.client}</span>
-      {ligne.reference ? <span className="bo-secondaire">{ligne.reference}</span> : null}
-      {ligne.enRetard ? (
-        <Badge ton="urgent" icone="alerte">
-          En retard
-        </Badge>
-      ) : null}
-      {ligne.nbNonLus > 0 ? (
-        <Badge ton="attention" icone="enveloppe">
-          {ligne.nbNonLus > 1 ? `${ligne.nbNonLus} réponses non lues` : '1 réponse non lue'}
-        </Badge>
-      ) : null}
-      <span>{ligne.raison}</span>
-      {raisonDitLAge(ligne.raison) ? null : <span className="bo-secondaire">{texteAge(ligne.ageJours)}</span>}
-      <span
-        className={principale ? 'bo-bouton bo-bouton--primaire bo-bouton--s bo-espace' : 'bo-lien bo-espace'}
-        data-action="ligne"
-      >
-        {ligne.actionLibelle}
-      </span>
-    </LigneCliquable>
+    <tr
+      className={`bo-ligne-dossier${vive ? ' bo-ligne-dossier--vif' : ''}${attenuee ? ' bo-ligne--attenuee' : ''}`}
+      onClick={() => onOuvrir(ligne.dossierId)}
+    >
+      <td>
+        <span className="bo-nom-cellule">
+          <Pastille ton={TON_PHASE[ligne.phase] ?? 'neutre'} />
+          <button type="button" className="bo-nom-lien" onClick={ouvrir}>
+            {ligne.client}
+          </button>
+        </span>
+      </td>
+      <td data-etiquette="Référence" className="bo-secondaire">
+        {ligne.reference || '—'}
+      </td>
+      <td data-etiquette="Où en est le dossier">
+        <span>{ligne.raison}</span>
+        {ligne.enRetard ? (
+          <>
+            {' '}
+            <Badge ton="urgent" icone="alerte">
+              En retard
+            </Badge>
+          </>
+        ) : null}
+        {ligne.nbNonLus > 0 ? (
+          <div className="bo-non-lus">
+            <Icone nom="enveloppe" taille={14} />
+            {ligne.nbNonLus > 1 ? `${ligne.nbNonLus} réponses non lues` : '1 réponse non lue'}
+          </div>
+        ) : null}
+      </td>
+      <td data-etiquette="Depuis" className="bo-secondaire" title={texteAge(ligne.ageJours)}>
+        {texteDepuis(ligne.ageJours)}
+      </td>
+      <td className="bo-cellule-action">
+        <button type="button" className="bo-action-ligne" data-action="ligne" onClick={ouvrir}>
+          {ligne.actionLibelle}
+          <Icone nom="chevronDroite" taille={16} />
+        </button>
+      </td>
+    </tr>
   );
 }

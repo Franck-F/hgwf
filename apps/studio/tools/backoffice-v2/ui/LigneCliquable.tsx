@@ -8,11 +8,13 @@ export function LigneCliquable({
   children,
   'aria-label': ariaLabel,
   attenuee,
+  vive,
+  classe,
 }: LigneCliquableProps): ReactElement {
   return (
     <button
       type="button"
-      className={`bo-ligne${attenuee ? ' bo-ligne--attenuee' : ''}`}
+      className={`bo-ligne${vive ? ' bo-ligne--vif' : ''}${attenuee ? ' bo-ligne--attenuee' : ''}${classe ? ` ${classe}` : ''}`}
       aria-label={ariaLabel}
       onClick={onClick}
     >

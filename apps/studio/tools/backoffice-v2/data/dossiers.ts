@@ -60,6 +60,16 @@ export function trouverDossierParReferenceOuClient(donnees: DonneesDossiers, tex
   return retrouverDossiersParReferenceOuClient(texte, dossiers)[0] ?? null;
 }
 
+function trouverParReferenceExacte(dossiers: Dossier[], texte: string): Dossier | null {
+  const ref = texte.trim().toLowerCase();
+  if (!ref) return null;
+  return (
+    dossiers.find((d) => (d.demande?.reference ?? '').trim().toLowerCase() === ref) ??
+    dossiers.find((d) => (d.expedition?.reference ?? '').trim().toLowerCase() === ref) ??
+    null
+  );
+}
+
 /** Retrouve un dossier par son identifiant. On accepte aussi l'`_id` de
  * l'expédition liée : un lien ou une recherche ne doit jamais mener à un
  * « dossier introuvable » parce qu'on a désigné le même dossier par sa moitié.
@@ -72,7 +82,9 @@ export function trouverDossier(
   return (
     dossiers.find((d) => d.id === id) ??
     dossiers.find((d) => d.demande?._id === id || d.expedition?._id === id) ??
-    trouverDossierParReferenceOuClient(donnees, id)
+    // Repli : référence EXACTE seulement. Jamais de recherche floue ici : un
+    // identifiant inconnu (dossier supprimé) ne doit pas ouvrir le dossier d'un autre client.
+    trouverParReferenceExacte(dossiers, id)
   );
 }
 

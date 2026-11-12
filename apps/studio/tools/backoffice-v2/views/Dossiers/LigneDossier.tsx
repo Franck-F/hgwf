@@ -16,7 +16,7 @@ import { LIBELLES_PHASE, TON_PHASE, phaseDe } from '../../domaine/phases';
 import { nbNonLus } from '../../domaine/echanges';
 import { derniereActivite, prochaineActionTexte } from '../../domaine/priorites';
 import type { Demande, Dossier } from '../../domaine/types';
-import { Badge } from '../../ui';
+import { Badge, Pastille } from '../../ui';
 
 export interface LigneDossierProps {
   dossier: Dossier;
@@ -63,13 +63,18 @@ export function LigneDossier({ dossier, onOuvrir, maintenant }: LigneDossierProp
     : null;
 
   return (
-    <tr onClick={() => onOuvrir(dossier.id)} className="bo-ligne-dossier">
+    <tr onClick={() => onOuvrir(dossier.id)} className={`bo-ligne-dossier${nonLus > 0 ? ' bo-ligne-dossier--vif' : ''}`}>
       <td>
-        <button type="button" className="bo-nom-lien" onClick={(e) => { e.stopPropagation(); onOuvrir(dossier.id); }}>
-          {client}
-        </button>
-        {reference ? <div className="bo-secondaire">{reference}</div> : null}
-        {resume ? <div className="bo-secondaire">{resume}</div> : null}
+        <div className="bo-nom-cellule">
+          <Pastille ton={TON_PHASE[phase]} />
+          <div>
+            <button type="button" className="bo-nom-lien" onClick={(e) => { e.stopPropagation(); onOuvrir(dossier.id); }}>
+              {client}
+            </button>
+            {reference ? <div className="bo-secondaire">{reference}</div> : null}
+            {resume ? <div className="bo-secondaire">{resume}</div> : null}
+          </div>
+        </div>
       </td>
       <td data-etiquette="Phase">
         <Badge ton={TON_PHASE[phase]} icone={alerte ? 'alerte' : undefined}>

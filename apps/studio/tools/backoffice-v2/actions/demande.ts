@@ -24,6 +24,9 @@ export const accepterSansDevis: VerbesActions['accepterSansDevis'] = (ctx, dossi
 export const devisHorsOutil: VerbesActions['devisHorsOutil'] = (ctx, dossier, brouillon, saisie) =>
   appliquerGeste(ctx, dossier, brouillon, { type: 'devisHorsOutil', ...saisie });
 
+export const complementHorsOutil: VerbesActions['complementHorsOutil'] = (ctx, dossier, brouillon, saisie) =>
+  appliquerGeste(ctx, dossier, brouillon, { type: 'complementHorsOutil', ...saisie });
+
 export const refuser: VerbesActions['refuser'] = (ctx, dossier, motif) =>
   appliquerGeste(ctx, dossier, {}, { type: 'refuser', motif });
 

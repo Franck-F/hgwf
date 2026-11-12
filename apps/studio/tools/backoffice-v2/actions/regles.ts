@@ -12,6 +12,7 @@
  * la prise en charge 3 : aucun chemin n'écrit l'étape « Livré » sans elle.
  */
 import type { ContexteEcriture, Geste } from '../domaine/contrats';
+import { complementEnAttente } from '../domaine/complements';
 import { formaterDate, formaterDateHeure } from '../domaine/format';
 import { lireDate, debutDeJour } from '../domaine/echeances';
 import { manquesDepart, manquesMontant, manquesPriseEnCharge, manquesDevis } from '../domaine/manques';
@@ -168,6 +169,25 @@ export function planifier(geste: Geste, dossier: Dossier, eff: Documents, ctx: C
         },
         message: 'Devis envoyé hors outil enregistré.',
       };
+    }
+    case 'complementHorsOutil': {
+      const d = surDemande(dossier);
+      if (estEchec(d)) return d;
+      if (phase !== 'nouvelle' && phase !== 'aChiffrer' && phase !== 'reponseRecue') {
+        return refuser('Des compléments hors outil se notent sur une demande nouvelle ou à chiffrer.');
+      }
+      if (complementEnAttente(dossier)) return refuser('Des compléments sont déjà demandés : le client doit répondre.');
+      const date = lireDate(geste.date);
+      if (!date) return refuser('La date de la demande est illisible.');
+      if (date.getTime() > debutDeJour(maintenant).getTime() + 86_400_000 - 1) return refuser('La date de la demande ne peut pas être dans le futur.');
+      // Statut 0 vers 1 si la demande était nouvelle ; sinon on ne touche pas au statut.
+      const supplements: Record<string, unknown> = {
+        complementDemandeLe: formaterDate(date),
+        complementDemandeHorsOutil: geste.moyen,
+        complementDemandePar: auteur,
+      };
+      if ((d.statut ?? DEMANDE.nouvelle) === DEMANDE.nouvelle) supplements.statut = DEMANDE.enCours;
+      return { cible: 'demande', manques: [], supplements, message: 'Compléments demandés hors outil enregistrés.' };
     }
     case 'refuser': {
       const d = surDemande(dossier);

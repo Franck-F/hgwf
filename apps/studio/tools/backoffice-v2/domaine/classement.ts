@@ -18,6 +18,7 @@ import {
   SEUIL_ROUTE_J,
 } from './echeances';
 import { ilYa } from './format';
+import { complementARelancer, complementEnAttente, dateComplement } from './complements';
 import { derniereReponse, nbNonLus, plusAncienNonLu } from './echanges';
 import { chiffrageAmorce, manquesDevis, manquesPriseEnCharge } from './manques';
 import { estTermine, phaseDe } from './phases';
@@ -63,7 +64,7 @@ function ligne(
     raison,
     ageJours: ageJours(depuis, maintenant),
     enRetard,
-    actionLibelle: actionPrincipale(dossier, {}).libelle,
+    actionLibelle: actionPrincipale(dossier, {}, maintenant).libelle,
     phase,
     nbNonLus: nbNonLus(dossier),
   };
@@ -105,16 +106,29 @@ function classerDemande(dossier: Dossier, d: Demande, phase: Phase, maintenant: 
       return { candidat: { groupe: 'devis', rang: 1, depuis: reponse, ligne: ligne(dossier, phase, raison, reponse, maintenant, retard) } };
     }
     case 'aChiffrer': {
-      const reponseConnue = derniereReponse(dossier) !== null;
-      if (d.complementDemandeLe && !reponseConnue) {
-        const demande = premiereDate([d.complementDemandeLe], recue);
-        const raison = `Compléments demandés ${ilYa(demande, maintenant)}, sans réponse`;
-        return { candidat: { groupe: 'devis', rang: 3, depuis: demande, ligne: ligne(dossier, phase, raison, demande, maintenant, false) } };
+      // Le client a reçu nos questions et n'a pas répondu : ce n'est pas une tâche, on attend.
+      if (complementEnAttente(dossier) && !chiffrageAmorce(d)) {
+        const demande = dateComplement(d);
+        if (!demande) {
+          // Ancien dossier traité hors de l'outil : date inconnue, jamais relancé automatiquement.
+          const raison = 'Compléments demandés (date inconnue), en attente du client';
+          return { attente: { attente: raison, ligne: ligne(dossier, phase, raison, recue, maintenant, false), depuis: recue } };
+        }
+        if (complementARelancer(dossier, maintenant)) {
+          const raison = `Compléments demandés ${ilYa(demande, maintenant)}, sans réponse : relancer le client`;
+          return { candidat: { groupe: 'sansReponse', rang: 1, depuis: demande, ligne: ligne(dossier, phase, raison, demande, maintenant, false) } };
+        }
+        const raison = `Compléments demandés ${ilYa(demande, maintenant)}, en attente du client`;
+        return { attente: { attente: raison, ligne: ligne(dossier, phase, raison, demande, maintenant, false), depuis: demande } };
       }
-      const retard = ageOuvreHeures(recue, maintenant) > SEUIL_CHIFFRAGE_RETARD_H;
+      // Le client a répondu à nos questions : l'attente se compte depuis sa réponse.
+      const reponse = d.complementDemandeLe || d.complementDemandeHorsOutil ? derniereReponse(dossier) : null;
+      const depuis = reponse ?? recue;
+      const retard = ageOuvreHeures(depuis, maintenant) > SEUIL_CHIFFRAGE_RETARD_H;
       const pret = chiffrageAmorce(d) && manquesDevis(d).length === 0;
-      const raison = pret ? 'Chiffré, prêt à envoyer' : chiffrageAmorce(d) ? 'Devis à compléter' : 'Montant à saisir';
-      return { candidat: { groupe: 'devis', rang: 2, depuis: recue, ligne: ligne(dossier, phase, raison, recue, maintenant, retard) } };
+      const aSaisir = reponse ? `Le client a répondu ${ilYa(reponse, maintenant)} : montant à saisir` : 'Montant à saisir';
+      const raison = pret ? 'Chiffré, prêt à envoyer' : chiffrageAmorce(d) ? 'Devis à compléter' : aSaisir;
+      return { candidat: { groupe: 'devis', rang: 2, depuis, ligne: ligne(dossier, phase, raison, depuis, maintenant, retard) } };
     }
     case 'accepte': {
       const accepte = premiereDate([d.acceptationLe, d._updatedAt], recue);

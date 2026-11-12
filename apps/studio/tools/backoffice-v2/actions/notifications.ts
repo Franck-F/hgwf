@@ -5,6 +5,7 @@
  * par les vues.
  */
 import type { ContexteEcriture, Resultat, ResultatGeste } from '../domaine/contrats';
+import { complementDemande } from '../domaine/complements';
 import { formaterDateHeure } from '../domaine/format';
 import type { Demande, Dossier, Expedition } from '../domaine/types';
 import { MESSAGE_CLE_ABSENTE } from './cleApi';
@@ -76,7 +77,7 @@ export async function executerNotification(
  * sous `ifRevisionId` qui n'écrit que son champ.
  */
 export async function executerClientARepondu(ctx: ContexteEcriture, demande: Demande): Promise<Resultat<ResultatGeste>> {
-  if (!demande.complementDemandeLe) return echec('refus', 'Aucune demande de compléments n’est en attente de réponse.');
+  if (!complementDemande(demande)) return echec('refus', 'Aucune demande de compléments n’est en attente de réponse.');
   const r = await ecrirePatch(ctx, demande._id, demande._rev, {}, { reponseClientLe: formaterDateHeure(ctx.maintenant()) }, demande);
   if (!r.ok) return r;
   return { ok: true, patchs: 1, rev: r.rev, message: 'Réponse du client notée.', champsEnregistres: [] };

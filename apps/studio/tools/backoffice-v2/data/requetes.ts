@@ -45,6 +45,8 @@ const CHAMPS_DEMANDE_LISTE = [
   'relanceEnvoyeeLe',
   'complementDemandeLe',
   'complementDemandeA',
+  'complementDemandeHorsOutil',
+  'complementDemandePar',
   'expeditionRef',
   // Champs ajoutés par la V2 (section 11) : absents des anciens documents.
   'reponseClientLe',
@@ -114,6 +116,12 @@ export const REQUETE_REFERENTIELS = `{
   "clients": *[_type == "clientFiche"] | order(nom asc),
   "fiches": *[_type == "ficheService" && actif != false] | order(ordre asc)${PROJECTION_FICHE}
 }`;
+
+/**
+ * Fiches retirées des choix (`actif == false`) : absentes du magasin, mais
+ * l'onglet Fiches services doit pouvoir les montrer pour les réactiver.
+ */
+export const REQUETE_FICHES_RETIREES = `*[_type == "ficheService" && actif == false] | order(ordre asc)${PROJECTION_FICHE}`;
 
 /** Références existantes, pour numéroter un dossier saisi à la main (même enveloppe). */
 export const REQUETE_REFERENCES = '{"demandes": *[_type == "demandeDevis"]{reference}}';

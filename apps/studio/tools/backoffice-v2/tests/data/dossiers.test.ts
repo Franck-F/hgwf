@@ -60,6 +60,15 @@ describe('construireDossiers', () => {
     expect(trouverDossier(src, 'DEV-2611-001')?.id).toBe('d1');
   });
 
+  it('trouverDossier : repli sur la référence exacte (casse ignorée), jamais sur un nom ou une référence approchée', () => {
+    const d = demandeDoc({ _id: 'd1', reference: 'DEV-2611-001', clientNom: 'Élodie Durand', statut: 1 });
+    const src = donnees({ demandes: [d] });
+    expect(trouverDossier(src, 'dev-2611-001')?.id).toBe('d1');
+    expect(trouverDossier(src, 'elodie durand')).toBeNull();
+    expect(trouverDossier(src, 'DEV-2611')).toBeNull();
+    expect(trouverDossier(src, 'demande-supprimee')).toBeNull();
+  });
+
   it('revisionsDuDossier liste les révisions des documents présents', () => {
     const [d] = construireDossiers(donnees({ demandes: [demandeDoc({ _id: 'd1', _rev: 'r1' })] }));
     expect(revisionsDuDossier(d!)).toEqual({ d1: 'r1' });

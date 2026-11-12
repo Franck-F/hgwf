@@ -101,7 +101,8 @@ describe('signal « Réponse reçue »', () => {
 
     const lu = avec(d, [echange({ recuLe: '2026-11-05T09:00:00.000Z', lu: true })]);
     expect(phaseDe(lu)).toBe('aChiffrer');
-    expect(calculerAFaire([lu], [], MAINTENANT).groupes[0]?.lignes[0]?.raison).toBe('Montant à saisir');
+    // L'attente se compte depuis la réponse du client, et le libellé le dit.
+    expect(calculerAFaire([lu], [], MAINTENANT).groupes[0]?.lignes[0]?.raison).toMatch(/^Le client a répondu .+ : montant à saisir$/);
   });
 
   it('le signal disparaît quand tout est lu, mais le dossier reste dans « À faire »', () => {

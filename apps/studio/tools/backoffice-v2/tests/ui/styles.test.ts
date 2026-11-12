@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COULEURS_BADGES, FEUILLE_DE_STYLE } from '../../theme/styles';
-import { COULEURS } from '../../theme/tokens';
+import { COULEURS_UI as COULEURS } from '../../theme/tokens';
 
 /** Luminance relative WCAG. */
 function luminance(hex: string): number {

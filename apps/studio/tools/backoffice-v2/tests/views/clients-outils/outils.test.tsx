@@ -184,7 +184,7 @@ describe('Rotations', () => {
 });
 
 describe('Fiches services', () => {
-  it('est en lecture seule et renvoie au Studio dans un nouvel onglet', () => {
+  it('s’édite directement (plus de renvoi au Studio) et propose une nouvelle fiche', () => {
     const fiche = (extra: Partial<Fiche>): Fiche => ({ _id: 'f', _rev: 'r', _type: 'ficheService', ...extra });
     h.outils.fiches = [
       fiche({ _id: 'f1', titre: 'Groupage maritime', ordre: 1, grille: [{ designation: 'm³', prixHT: 400 }] }),
@@ -195,10 +195,10 @@ describe('Fiches services', () => {
     expect(screen.getByText('Grille renseignée')).toBeTruthy();
     expect(screen.getByText('2 prix manquants')).toBeTruthy();
     expect(screen.getByText('Pas de grille de prix')).toBeTruthy();
-    const lien = screen.getByRole('link', { name: /Modifier dans le Studio/ });
-    expect(lien.getAttribute('href')).toBe('/operations/structure/fichesServices');
-    expect(lien.getAttribute('target')).toBe('_blank');
-    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByRole('link', { name: /Studio/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /Nouvelle fiche/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Groupage maritime/ }));
+    expect((screen.getByLabelText('Nom du service') as HTMLInputElement).value).toBe('Groupage maritime');
   });
 });
 

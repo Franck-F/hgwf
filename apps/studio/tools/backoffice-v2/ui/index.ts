@@ -3,6 +3,7 @@ export * from './types';
 export { Bouton } from './Bouton';
 export { MenuActions } from './MenuActions';
 export { Badge } from './Badge';
+export { Pastille } from './Pastille';
 export { Carte } from './Carte';
 export { Section } from './Section';
 export { Champ, Saisie, Liste, ZoneTexte } from './Champ';

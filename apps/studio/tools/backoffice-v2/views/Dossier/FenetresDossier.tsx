@@ -49,6 +49,7 @@ export function FenetresDossier({
       return <ReprisePanel dossier={dossier} brouillon={brouillon} onFermer={onFermer} onTermine={onTermine} />;
     case 'refus':
     case 'horsOutil':
+    case 'complementHorsOutil':
       return <FenetreGeste dossier={dossier} fenetre={fenetre} onFermer={onFermer} onTermine={onTermine} />;
     default:
       return null;

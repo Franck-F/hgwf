@@ -19,7 +19,7 @@ import type { Dossier, GroupeAFaire, IdGroupeAFaire, LigneAttente, Rotation } fr
 const TITRES: Record<IdGroupeAFaire, string> = {
   aOuvrir: 'Demandes à ouvrir',
   devis: 'Devis à chiffrer, envoyer ou conclure',
-  sansReponse: 'Devis sans réponse',
+  sansReponse: 'Clients à relancer',
   expeditions: 'Expéditions',
 };
 

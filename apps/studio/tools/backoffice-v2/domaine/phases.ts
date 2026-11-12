@@ -14,8 +14,8 @@
  *   choix (jamais de défaut deviné) ; la reprise l'efface dans le même patch.
  */
 import type { EtapeFrise, TonBadge } from '../ui/types';
-import { lireDate } from './echeances';
-import { derniereReponse, reponseATraiter } from './echanges';
+import { reponseApresComplement } from './complements';
+import { reponseATraiter } from './echanges';
 import { DEMANDE, ETAPE, PRISE_EN_CHARGE } from './statuts';
 import type { Dossier, Phase } from './types';
 
@@ -91,18 +91,6 @@ function phaseExpedition(dossier: Dossier): Phase {
   if (pec === PRISE_EN_CHARGE.expedie) return 'enRoute';
   if (pec === PRISE_EN_CHARGE.pret) return 'pret';
   return 'aPreparer';
-}
-
-/** Vrai si le client a répondu après la demande de compléments. */
-function reponseApresComplement(dossier: Dossier): boolean {
-  const complement = dossier.demande?.complementDemandeLe;
-  const reponse = derniereReponse(dossier);
-  if (!reponse) return false;
-  if (!complement) return true;
-  const c = lireDate(complement);
-  // Dates illisibles : la présence d'une réponse l'emporte (rien ne doit se perdre).
-  if (!c) return true;
-  return reponse.getTime() > c.getTime();
 }
 
 export function phaseDe(dossier: Dossier): Phase {

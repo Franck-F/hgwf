@@ -131,6 +131,12 @@ export interface VerbesActions {
     brouillon: Brouillon,
     saisie: { date: string; moyen: MoyenHorsOutil },
   ): Promise<Resultat<ResultatGeste>>;
+  complementHorsOutil(
+    ctx: ContexteEcriture,
+    dossier: Dossier,
+    brouillon: Brouillon,
+    saisie: { date: string; moyen: MoyenHorsOutil },
+  ): Promise<Resultat<ResultatGeste>>;
   creerDossierManuel(ctx: ContexteEcriture, saisie: NouveauDossierSaisie): Promise<Resultat<{ dossierId: string }>>;
   refuser(ctx: ContexteEcriture, dossier: Dossier, motif: MotifRefus): Promise<Resultat<ResultatGeste>>;
   rouvrir(ctx: ContexteEcriture, dossier: Dossier): Promise<Resultat<ResultatGeste>>;
@@ -166,6 +172,7 @@ export interface VerbesActions {
 /** Gestes de secours exposés par `useGestes` (tracés, date et auteur). */
 export interface GestesSecours {
   devisHorsOutil(saisie: { date: string; moyen: MoyenHorsOutil }): Promise<Resultat<ResultatGeste>>;
+  complementHorsOutil(saisie: { date: string; moyen: MoyenHorsOutil }): Promise<Resultat<ResultatGeste>>;
   accepterSansDevis(): Promise<Resultat<ResultatGeste>>;
   refuser(motif: MotifRefus): Promise<Resultat<ResultatGeste>>;
   signalerIncident(): Promise<Resultat<ResultatGeste>>;

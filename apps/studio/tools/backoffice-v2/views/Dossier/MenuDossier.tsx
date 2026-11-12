@@ -9,6 +9,7 @@ import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { useToasts } from '../../app/Contexte';
 import { aUnMontant } from '../../domaine/chiffrage';
+import { complementDemande, complementEnAttente, dateComplement } from '../../domaine/complements';
 import { lireDate } from '../../domaine/echeances';
 import { formaterDate } from '../../domaine/format';
 import { fusionner } from '../../domaine/fusion';
@@ -33,10 +34,11 @@ const EXPEDITION_EN_COURS: Phase[] = ['aPreparer', 'pret', 'enRoute'];
 /** Le client a répondu à la demande de compléments : il n'y a pas encore de réponse notée. */
 function reponseEnAttente(dossier: Dossier): boolean {
   const d = dossier.demande;
-  if (!d?.complementDemandeLe) return false;
-  const complement = lireDate(d.complementDemandeLe);
-  const reponse = lireDate(d.reponseClientLe);
-  return !reponse || !complement || reponse.getTime() <= complement.getTime();
+  if (!complementDemande(d)) return false;
+  const complement = dateComplement(d);
+  const reponse = lireDate(d?.reponseClientLe);
+  // Date de la demande inconnue : toute réponse notée vaut réponse.
+  return !reponse || (complement !== null && reponse.getTime() <= complement.getTime());
 }
 
 export function MenuDossier({ dossier }: { dossier: Dossier }): ReactElement | null {
@@ -85,6 +87,13 @@ export function MenuDossier({ dossier }: { dossier: Dossier }): ReactElement | n
       id: 'notifier',
       libelle: 'Prévenir le client de l’étape actuelle',
       onChoisir: () => ctx.ouvrirFenetre('notifier'),
+    });
+  }
+  if ((phase === 'nouvelle' || phase === 'aChiffrer' || phase === 'reponseRecue') && !complementEnAttente(dossier)) {
+    ajouter({
+      id: 'complementHorsOutil',
+      libelle: 'Compléments demandés hors outil',
+      onChoisir: () => ctx.ouvrirFenetre('complementHorsOutil'),
     });
   }
   if (phase === 'aChiffrer' || phase === 'reponseRecue') {

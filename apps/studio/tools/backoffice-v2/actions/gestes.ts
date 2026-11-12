@@ -174,6 +174,7 @@ export const useGestes: UseGestes = (dossier, brouillon) => {
   const secours = useMemo<GestesSecours>(
     () => ({
       devisHorsOutil: (saisie) => appliquer({ type: 'devisHorsOutil', ...saisie }),
+      complementHorsOutil: (saisie) => appliquer({ type: 'complementHorsOutil', ...saisie }),
       accepterSansDevis: () => appliquer({ type: 'accepterSansDevis' }),
       refuser: (motif) => appliquer({ type: 'refuser', motif }),
       signalerIncident: () => appliquer({ type: 'signalerIncident' }),

@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactElement } from 'react';
 import { useRecherche } from '../data/useRecherche';
+import { Icone } from '../ui';
 import { useRacine, useRoute } from './Contexte';
 import { cheminDe } from './routes';
 
@@ -119,6 +120,9 @@ export function RechercheGlobale(): ReactElement {
 
   return (
     <div className="bo-recherche" ref={zone}>
+      <span className="bo-recherche-icone">
+        <Icone nom="recherche" taille={18} />
+      </span>
       <input
         ref={champ}
         className="bo-saisie"

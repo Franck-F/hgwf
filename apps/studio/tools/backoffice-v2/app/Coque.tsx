@@ -1,7 +1,8 @@
 /** @jsxRuntime automatic @jsxImportSource react */
 /**
- * Coque de l'application (2.3, 3) : navigation, barre haute (recherche globale
- * et nom de l'utilisateur), zone de contenu. Elle choisit la vue d'après la
+ * Coque de l'application (2.3, 3) : une grande carte blanche sur fond bleu nuit
+ * (barre haute avec logo, recherche et utilisateur ; barre latérale bleue ; zone
+ * de contenu). Elle choisit la vue d'après la
  * route et ne contient aucune logique métier.
  *
  * Les pages sont remontées à chaque changement de dossier, de client ou de
@@ -10,8 +11,6 @@
  */
 import { useEffect } from 'react';
 import type { ReactElement } from 'react';
-import { useAFaire } from '../data/useAFaire';
-import { useUtilisateur } from '../data/client';
 import { EtatVide } from '../ui';
 import { AFaire } from '../views/AFaire/AFaire';
 import { Clients } from '../views/Clients/Clients';
@@ -20,8 +19,8 @@ import { DossierPage } from '../views/Dossier/DossierPage';
 import { Dossiers } from '../views/Dossiers/Dossiers';
 import { Outils } from '../views/Outils/Outils';
 import { useRacine, useRoute } from './Contexte';
-import { Navigation } from './Navigation';
-import { RechercheGlobale } from './RechercheGlobale';
+import { BarreLaterale } from './BarreLaterale';
+import { EnteteCoque } from './EnteteCoque';
 import { analyserChemin, cheminDe, entreeActive } from './routes';
 import type { EntreeNavigation, Route } from './routes';
 
@@ -79,8 +78,6 @@ function Page({ route, retour }: { route: Route; retour: () => void }): ReactEle
 export function Coque(): ReactElement {
   const { chemin, naviguer } = useRoute();
   const racine = useRacine();
-  const utilisateur = useUtilisateur();
-  const { nbUrgents } = useAFaire();
   const route = analyserChemin(chemin);
   const cle = cleDePage(route);
 
@@ -91,17 +88,14 @@ export function Coque(): ReactElement {
 
   return (
     <div className="bo-coque">
-      <Navigation
-        active={entreeActive(route)}
-        nbUrgents={nbUrgents}
-        onChoisir={(entree) => naviguer(CHEMIN_ENTREE[entree])}
-      />
-      <div className="bo-contenu">
-        <header className="bo-haut">
-          <RechercheGlobale />
-          <span className="bo-espace bo-secondaire">{utilisateur.nom}</span>
-        </header>
-        <main>
+      <EnteteCoque />
+      <div className="bo-corps">
+        <BarreLaterale
+          active={entreeActive(route)}
+          onChoisir={(entree) => naviguer(CHEMIN_ENTREE[entree])}
+          onNouveauDossier={() => naviguer('/dossier/nouveau')}
+        />
+        <main className="bo-contenu">
           <Page key={cle} route={route} retour={() => naviguer(cheminDe({ nom: 'afaire' }))} />
         </main>
       </div>

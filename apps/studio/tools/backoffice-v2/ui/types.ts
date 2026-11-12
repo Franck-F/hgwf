@@ -7,8 +7,14 @@
  */
 import type { ChangeEvent, ReactNode } from 'react';
 
-/** Noms des icônes SVG réellement utilisées (plafond 14, pas d'icône « au cas où »). */
+/** Noms des icônes SVG réellement utilisées (pas d'icône « au cas où »). */
 export type IconeNom =
+  | 'afaire'
+  | 'dossiers'
+  | 'dossierPlus'
+  | 'clients'
+  | 'outils'
+  | 'chevronDroite'
   | 'alerte'
   | 'horloge'
   | 'enveloppe'
@@ -244,6 +250,10 @@ export interface LigneCliquableProps {
   'aria-label'?: string;
   /** Grise la ligne (dossier qui vient de sortir de la liste). */
   attenuee?: boolean;
+  /** Ligne mise en avant (fond orangé clair) : dossier en retard ou réponse non lue. */
+  vive?: boolean;
+  /** Classe de mise en page supplémentaire (colonnes d'une liste). */
+  classe?: string;
 }
 
 export interface ValeurSegment {

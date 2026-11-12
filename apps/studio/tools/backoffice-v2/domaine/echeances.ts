@@ -11,6 +11,8 @@ export const SEUIL_CHIFFRAGE_RETARD_H = 24;
 export const SEUIL_ACCEPTE_J = 2;
 export const SEUIL_DEVIS_APPEL_J = 7;
 export const SEUIL_ROUTE_J = 7;
+/** Compléments demandés sans réponse depuis 5 jours ouvrés : le client est à relancer. */
+export const SEUIL_COMPLEMENT_RELANCE_J = 5;
 /** Une nouvelle demande de moins de 4 h ouvrées reste dans « En attente ». */
 export const SEUIL_NOUVELLE_ATTENTE_H = 4;
 

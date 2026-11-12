@@ -5,7 +5,7 @@
 import { lireDate, texteAUneHeure } from './echeances';
 import { formaterDate, formaterDateHeure } from './format';
 import { ETAPES_EXPEDITION } from './statuts';
-import type { Dossier, MoyenHorsOutil } from './types';
+import type { Demande, Dossier, MoyenHorsOutil } from './types';
 
 export interface EvenementHistorique {
   /** Date de l'événement ; `null` si la trace est illisible (affichée en fin). */
@@ -18,6 +18,7 @@ export interface EvenementHistorique {
 }
 
 const MOYENS: Record<MoyenHorsOutil, string> = {
+  email: 'E-mail (Outlook)',
   whatsapp: 'WhatsApp',
   emailPersonnel: 'e-mail personnel',
   mainPropre: 'remis en main propre',
@@ -31,6 +32,14 @@ function evenement(source: string | undefined, libelle: string, auteur?: string)
   return { date, dateTexte, libelle, ...(auteur ? { auteur } : {}) };
 }
 
+/** Compléments demandés hors outil ; la date peut être inconnue (anciens dossiers). */
+function complementHorsOutil(d: Demande): EvenementHistorique | null {
+  if (!d.complementDemandeHorsOutil) return null;
+  const libelle = `Compléments demandés hors outil (${MOYENS[d.complementDemandeHorsOutil] ?? d.complementDemandeHorsOutil})`;
+  if (d.complementDemandeLe?.trim()) return evenement(d.complementDemandeLe, libelle, d.complementDemandePar);
+  return { date: null, dateTexte: 'Date inconnue', libelle, ...(d.complementDemandePar ? { auteur: d.complementDemandePar } : {}) };
+}
+
 /** Du plus récent au plus ancien ; les traces illisibles à la fin. */
 export function construireHistorique(dossier: Dossier): EvenementHistorique[] {
   const d = dossier.demande;
@@ -39,9 +48,12 @@ export function construireHistorique(dossier: Dossier): EvenementHistorique[] {
 
   if (d) {
     liste.push(
-      evenement(d.recueLe ?? d._createdAt, d.sourceDemande === 'telephone' ? 'Demande reçue au téléphone' : 'Demande reçue'),
+      evenement(d.recueLe ?? d._createdAt, d.sourceDemande === 'telephone' ? 'Demande reçue au téléphone' : d.sourceDemande === 'email' ? 'Demande reçue par e-mail' : 'Demande reçue'),
       evenement(d.accuseReceptionLe, 'Accusé de réception envoyé'),
-      evenement(d.complementDemandeLe, `Compléments demandés${d.complementDemandeA ? ` à ${d.complementDemandeA}` : ''}`),
+      complementHorsOutil(d),
+      d.complementDemandeHorsOutil
+        ? null
+        : evenement(d.complementDemandeLe, `Compléments demandés${d.complementDemandeA ? ` à ${d.complementDemandeA}` : ''}`),
       evenement(d.reponseClientLe, 'Le client a répondu'),
       evenement(d.devisEnvoyeLe, `Devis envoyé${d.devisEnvoyeA ? ` à ${d.devisEnvoyeA}` : ''}`),
       evenement(
