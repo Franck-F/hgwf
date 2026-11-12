@@ -39,7 +39,7 @@ const webhook = (data = {}) =>
   );
 
 // ── Faux Sanity ───────────────────────────────────────────────────────────────
-function fauxSanity({ demande = { _id: 'dem-1', reference: 'HGWF-2026-1234', email: 'Marie@Client.fr' }, existant = null } = {}) {
+function fauxSanity({ demande = { _id: 'dem-1', _createdAt: '2026-11-01T10:00:00Z', reference: 'HGWF-2026-1234', email: 'Marie@Client.fr' }, existant = null } = {}) {
   const s = { crees: [], patchs: [], uploads: [] };
   s.fetch = async (q) => (q.includes('_id == $id') ? existant : q.includes('demandeDevis') ? demande : null);
   s.createIfNotExists = async (doc) => { s.crees.push(doc); return doc; };
@@ -322,7 +322,7 @@ test('adresse du From : guillemets, commentaires et adresses multiples', () => {
 });
 
 test('vérification de l\'expéditeur : adresse de la demande ET authentification positive', () => {
-  const demande = { _id: 'd', email: ' Marie@Client.FR ' };
+  const demande = { _id: 'd', _createdAt: '2026-11-01T10:00:00Z', email: ' Marie@Client.FR ' };
   const s = [SERVEUR];
   const apres = FIN_ADRESSES_SANS_JETON + 1;
   assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, entetes: AUTH_OK, serveursFiables: s, maintenant: apres }).fiable, true);
@@ -336,6 +336,10 @@ test('vérification de l\'expéditeur : adresse de la demande ET authentificatio
   assert.match(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, jeton: 'invalide' }).motif, /jeton incorrect/);
   // Transition : ancienne adresse acceptée sur la seule adresse de l'expéditeur.
   assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande, maintenant: FIN_ADRESSES_SANS_JETON - 1 }).fiable, true);
+  // Tolérance réservée aux demandes créées avant le jeton (et date illisible : aucune tolérance).
+  const recente = { ...demande, _createdAt: '2026-11-20T10:00:00Z' };
+  assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande: recente, maintenant: FIN_ADRESSES_SANS_JETON - 1 }).fiable, false);
+  assert.equal(verifierExpediteur({ de: 'Marie <marie@client.fr>', demande: { ...demande, _createdAt: undefined }, maintenant: FIN_ADRESSES_SANS_JETON - 1 }).fiable, false);
   // Le jeton ne couvre jamais un autre expéditeur.
   assert.equal(verifierExpediteur({ de: 'pirate@x.net', demande, jeton: 'valide' }).fiable, false);
   assert.equal(verifierExpediteur({ de: '"<marie@client.fr>" <pirate@x.net>', demande, entetes: AUTH_OK, serveursFiables: s }).fiable, false);

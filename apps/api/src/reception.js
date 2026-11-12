@@ -140,10 +140,12 @@ export function extraireReference(adresses, domaine = DOMAINE_PAR_DEFAUT, env = 
 
 /**
  * Réponses aux e-mails partis avant le jeton (adresse « dossier-<réf>@ » seule) :
- * acceptées sur la seule adresse de l'expéditeur jusqu'à cette date, le temps
- * que les fils en cours se terminent. Ensuite : « à vérifier ».
+ * acceptées sur la seule adresse de l'expéditeur, uniquement pour les demandes
+ * créées avant l'arrivée du jeton (elles seules ont reçu des adresses sans
+ * jeton) et jusqu'à FIN_ADRESSES_SANS_JETON. Sinon : « à vérifier ».
  */
-export const FIN_ADRESSES_SANS_JETON = Date.UTC(2026, 11, 31);
+export const INTRODUCTION_JETON = Date.UTC(2026, 10, 12, 18, 0);
+export const FIN_ADRESSES_SANS_JETON = Date.UTC(2026, 11, 15);
 
 /**
  * Adresse d'un en-tête From : « Nom <adresse> » ou « adresse ». Les noms entre
@@ -240,7 +242,9 @@ export function verifierExpediteur({ de, demande, entetes, serveursFiables = [],
     return { fiable: false, motif: 'l’adresse de réponse utilisée n’est pas celle de nos e-mails (jeton incorrect)' };
   }
   if (jeton === 'valide' || verdict === 'ok') return { fiable: true };
-  if (maintenant < FIN_ADRESSES_SANS_JETON) return { fiable: true };
+  // Date de création illisible : pas de tolérance (on ne présume pas l'ancienneté).
+  const creee = Date.parse(demande._createdAt ?? '');
+  if (jeton === 'absent' && creee < INTRODUCTION_JETON && maintenant < FIN_ADRESSES_SANS_JETON) return { fiable: true };
   return { fiable: false, motif: 'réponse à une ancienne adresse de dossier, expéditeur non confirmé' };
 }
 
@@ -634,7 +638,7 @@ async function traiterEmail(data, deps) {
   const reference = adresseDossier?.reference ?? null;
 
   const demande = reference
-    ? await sanity.fetch(`*[_type == "demandeDevis" && reference == $ref][0]{_id, reference, email}`, { ref: reference })
+    ? await sanity.fetch(`*[_type == "demandeDevis" && reference == $ref][0]{_id, _createdAt, reference, email}`, { ref: reference })
     : null;
   const serveursFiables = serveursDeReception(env);
   const verification = verifierExpediteur({
