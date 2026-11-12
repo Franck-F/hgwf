@@ -72,6 +72,14 @@ ${ETROIT}{.bo-dossier-grille{grid-template-columns:minmax(0,1fr)}}
 .bo-puces{display:flex;flex-wrap:wrap;gap:var(--bo-e2)}
 .bo-puce{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 var(--bo-e3);border:1.5px solid var(--bo-bordure);border-radius:22px;background:var(--bo-surface);color:var(--bo-accent);font-size:13px;font-weight:600;text-decoration:none}
 .bo-puce:hover{background:var(--bo-accent-pale)}
+.bo-filtres{display:flex;flex-direction:column;gap:var(--bo-e3)}
+.bo-filtres-ligne{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--bo-e3)}
+.bo-filtres-ligne>.bo-champ:first-child{flex:2 1 280px}
+.bo-filtres-ligne>.bo-champ{flex:1 1 200px;max-width:420px}
+.bo-puce--filtre{color:var(--bo-marine);font-weight:500;cursor:pointer}
+.bo-puce-nombre{min-width:22px;padding:0 7px;border-radius:var(--bo-rayon-badge);background:var(--bo-creme);color:var(--bo-marine);font-size:12px;font-weight:600;line-height:22px;text-align:center}
+.bo-puce--actif,.bo-puce--actif:hover{background:var(--bo-accent);border-color:var(--bo-accent);color:#fff;font-weight:600}
+.bo-puce--actif .bo-puce-nombre{background:#fff;color:var(--bo-accent-fonce)}
 `;
 
 const accesRapide = `

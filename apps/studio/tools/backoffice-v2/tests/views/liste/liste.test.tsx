@@ -91,8 +91,18 @@ describe('Dossiers', () => {
       expect(screen.getByRole('columnheader', { name: t })).toBeTruthy();
     }
     expect(container.querySelector('.bo-bouton--primaire')).toBeNull();
-    expect(container.querySelector('input[type=search], input[type=text]')).toBeNull();
+    // Recherche dans la liste et filtre par étape (demandés par l'équipe le 12/11/2026).
+    expect(screen.getByLabelText('Rechercher dans la liste')).toBeTruthy();
     expect(screen.queryByText('Denis')).toBeNull();
+  });
+  it('filtre par texte, puis efface les filtres', () => {
+    donnees.dossiers = parc();
+    render(<Dossiers vue="enCours" />);
+    fireEvent.change(screen.getByLabelText('Rechercher dans la liste'), { target: { value: 'alice' } });
+    expect(screen.getByRole('button', { name: /Alice/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Bruno/ })).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Effacer les filtres' })[0] as HTMLElement);
+    expect(screen.getByRole('button', { name: /Bruno/ })).toBeTruthy();
   });
   it('ouvre un dossier au clic sur la ligne et change de vue', () => {
     donnees.dossiers = parc();

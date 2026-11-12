@@ -177,6 +177,7 @@ const formulaires = `
 .bo-tva-option:has(input:focus-visible){outline:3px solid var(--bo-focus);outline-offset:2px}
 .bo-voile{position:absolute;left:0;top:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:var(--bo-e3);background:rgba(13,39,102,.55)}
 .bo-modale{display:flex;flex-direction:column;width:min(640px,100%);max-height:100%;background:var(--bo-surface);border-radius:24px;box-shadow:var(--bo-ombre-modale)}
+.bo-modale--large{width:min(1080px,100%)}
 .bo-modale-entete{display:flex;align-items:center;gap:var(--bo-e3);padding:var(--bo-e4);border-bottom:1.5px solid var(--bo-bordure)}
 .bo-modale-titre{flex:1;font-size:20px}
 .bo-modale-fermer{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:8px;background:var(--bo-creme);color:var(--bo-ardoise)}

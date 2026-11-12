@@ -1,7 +1,7 @@
 /** @jsxRuntime automatic @jsxImportSource react */
 /**
- * Fiches services (4.7) : chaque fiche s'ouvre en édition directe
- * (`EditeurFiche`), sans passer par le Studio. « Nouvelle fiche » demande le
+ * Fiches services (4.7) : un clic sur une fiche l'ouvre dans une fenêtre
+ * d'édition directe (`EditeurFiche`), sans passer par le Studio. « Nouvelle fiche » demande le
  * nom du service. Les fiches retirées des choix restent listées (badge
  * « Retirée ») pour pouvoir être réactivées.
  */
@@ -79,6 +79,7 @@ export function FichesServices(): ReactElement {
 
   const toutes = [...fiches, ...retirees].sort((a, b) => (a.ordre ?? 999) - (b.ordre ?? 999));
   const prochainOrdre = toutes.reduce((m, f) => Math.max(m, f.ordre ?? 0), 0) + 1;
+  const ficheOuverte = ouverte ? toutes.find((f) => f._id === ouverte) : undefined;
 
   const relire = async (): Promise<void> => {
     await Promise.all([recharger(), relireRetirees()]);
@@ -102,17 +103,16 @@ export function FichesServices(): ReactElement {
       ) : toutes.length === 0 ? (
         <EtatVide titre="Aucune fiche service" phrase="Créez la première avec « Nouvelle fiche »." />
       ) : (
-        <ul className="bo-pile" aria-label="Fiches services">
+        <ul className="bo-lignes" aria-label="Fiches services">
           {toutes.map((f) => {
             const etat = etatGrille(f);
-            const estOuverte = ouverte === f._id;
             return (
-              <li key={f._id} className="bo-pile">
+              <li key={f._id}>
                 <button
                   type="button"
                   className={`bo-ligne${f.actif === false ? ' bo-ligne--attenuee' : ''}`}
-                  aria-expanded={estOuverte}
-                  onClick={() => setOuverte(estOuverte ? null : f._id)}
+                  aria-haspopup="dialog"
+                  onClick={() => setOuverte(f._id)}
                 >
                   <span className="bo-fort">{f.titre || 'Fiche sans titre'}</span>
                   {f.actif === false ? <Badge ton="neutre">Retirée</Badge> : null}
@@ -121,23 +121,39 @@ export function FichesServices(): ReactElement {
                       {etat.texte}
                     </Badge>
                   </span>
+                  <span className="bo-ligne-action">
+                    Modifier <Icone nom="chevronDroite" taille={16} />
+                  </span>
                 </button>
-                {estOuverte ? (
-                  <EditeurFiche
-                    key={f._id}
-                    fiche={f}
-                    recharger={relire}
-                    onSupprimee={() => {
-                      setOuverte(null);
-                      void relireRetirees();
-                    }}
-                  />
-                ) : null}
               </li>
             );
           })}
         </ul>
       )}
+
+      {ficheOuverte ? (
+        // Enregistrement automatique : fermer la fenêtre écrit ce qui reste (démontage de l'éditeur).
+        <Modale
+          titre={ficheOuverte.titre || 'Fiche sans titre'}
+          large
+          onFermer={() => setOuverte(null)}
+          pied={
+            <Bouton variante="primaire" onClick={() => setOuverte(null)}>
+              Terminé
+            </Bouton>
+          }
+        >
+          <EditeurFiche
+            key={ficheOuverte._id}
+            fiche={ficheOuverte}
+            recharger={relire}
+            onSupprimee={() => {
+              setOuverte(null);
+              void relireRetirees();
+            }}
+          />
+        </Modale>
+      ) : null}
 
       {creation ? (
         <NouvelleFiche

@@ -219,6 +219,8 @@ export interface ModaleProps {
   empecherFermeture?: boolean;
   /** Zone de boutons (le seul bouton plein de la fenêtre y figure). */
   pied?: ReactNode;
+  /** Fenêtre large, pour un formulaire long (fiche service). */
+  large?: boolean;
   children?: ReactNode;
 }
 

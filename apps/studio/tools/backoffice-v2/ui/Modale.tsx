@@ -25,7 +25,7 @@ const FOCALISABLES =
 /** Pile des fenêtres ouvertes (la dernière est celle qui a la main). */
 const pile: symbol[] = [];
 
-export function Modale({ titre, onFermer, empecherFermeture, pied, children }: ModaleProps): ReactElement {
+export function Modale({ titre, onFermer, empecherFermeture, pied, large, children }: ModaleProps): ReactElement {
   const racine = useRacine();
   const idTitre = useId();
   const voile = useRef<HTMLDivElement>(null);
@@ -108,7 +108,7 @@ export function Modale({ titre, onFermer, empecherFermeture, pied, children }: M
   const contenu = (
     <div className="bo-voile" ref={voile} style={zone} onMouseDown={surClicVoile}>
       <div
-        className="bo-modale"
+        className={`bo-modale${large ? ' bo-modale--large' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={idTitre}

@@ -258,3 +258,16 @@ export async function genererDevisPdf(d: DemandePdf): Promise<void> {
   const doc = await construireDevisPdf(d);
   doc.save(`Devis-${d.reference}.pdf`);
 }
+
+/**
+ * Ouvre le devis dans un nouvel onglet, tel qu'il partira en pièce jointe (même
+ * construction que l'envoi). Si le navigateur bloque l'onglet, le PDF est
+ * téléchargé à la place : l'équipe le voit dans tous les cas.
+ */
+export async function ouvrirDevisPdf(d: DemandePdf): Promise<void> {
+  const doc = await construireDevisPdf(d);
+  const url = doc.output('bloburl') as unknown as string;
+  // Pas de « noopener » : avec lui, window.open rend toujours null et on ne saurait plus si l'onglet s'est ouvert.
+  const onglet = window.open(url, '_blank');
+  if (!onglet) doc.save(`Devis-${d.reference}.pdf`);
+}

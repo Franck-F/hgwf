@@ -33,6 +33,7 @@ export function FenetreEnvoi({ dossier, brouillon, mode, onFermer, onTermine }: 
   // Vrai quand l'e-mail est parti mais que le statut 2 n'a pas été posé (4.4).
   const [statutACorriger, setStatutACorriger] = useState(false);
   const [essai, setEssai] = useState(0);
+  const [ouverturePdf, setOuverturePdf] = useState(false);
 
   const demande = dossier.demande;
   const effective = demande ? fusionner(demande, brouillon) : undefined;
@@ -84,6 +85,20 @@ export function FenetreEnvoi({ dossier, brouillon, mode, onFermer, onTermine }: 
       else onTermine();
     } finally {
       setEnvoi(false);
+    }
+  }
+
+  // Le PDF est construit comme à l'envoi, sur ce qui est à l'écran (enregistré + brouillon).
+  async function voirPdf(): Promise<void> {
+    if (!effective || ouverturePdf) return;
+    setOuverturePdf(true);
+    try {
+      const { ouvrirDevisPdf } = await import('../../../pdf/devisPdf');
+      await ouvrirDevisPdf({ ...effective, reference: effective.reference ?? '' });
+    } catch {
+      setErreur('Impossible d’afficher le devis. Réessayez.');
+    } finally {
+      setOuverturePdf(false);
     }
   }
 
@@ -158,6 +173,13 @@ export function FenetreEnvoi({ dossier, brouillon, mode, onFermer, onTermine }: 
             <Saisie etiquette="De" valeur={apercu.de} onChange={() => undefined} lectureSeule />
             <Saisie etiquette="À" valeur={apercu.a} onChange={() => undefined} lectureSeule />
             <Saisie etiquette="Pièce jointe" valeur={apercu.pieceJointe} onChange={() => undefined} lectureSeule />
+            {apercu.pieceJointe && effective ? (
+              <div>
+                <Bouton variante="secondaire" taille="s" chargement={ouverturePdf} onClick={() => void voirPdf()}>
+                  {mode === 'devis' ? 'Voir le devis' : 'Voir le devis provisoire joint'}
+                </Bouton>
+              </div>
+            ) : null}
             <Saisie etiquette="Objet" valeur={objet} onChange={setObjet} lectureSeule={statutACorriger} />
             <ZoneTexte etiquette="Message" valeur={message} onChange={setMessage} lignes={10} lectureSeule={statutACorriger} />
           </>
