@@ -696,6 +696,77 @@ async function envoyerComplement(req, res, cors) {
   return json(res, 200, { ok: true, destinataire: email }, cors);
 }
 
+// ── Réponse libre au client (back-office) ────────────────────────────────────
+// Depuis le fil « Échanges » d'un dossier : texte rédigé et relu dans le
+// back-office. Le destinataire ne vient que de Sanity (jamais un relais
+// ouvert) ; l'adresse de réponse est celle, signée, du dossier, pour que la
+// réponse suivante du client revienne dans le fil. L'envoi est consigné comme
+// un échange « envoyé », et le message auquel on répond passe « lu ».
+async function envoyerReponse(req, res, cors) {
+  const cle = process.env.BACKOFFICE_API_CLE;
+  if (!cle) return json(res, 503, { ok: false, erreur: 'envoi non configuré' }, cors);
+  if (req.headers['x-hgwf-cle'] !== cle) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
+
+  let corps;
+  try {
+    corps = JSON.parse((await lireCorps(req)) || '{}');
+  } catch {
+    return json(res, 400, { ok: false, erreur: 'JSON invalide' }, cors);
+  }
+  const reference = nettoyer(corps.reference, 60);
+  const objet = nettoyer(corps.objet, 200);
+  const texte = String(corps.texte ?? '').trim().slice(0, 20_000);
+  const echangeId = nettoyer(corps.echangeId, 120);
+  const auteur = nettoyer(corps.auteur, 80);
+  if (!reference || !objet || !texte) {
+    return json(res, 422, { ok: false, erreur: 'reference, objet et texte sont requis' }, cors);
+  }
+
+  const d = await sanity.fetch(
+    `*[_type == "demandeDevis" && reference == $ref][0]{_id, reference, email, contact}`,
+    { ref: reference },
+  );
+  if (!d) return json(res, 404, { ok: false, erreur: 'demande introuvable' }, cors);
+  const email = adresseClient(d);
+  if (!email) return json(res, 422, { ok: false, erreur: 'aucune adresse e-mail sur cette demande' }, cors);
+  // Le message auquel on répond doit appartenir à ce dossier.
+  const origine = echangeId
+    ? await sanity.fetch(`*[_id == $id && _type == "echange" && lower(reference) == lower($ref)][0]{_id}`, { id: echangeId, ref: d.reference })
+    : null;
+  if (echangeId && !origine) return json(res, 404, { ok: false, erreur: 'message introuvable dans ce dossier' }, cors);
+
+  const r = await envoyerEmail({
+    to: email,
+    subject: objet,
+    text: texte,
+    html: gabaritHtml({ titre: objet, paragraphes: texte.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean) }),
+    replyTo: adresseReponse(d.reference),
+  });
+  if (!r.ok) return json(res, 502, { ok: false, erreur: r.raison }, cors);
+
+  // Trace : best effort, l'e-mail est parti quoi qu'il arrive.
+  const maintenant = new Date().toISOString();
+  await sanity
+    .create({
+      _type: 'echange',
+      reference: d.reference,
+      demande: { _type: 'reference', _weak: true, _ref: d._id },
+      sens: 'envoye',
+      de: 'HGWF Cargo',
+      a: email,
+      objet,
+      texte,
+      recuLe: maintenant,
+      lu: true,
+      expediteurVerifie: true,
+      ...(auteur ? { envoyePar: auteur } : {}),
+      ...(origine ? { enReponseA: origine._id } : {}),
+    })
+    .catch(() => {});
+  if (origine) await sanity.patch(origine._id).set({ lu: true }).commit().catch(() => {});
+  return json(res, 200, { ok: true, destinataire: email }, cors);
+}
+
 // ── Gestionnaire HTTP ─────────────────────────────────────────────────────────
 // ── Suggestions Gemini pour le chiffrage (back-office) ───────────────────────
 // Même garde que l'envoi du devis : clé du back-office. La demande, la fiche du
@@ -725,10 +796,19 @@ async function suggererDevis(req, res, cors) {
   // Ni nom, ni e-mail, ni téléphone dans la projection : rien de tout cela ne
   // doit partir chez Google.
   const demande = await sanity.fetch(
-    `*[_type == "demandeDevis" && reference == $ref][0]{typeEnvoi, destination, volume, message, "ficheRef": ficheService._ref}`,
+    `*[_type == "demandeDevis" && reference == $ref][0]{typeEnvoi, destination, volume, message, "ficheRef": ficheService._ref, complementDemandeLe, complementDemandeHorsOutil, devisEnvoyeLe, devisEnvoyeHorsOutilLe}`,
     { ref: reference },
   );
   if (!demande) return json(res, 404, { ok: false, erreur: 'demande introuvable' }, cors);
+  // Réponse au client : le message auquel on répond, relu dans Sanity et rattaché à cette demande.
+  let message = null;
+  if (champ === 'reponse') {
+    const echangeId = nettoyer(corps.echangeId, 120);
+    message = echangeId
+      ? await sanity.fetch(`*[_id == $id && _type == "echange" && lower(reference) == lower($ref)][0]{objet, texte}`, { id: echangeId, ref: reference })
+      : null;
+    if (!message) return json(res, 404, { ok: false, erreur: 'message introuvable dans ce dossier' }, cors);
+  }
   const [fiche, rotations] = await Promise.all([
     (ficheId || demande.ficheRef) ? sanity.fetch(`*[_type == "ficheService" && _id == $id][0]`, { id: ficheId || demande.ficheRef }) : null,
     sanity.fetch(`*[_type == "rotation"] | order(_updatedAt desc)[0...6]{nom, cloture, depart}`),
@@ -739,7 +819,7 @@ async function suggererDevis(req, res, cors) {
     const brut = await demanderSuggestion({
       cle: cleGemini,
       modele,
-      requete: construireRequete({ champ, demande, fiche, rotations }),
+      requete: construireRequete({ champ, demande, fiche, rotations, message }),
     });
     return json(res, 200, { ok: true, champ, suggestion: validerSuggestion(champ, brut), fiche: fiche?.titre ?? null }, cors);
   } catch (err) {
@@ -813,6 +893,9 @@ export async function handler(req, res) {
     }
     if (req.method === 'POST' && url.pathname === '/api/suggestion-devis') {
       return await suggererDevis(req, res, cors);
+    }
+    if (req.method === 'POST' && url.pathname === '/api/envoi-reponse') {
+      return await envoyerReponse(req, res, cors);
     }
     if (req.method === 'POST' && url.pathname === '/api/relire-echange') {
       return await relireMessage(req, res, cors);

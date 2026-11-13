@@ -178,6 +178,14 @@ describe('SectionEchanges', () => {
     await waitFor(() => expect(m.relire).toHaveBeenCalledWith({ marqueur: 'ctx' }, vide));
   });
 
+  it('un e-mail envoyé par l’équipe : « Envoyé », sans « Répondre » ni « Non lu » ; un message reçu propose « Répondre »', () => {
+    const envoye = echange({ _id: 'env', sens: 'envoye', de: 'HGWF Cargo', a: 'martin@example.fr', envoyePar: 'Marie', lu: true, recuLe: '2026-11-06T10:00:00Z' });
+    monter(avec([envoye, echange({ lu: true })]));
+    expect(screen.getByText('Envoyé')).toBeTruthy();
+    expect(screen.getByText(/Vous \(Marie\) → martin@example\.fr/)).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /Répondre/ })).toHaveLength(1);
+  });
+
   it('sans contexte de page (affichage seul), aucun bouton d’écriture', () => {
     monter(avec([echange()]), false);
     expect(screen.queryByRole('button', { name: 'Marquer comme lu' })).toBeNull();

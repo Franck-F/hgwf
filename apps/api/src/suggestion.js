@@ -15,7 +15,7 @@
 
 import { TAUX_TVA } from './montant.js';
 
-export const CHAMPS_SUGGESTION = ['descriptionPrestation', 'montant', 'delaiEstime', 'notes'];
+export const CHAMPS_SUGGESTION = ['descriptionPrestation', 'montant', 'delaiEstime', 'notes', 'reponse'];
 
 export const MODELE_PAR_DEFAUT = 'gemini-3.8-flash';
 const DELAI_MS = 25_000;
@@ -98,6 +98,14 @@ const CONSIGNES = {
     'Propose le « Délai estimé » à afficher sur le devis : une courte expression (ex. « 3 à 5 semaines après le départ du Havre »), tirée des délais de la fiche pour la destination demandée, et des prochaines rotations si elles sont fournies. Si la destination n’a pas de délai dans la fiche, texte vide et manque explicite.',
   notes:
     'Rédige une « Note interne » pour l’équipe (jamais vue par le client) : liste à puces courte des informations à obtenir du client, des points de vigilance propres à cette demande et des prochaines étapes. 8 puces au maximum, une ligne chacune, commençant par « - ».',
+  reponse: [
+    'Rédige la réponse de l’équipe au DERNIER MESSAGE DU CLIENT, prête à être envoyée par e-mail. Texte brut, vouvoiement, court et cordial.',
+    'Commence exactement par « Bonjour, » (sans nom : l’équipe l’ajoute) et termine par « Cordialement, » puis « L’équipe HGWF Cargo » sur la ligne suivante.',
+    'Réponds à ses questions avec les seules informations de la demande, de l’état du dossier et de la fiche service. Ce que tu ne sais pas, dis que l’équipe revient vers lui rapidement ; n’annonce aucun prix, aucune date ferme.',
+    'Si le client vient d’apporter ce qui manquait pour chiffrer, remercie-le et annonce que son devis lui sera transmis très prochainement.',
+    '« devisPossible » : true si la demande et ses réponses suffisent maintenant à établir le devis (service, trajet, volume ou quantité connus), false sinon.',
+    '« manques » : ce qu’il manque encore pour établir le devis (pour l’équipe, jamais pour le client). Liste vide si rien ne manque.',
+  ].join('\n'),
   montant:
     'Propose le montant HT du devis à partir de la grille tarifaire de la fiche et du volume ou de la quantité de la demande. Détaille le calcul ligne par ligne dans « calcul » (quantité × prix unitaire = sous-total). N’utilise QUE des prix présents dans la grille : si un prix nécessaire est « PRIX NON RENSEIGNÉ », ou si la quantité est inconnue ou ambiguë, montantHT = null et explique pourquoi dans « manques ». Taux de TVA : 0 pour un transport lié à l’export (Outre-mer et étranger), 20 pour une prestation en France métropolitaine ; null si tu ne peux pas trancher.',
 };
@@ -122,6 +130,16 @@ const SCHEMA_DESCRIPTION = {
   required: ['texte', 'infosClient', 'manques'],
 };
 
+const SCHEMA_REPONSE = {
+  type: 'OBJECT',
+  properties: {
+    texte: { type: 'STRING' },
+    devisPossible: { type: 'BOOLEAN' },
+    manques: { type: 'ARRAY', items: { type: 'STRING' } },
+  },
+  required: ['texte', 'devisPossible', 'manques'],
+};
+
 const SCHEMA_MONTANT = {
   type: 'OBJECT',
   properties: {
@@ -134,7 +152,16 @@ const SCHEMA_MONTANT = {
 };
 
 // Corps de la requête Gemini (generateContent).
-export function construireRequete({ champ, demande, fiche, rotations = [] }) {
+// État du dossier, pour une réponse au client : ce qui a déjà été fait.
+function etatDossier(demande) {
+  const lignes = [];
+  if (demande?.complementDemandeLe || demande?.complementDemandeHorsOutil) lignes.push('Des compléments d’information ont été demandés au client.');
+  if (demande?.devisEnvoyeLe || demande?.devisEnvoyeHorsOutilLe) lignes.push('Un devis a déjà été envoyé au client.');
+  else lignes.push('Aucun devis n’a encore été envoyé.');
+  return `ÉTAT DU DOSSIER :\n${lignes.map((l) => `- ${l}`).join('\n')}`;
+}
+
+export function construireRequete({ champ, demande, fiche, rotations = [], message = null }) {
   if (!CHAMPS_SUGGESTION.includes(champ)) throw new Error(`champ inconnu : ${champ}`);
   const prochaines = rotations
     .filter((r) => r?.nom)
@@ -148,6 +175,16 @@ export function construireRequete({ champ, demande, fiche, rotations = [] }) {
     '',
     ficheEnTexte(fiche),
     prochaines.length ? `\nPROCHAINES ROTATIONS MARITIMES :\n${prochaines.join('\n')}` : '',
+    ...(champ === 'reponse'
+      ? [
+          '',
+          etatDossier(demande),
+          '',
+          'DERNIER MESSAGE DU CLIENT (anonymisé) :',
+          `Objet : ${anonymiser(message?.objet).slice(0, 200) || '(sans objet)'}`,
+          anonymiser(message?.texte) || '(message vide)',
+        ]
+      : []),
   ].join('\n');
 
   return {
@@ -157,7 +194,13 @@ export function construireRequete({ champ, demande, fiche, rotations = [] }) {
       temperature: 0.3,
       responseMimeType: 'application/json',
       responseSchema:
-        champ === 'montant' ? SCHEMA_MONTANT : champ === 'descriptionPrestation' ? SCHEMA_DESCRIPTION : SCHEMA_TEXTE,
+        champ === 'montant'
+          ? SCHEMA_MONTANT
+          : champ === 'descriptionPrestation'
+            ? SCHEMA_DESCRIPTION
+            : champ === 'reponse'
+              ? SCHEMA_REPONSE
+              : SCHEMA_TEXTE,
       // Réflexion courte : la tâche est cadrée, et l'opérateur attend devant l'écran.
       thinkingConfig: { thinkingLevel: 'low' },
     },
@@ -182,6 +225,9 @@ export function validerSuggestion(champ, brut) {
       : null;
     const taux = TAUX_TVA.includes(brut?.tauxTVA) ? brut.tauxTVA : null;
     return { montantHT: ht, tauxTVA: taux, calcul: String(brut?.calcul ?? '').trim().slice(0, 2_000), manques };
+  }
+  if (champ === 'reponse') {
+    return { texte: String(brut?.texte ?? '').trim().slice(0, 6_000), devisPossible: brut?.devisPossible === true, manques };
   }
   return { texte: String(brut?.texte ?? '').trim().slice(0, 4_000), manques };
 }

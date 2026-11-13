@@ -55,10 +55,19 @@ export function trierEchanges(echanges: Echange[]): Echange[] {
   return [...echanges].sort((a, b) => t(b) - t(a));
 }
 
-export const estNonLu = (e: Echange): boolean => e.lu !== true;
+/** Un e-mail envoyé par l'équipe depuis l'outil n'est jamais une réponse du client. */
+export const estEnvoye = (e: Echange): boolean => e.sens === 'envoye';
+
+/** Non lu : seulement un message reçu (un envoi de l'équipe est lu par nature). */
+export const estNonLu = (e: Echange): boolean => !estEnvoye(e) && e.lu !== true;
+
+/** Messages reçus du client (sans les envois de l'équipe). */
+export function echangesRecus(dossier: Dossier): Echange[] {
+  return (dossier.echanges ?? []).filter((e) => !estEnvoye(e));
+}
 
 export function echangesNonLus(dossier: Dossier): Echange[] {
-  return (dossier.echanges ?? []).filter(estNonLu);
+  return echangesRecus(dossier).filter(estNonLu);
 }
 
 export function nbNonLus(dossier: Dossier): number {
@@ -70,7 +79,7 @@ export function derniereReponse(dossier: Dossier): Date | null {
   const dates: Date[] = [];
   const reponseClientLe = lireDate(dossier.demande?.reponseClientLe);
   if (reponseClientLe) dates.push(reponseClientLe);
-  for (const e of dossier.echanges ?? []) {
+  for (const e of echangesRecus(dossier)) {
     const d = dateEchange(e);
     if (d) dates.push(d);
   }
@@ -95,7 +104,7 @@ export function plusAncienNonLu(dossier: Dossier): Date | null {
  * y a des échanges, il reste tant qu'il en reste un non lu.
  */
 export function reponseATraiter(dossier: Dossier): boolean {
-  const echanges = dossier.echanges ?? [];
+  const echanges = echangesRecus(dossier);
   return echanges.length === 0 || echanges.some(estNonLu);
 }
 

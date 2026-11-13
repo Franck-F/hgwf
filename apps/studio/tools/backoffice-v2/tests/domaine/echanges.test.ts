@@ -9,6 +9,8 @@ import {
   echangesDe,
   explicationErreurEchange,
   formaterTaille,
+  derniereReponse,
+  estNonLu,
   nbNonLus,
   reponseATraiter,
   trierEchanges,
@@ -155,5 +157,15 @@ describe('textes', () => {
     expect(formaterTaille(340_000)).toBe('340 Ko');
     expect(formaterTaille(1_250_000)).toBe('1,3 Mo');
     expect(formaterTaille(undefined)).toBe('');
+  });
+});
+
+describe('e-mails envoyés par l’équipe', () => {
+  const envoye = echange({ _id: 'env', sens: 'envoye', lu: true, recuLe: '2026-11-07T10:00:00.000Z' });
+  it('ne comptent ni comme réponse du client ni comme non lus', () => {
+    const d = avec(dossierDemande({ statut: 1, complementDemandeLe: '02/11/2026 à 10h00' }), [envoye]);
+    expect(nbNonLus(d)).toBe(0);
+    expect(derniereReponse(d)).toBeNull();
+    expect(estNonLu({ ...envoye, lu: false })).toBe(false);
   });
 });

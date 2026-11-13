@@ -100,3 +100,23 @@ test('description : questions au client renvoyées, bornées et nettoyées', () 
   // Les autres champs ne renvoient pas de questions.
   assert.equal(validerSuggestion('delaiEstime', { texte: 'x', infosClient: ['q'] }).infosClient, undefined);
 });
+
+test('réponse au client : dernier message anonymisé, état du dossier, schéma avec devisPossible', () => {
+  const requete = construireRequete({
+    champ: 'reponse',
+    demande: { typeEnvoi: 'Groupage maritime', destination: 'Dakar', complementDemandeLe: '02/11/2026 à 10h00' },
+    fiche: null,
+    message: { objet: 'Re: compléments', texte: 'Voici : 3 m³. Appelez-moi au 06 12 34 56 78 ou marie@client.fr' },
+  });
+  const texte = requete.contents[0].parts[0].text;
+  assert.match(texte, /DERNIER MESSAGE DU CLIENT/);
+  assert.match(texte, /compléments d’information ont été demandés/);
+  assert.match(texte, /Aucun devis n’a encore été envoyé/);
+  assert.doesNotMatch(texte, /06 12 34 56 78|marie@client\.fr/);
+  assert.ok(requete.generationConfig.responseSchema.properties.devisPossible);
+  assert.deepEqual(validerSuggestion('reponse', { texte: ' Bonjour, ', devisPossible: 'oui', manques: ['volume'] }), {
+    texte: 'Bonjour,',
+    devisPossible: false,
+    manques: ['volume'],
+  });
+});

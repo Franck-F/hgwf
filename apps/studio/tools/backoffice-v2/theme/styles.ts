@@ -148,6 +148,8 @@ const echanges = `
 .bo-echange{display:flex;flex-direction:column;gap:var(--bo-e2);padding:var(--bo-e3);background:var(--bo-surface);border:1.5px solid var(--bo-bordure);border-radius:var(--bo-rayon)}
 .bo-echange--nonlu{border-left:5px solid var(--bo-corail);background:var(--bo-mise-en-avant)}
 .bo-echange-texte{white-space:pre-wrap;overflow-wrap:anywhere}
+.bo-echange--envoye{border-left:5px solid var(--bo-accent);background:var(--bo-accent-pale)}
+.bo-citation{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;padding:var(--bo-e3);border-left:4px solid var(--bo-bordure);border-radius:8px;background:var(--bo-creme)}
 .bo-pieces{display:flex;flex-wrap:wrap;gap:var(--bo-e2)}
 .bo-piece{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 var(--bo-e3);border:1.5px solid var(--bo-bordure);border-radius:22px;color:var(--bo-accent);font-weight:600;text-decoration:none}
 .bo-piece:hover{background:var(--bo-accent-pale)}

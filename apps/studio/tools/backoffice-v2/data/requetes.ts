@@ -80,6 +80,7 @@ const CHAMPS_ECHANGE_LISTE = [
   'lu',
   'expediteurVerifie',
   'erreur',
+  'envoyePar',
 ].join(', ');
 
 export const REQUETE_MAGASIN = `{

@@ -35,7 +35,7 @@ export const echange = defineType({
       title: 'Sens',
       type: 'string',
       readOnly: true,
-      options: { list: [{ title: 'Reçu du client', value: 'recu' }] },
+      options: { list: [{ title: 'Reçu du client', value: 'recu' }, { title: 'Envoyé par l’équipe', value: 'envoye' }] },
     }),
     defineField({ name: 'de', title: 'De', type: 'string', readOnly: true }),
     defineField({ name: 'a', title: 'À', type: 'string', readOnly: true }),
@@ -74,6 +74,8 @@ export const echange = defineType({
       type: 'datetime',
       readOnly: true,
     }),
+    defineField({ name: 'envoyePar', title: 'Envoyé par', type: 'string', readOnly: true, hidden: ({ document }) => document?.sens !== 'envoye' }),
+    defineField({ name: 'enReponseA', title: 'En réponse au message', type: 'string', readOnly: true, hidden: ({ document }) => document?.sens !== 'envoye' }),
     defineField({
       name: 'expediteurVerifie',
       title: 'Expéditeur vérifié',

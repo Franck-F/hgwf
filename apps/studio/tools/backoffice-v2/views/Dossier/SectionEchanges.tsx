@@ -12,6 +12,7 @@ import {
   adresseReponse,
   dateEchange,
   echangeARelire,
+  estEnvoye,
   estNonLu,
   explicationErreurEchange,
   formaterTaille,
@@ -22,13 +23,15 @@ import type { Echange, PieceEchange } from '../../domaine/types';
 import { Badge, Bouton, EtatVide, Icone, Section } from '../../ui';
 import { useContexteDossierOptionnel } from './ContexteDossier';
 import { useContexteEcritureDossier } from './contexteEcriture';
+import { FenetreReponse } from './FenetreReponse';
 
 /** Au-delà, le message est replié : une réponse cite souvent tout le fil précédent. */
 const LONGUEUR_REPLI = 1200;
 
 const pluriel = (n: number, mot: string): string => `${n} ${mot}${n > 1 ? 's' : ''}`;
 
-export function resumeEchanges(echanges: Echange[]): string {
+export function resumeEchanges(tous: Echange[]): string {
+  const echanges = tous.filter((e) => !estEnvoye(e));
   if (echanges.length === 0) return 'Aucune réponse';
   const nonLus = echanges.filter(estNonLu).length;
   if (nonLus > 0) return `${pluriel(nonLus, 'réponse')} non lue${nonLus > 1 ? 's' : ''}`;
@@ -58,10 +61,12 @@ interface MessageProps {
   onLire?: () => void;
   /** Message rangé vide (lecture refusée à l'arrivée) : demander à l'API de le relire. */
   onRelire?: () => void;
+  /** Ouvre la fenêtre « Répondre » (message reçu seulement). */
+  onRepondre?: () => void;
   occupe: boolean;
 }
 
-function Message({ echange, onLire, onRelire, occupe }: MessageProps): ReactElement {
+function Message({ echange, onLire, onRelire, onRepondre, occupe }: MessageProps): ReactElement {
   const [deplie, setDeplie] = useState(false);
   const nonLu = estNonLu(echange);
   const date = dateEchange(echange);
@@ -69,11 +74,19 @@ function Message({ echange, onLire, onRelire, occupe }: MessageProps): ReactElem
   const long = texte.length > LONGUEUR_REPLI;
   const affiche = long && !deplie ? `${texte.slice(0, LONGUEUR_REPLI).trimEnd()}…` : texte;
   const pieces = echange.pieces ?? [];
+  const envoye = estEnvoye(echange);
 
   return (
-    <li className={`bo-echange${nonLu ? ' bo-echange--nonlu' : ''}`} data-echange={echange._id}>
+    <li className={`bo-echange${nonLu ? ' bo-echange--nonlu' : ''}${envoye ? ' bo-echange--envoye' : ''}`} data-echange={echange._id}>
       <div className="bo-rangee">
-        <span className="bo-fort">{echange.de?.trim() || 'Expéditeur inconnu'}</span>
+        <span className="bo-fort">
+          {envoye ? `Vous${echange.envoyePar ? ` (${echange.envoyePar})` : ''} → ${echange.a?.trim() || 'le client'}` : echange.de?.trim() || 'Expéditeur inconnu'}
+        </span>
+        {envoye ? (
+          <Badge ton="info" icone="fleche">
+            Envoyé
+          </Badge>
+        ) : null}
         {nonLu ? (
           <Badge ton="attention" icone="enveloppe">
             Non lu
@@ -117,8 +130,13 @@ function Message({ echange, onLire, onRelire, occupe }: MessageProps): ReactElem
           <span>{explicationErreurEchange(echange.erreur)}</span>
         </div>
       ) : null}
-      {(onRelire && echangeARelire(echange)) || (nonLu && onLire) ? (
+      {(onRelire && echangeARelire(echange)) || (nonLu && onLire) || (onRepondre && !envoye) ? (
         <div className="bo-rangee">
+          {onRepondre && !envoye ? (
+            <Bouton variante="secondaire" taille="s" desactive={occupe} onClick={onRepondre}>
+              <Icone nom="enveloppe" taille={16} /> Répondre
+            </Bouton>
+          ) : null}
           {onRelire && echangeARelire(echange) ? (
             <Bouton variante="primaire" taille="s" desactive={occupe} onClick={onRelire}>
               Relire le message
@@ -135,10 +153,13 @@ function Message({ echange, onLire, onRelire, occupe }: MessageProps): ReactElem
   );
 }
 
-export function SectionEchanges({ dossier, ouverte, onBasculer }: SectionDossierProps): ReactElement {
+export function SectionEchanges({ dossier, brouillon, ouverte, onBasculer }: SectionDossierProps): ReactElement {
   const contexte = useContexteDossierOptionnel();
   const ctxEcriture = useContexteEcritureDossier();
   const [occupe, setOccupe] = useState(false);
+  const [reponseA, setReponseA] = useState<Echange | null>(null);
+  // Répondre suppose une demande avec une adresse : c'est elle que l'API relit.
+  const peutRepondre = Boolean(contexte && dossier.demande?.reference && dossier.demande?.email);
   const echanges = useMemo(() => trierEchanges(dossier.echanges ?? []), [dossier.echanges]);
   const nonLus = echanges.filter(estNonLu);
   const reference = dossier.demande?.reference || dossier.expedition?.demandeRef || dossier.expedition?.reference || '';
@@ -188,11 +209,15 @@ export function SectionEchanges({ dossier, ouverte, onBasculer }: SectionDossier
                 echange={e}
                 occupe={occupe}
                 {...(contexte ? { onLire: () => void lire([e]), onRelire: () => void relire(e) } : {})}
+                {...(peutRepondre ? { onRepondre: () => setReponseA(e) } : {})}
               />
             ))}
           </ol>
         </>
       )}
+      {reponseA ? (
+        <FenetreReponse dossier={dossier} brouillon={brouillon} echange={reponseA} onFermer={() => setReponseA(null)} />
+      ) : null}
     </Section>
   );
 }

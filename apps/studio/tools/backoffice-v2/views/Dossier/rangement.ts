@@ -8,7 +8,7 @@
  * selon la phase.
  */
 import { euros } from '../../domaine/chiffrage';
-import { estNonLu } from '../../domaine/echanges';
+import { estEnvoye, estNonLu } from '../../domaine/echanges';
 import { fusionner } from '../../domaine/fusion';
 import { construireHistorique } from '../../domaine/historique';
 import { manquesFacturation } from '../../domaine/manques';
@@ -61,13 +61,19 @@ export function sousDossiersDe(dossier: Dossier, brouillon: Brouillon, phase: Ph
     : x?.trajet || 'Expédition sans demande';
   liste.push({ id: 'infos', titre: 'Infos', icone: 'info', detail: infos });
 
-  const echanges = dossier.echanges ?? [];
-  const nonLus = echanges.filter(estNonLu).length;
+  const tous = dossier.echanges ?? [];
+  const recus = tous.filter((e) => !estEnvoye(e)).length;
+  const envoyes = tous.length - recus;
+  const nonLus = tous.filter(estNonLu).length;
+  const detailEchanges = [
+    recus > 0 ? `${recus} reçu${recus > 1 ? 's' : ''}` : '',
+    envoyes > 0 ? `${envoyes} envoyé${envoyes > 1 ? 's' : ''}` : '',
+  ].filter(Boolean);
   liste.push({
     id: 'echanges',
     titre: 'Échanges',
     icone: 'enveloppe',
-    detail: echanges.length === 0 ? 'Aucun e-mail reçu' : `${pluriel(echanges.length, 'e-mail')} reçu${echanges.length > 1 ? 's' : ''}`,
+    detail: detailEchanges.length === 0 ? 'Aucun e-mail' : `E-mails : ${detailEchanges.join(', ')}`,
     signal: nonLus > 0 ? `${nonLus} non lu${nonLus > 1 ? 's' : ''}` : undefined,
   });
 

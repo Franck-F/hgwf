@@ -212,7 +212,8 @@ export interface Echange extends DocumentBase {
   reference?: string;
   /** `_id` de la demande liée, quand elle a été trouvée. */
   demandeId?: string;
-  sens?: 'recu';
+  /** `recu` : réponse du client ; `envoye` : e-mail envoyé par l'équipe depuis l'outil. */
+  sens?: 'recu' | 'envoye';
   de?: string;
   a?: string;
   objet?: string;
@@ -222,6 +223,10 @@ export interface Echange extends DocumentBase {
   pieces?: PieceEchange[];
   lu?: boolean;
   transfereLe?: string;
+  /** Envoi de l'équipe : membre qui a envoyé. */
+  envoyePar?: string;
+  /** Envoi de l'équipe : `_id` de l'échange auquel il répond. */
+  enReponseA?: string;
   /** `false` : le message ne vient pas de l'adresse de la demande (ou authentification en échec). */
   expediteurVerifie?: boolean;
   motifNonVerifie?: string;
