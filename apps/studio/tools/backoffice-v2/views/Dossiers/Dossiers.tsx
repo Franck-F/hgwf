@@ -1,7 +1,7 @@
 /** @jsxRuntime automatic @jsxImportSource react */
 /**
- * Liste des dossiers (4.2) : 4 vues à compteurs, tri par urgence puis activité
- * récente. Dans une vue, des filtres resserrent la liste : l'étape précise
+ * Liste des dossiers (4.2) : 4 vues à compteurs, les plus récents en tête
+ * (tri au choix : récents, dernière activité, urgence). Dans une vue, des filtres resserrent la liste : l'étape précise
  * (boutons avec leur nombre), le type d'envoi et un texte libre. Page de
  * navigation : aucun bouton plein.
  */
@@ -10,11 +10,10 @@ import type { ReactElement } from 'react';
 import { useRoute, useToasts } from '../../app/Contexte';
 import { useDossiers } from '../../data/useDossiers';
 import type { DossiersProps } from '../../domaine/contrats';
-import { trierParUrgence } from '../../domaine/priorites';
 import { Bouton, EtatVide, Liste, MenuActions, Saisie, Segments, Squelette } from '../../ui';
 import { exporterDossiers } from '../Outils/ExportDossiers';
-import { FILTRES_VIDES, TOUS, TOUTES, etapesPresentes, filtrer, filtrerSansEtape, filtresActifs, typesEnvoiPresents } from './filtres';
-import type { Filtres } from './filtres';
+import { FILTRES_VIDES, TOUS, TOUTES, TRIS, etapesPresentes, filtrer, filtrerSansEtape, filtresActifs, trier, typesEnvoiPresents } from './filtres';
+import type { Filtres, Tri } from './filtres';
 import { LigneDossier } from './LigneDossier';
 import { VUES, compterParVue, estDansVue } from './vues';
 
@@ -24,6 +23,7 @@ export function Dossiers({ vue }: DossiersProps): ReactElement {
   const { dossiers, chargement, erreur, recharger } = useDossiers();
   const [export_, setExport] = useState(false);
   const [filtres, setFiltres] = useState<Filtres>(FILTRES_VIDES);
+  const [tri, setTri] = useState<Tri>('recents');
 
   const compteurs = useMemo(() => compterParVue(dossiers), [dossiers]);
   const dansVue = useMemo(() => dossiers.filter((d) => estDansVue(d, vue)), [dossiers, vue]);
@@ -31,7 +31,7 @@ export function Dossiers({ vue }: DossiersProps): ReactElement {
   const etapes = useMemo(() => etapesPresentes(filtrerSansEtape(dansVue, filtres)), [dansVue, filtres]);
   // Une étape absente de cette vue (on vient de changer de vue) ne filtre plus rien.
   const effectifs: Filtres = etapes.some((e) => e.id === filtres.etape) ? filtres : { ...filtres, etape: TOUTES };
-  const lignes = useMemo(() => trierParUrgence(filtrer(dansVue, effectifs), new Date()), [dansVue, effectifs]);
+  const lignes = useMemo(() => trier(filtrer(dansVue, effectifs), tri, new Date()), [dansVue, effectifs, tri]);
   const definition = VUES.find((v) => v.id === vue) ?? VUES[0]!;
   const actifs = filtresActifs(effectifs);
   const changer = (f: Partial<Filtres>): void => setFiltres((c) => ({ ...c, ...f }));
@@ -91,6 +91,12 @@ export function Dossiers({ vue }: DossiersProps): ReactElement {
                 onChange={(typeEnvoi) => changer({ typeEnvoi: typeEnvoi || TOUS })}
               />
             ) : null}
+            <Liste
+              etiquette="Trier"
+              valeur={tri}
+              options={TRIS.map((t) => ({ valeur: t.valeur, libelle: t.libelle }))}
+              onChange={(v) => setTri((TRIS.find((t) => t.valeur === v)?.valeur ?? 'recents') as Tri)}
+            />
             {actifs ? (
               <Bouton variante="discret" onClick={() => setFiltres(FILTRES_VIDES)}>
                 Effacer les filtres

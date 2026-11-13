@@ -66,12 +66,12 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe('coque', () => {
-  it('monte une seule racine .bo-racine, avec la navigation, la recherche et le nom de l’utilisateur', () => {
+  it('monte une seule racine .bo-racine, avec la navigation et la recherche, sans nom d’utilisateur', () => {
     monter();
     expect(document.querySelectorAll('.bo-racine')).toHaveLength(1);
     expect(nav().closest('.bo-racine')).not.toBeNull();
     expect(screen.getByRole('searchbox')).toBeTruthy();
-    expect(screen.getByText('Utilisateur de test')).toBeTruthy();
+    expect(screen.queryByText('Utilisateur de test')).toBeNull();
   });
 
   it('propose exactement quatre entrées, dont une seule est la page courante', () => {

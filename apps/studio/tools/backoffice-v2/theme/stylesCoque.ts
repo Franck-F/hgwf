@@ -1,6 +1,6 @@
 /**
  * Feuille de style de la coque et des listes : grande carte blanche sur fond
- * bleu nuit, barre haute (logo, recherche, utilisateur), barre latérale bleue,
+ * bleu nuit, barre haute (logo, recherche), barre latérale bleue,
  * titres de page, cartes « accès rapide » en onglet de dossier, lignes et
  * tableaux au style de la maquette.
  *
@@ -30,9 +30,6 @@ const grille = `
 .bo-recherche .bo-saisie::placeholder{color:var(--bo-ardoise);opacity:1}
 .bo-recherche-icone{position:absolute;left:16px;top:50%;display:flex;transform:translateY(-50%);color:var(--bo-ardoise);pointer-events:none}
 .bo-resultats{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:20;background:var(--bo-surface);border:1.5px solid var(--bo-bordure);border-radius:18px;box-shadow:var(--bo-ombre-modale);padding:var(--bo-e2);display:flex;flex-direction:column;gap:var(--bo-e1)}
-.bo-utilisateur{margin-left:auto;display:flex;align-items:center;gap:14px}
-.bo-utilisateur-nom{font-size:13px;font-weight:500}
-.bo-pastille-utilisateur{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:var(--bo-corail);color:var(--bo-marine);font-size:15px;font-weight:600}
 .bo-corps{display:grid;grid-template-columns:248px minmax(0,1fr);flex:1}
 .bo-contenu{min-width:0}
 .bo-lateral{display:flex;flex-direction:column;padding:46px 24px 40px 32px;background:var(--bo-accent);color:#fff;border-radius:0 64px 0 44px}
@@ -189,7 +186,6 @@ ${MOBILE}{
 .bo-haut{flex-wrap:wrap;gap:var(--bo-e2) var(--bo-e3);min-height:0;padding:12px 16px}
 .bo-logo{height:44px}
 .bo-recherche{order:3;flex:1 1 100%;max-width:none;margin-left:0}
-.bo-utilisateur-nom{display:none}
 .bo-corps{display:flex;flex-direction:column}
 .bo-contenu{flex:1}
 .bo-lateral{display:contents}

@@ -9,6 +9,7 @@ import {
   filtrer,
   filtresActifs,
   normaliser,
+  trier,
   typesEnvoiPresents,
 } from '../../../views/Dossiers/filtres';
 import { dossierDemande } from '../../domaine/fabrique';
@@ -63,5 +64,18 @@ describe('compteurs', () => {
   it('types d’envoi du plus fréquent au plus rare', () => {
     expect(typesEnvoiPresents(tous)[0]).toEqual({ valeur: 'Groupage maritime', nombre: 2 });
     expect(normaliser('  Fret   AÉRIEN ')).toBe('fret aerien');
+  });
+});
+
+describe('trier', () => {
+  const ancien = dossierDemande({ recueLe: '01/10/2026 à 09h00', _updatedAt: '2026-11-12T10:00:00Z' }, 'ancien');
+  const recent = dossierDemande({ recueLe: '10/11/2026 à 09h00', _updatedAt: '2026-11-10T10:00:00Z' }, 'recent');
+  const moyen = dossierDemande({ recueLe: '20/10/2026 à 09h00', _updatedAt: '2026-10-20T10:00:00Z' }, 'moyen');
+  const maintenant = new Date('2026-11-13T10:00:00Z');
+  it('« Plus récents » : le dernier arrivé en tête, même si un ancien vient d’être modifié', () => {
+    expect(trier([ancien, moyen, recent], 'recents', maintenant).map((d) => d.id)).toEqual(['recent', 'moyen', 'ancien']);
+  });
+  it('« Dernière activité » : le dernier touché en tête', () => {
+    expect(trier([moyen, recent, ancien], 'activite', maintenant)[0]?.id).toBe('ancien');
   });
 });

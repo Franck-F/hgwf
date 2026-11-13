@@ -5,6 +5,8 @@
  * destination, contact). Fonctions pures, sans React.
  */
 import { complementEnAttente } from '../../domaine/complements';
+import { lireDate } from '../../domaine/echeances';
+import { derniereActivite, trierParUrgence } from '../../domaine/priorites';
 import { phaseDe } from '../../domaine/phases';
 import type { Dossier } from '../../domaine/types';
 
@@ -161,4 +163,37 @@ export function typesEnvoiPresents(dossiers: readonly Dossier[]): { valeur: stri
 
 export function filtresActifs(f: Filtres): boolean {
   return f.texte.trim() !== '' || f.etape !== TOUTES || f.typeEnvoi !== TOUS;
+}
+
+// ── Tri ──────────────────────────────────────────────────────────────────────
+
+export type Tri = 'recents' | 'activite' | 'urgence';
+
+export const TRIS: { valeur: Tri; libelle: string }[] = [
+  { valeur: 'recents', libelle: 'Plus récents d’abord' },
+  { valeur: 'activite', libelle: 'Dernière activité d’abord' },
+  { valeur: 'urgence', libelle: 'Plus urgents d’abord' },
+];
+
+/** Date d'arrivée du dossier : réception de la demande, sinon création du document. */
+export function dateArrivee(dossier: Dossier): Date | null {
+  return (
+    lireDate(dossier.demande?.recueLe) ??
+    lireDate(dossier.demande?._createdAt) ??
+    lireDate(dossier.expedition?._createdAt) ??
+    null
+  );
+}
+
+const temps = (d: Date | null): number => d?.getTime() ?? 0;
+
+/**
+ * « Plus récents » : le dernier dossier arrivé en tête (date de réception, qui
+ * ne bouge pas quand on modifie un dossier). « Dernière activité » : le dernier
+ * touché en tête. « Plus urgents » : l'ordre d'« À faire ».
+ */
+export function trier(dossiers: readonly Dossier[], tri: Tri, maintenant: Date): Dossier[] {
+  if (tri === 'urgence') return trierParUrgence([...dossiers], maintenant);
+  const cle = tri === 'recents' ? dateArrivee : derniereActivite;
+  return [...dossiers].sort((a, b) => temps(cle(b)) - temps(cle(a)) || temps(derniereActivite(b)) - temps(derniereActivite(a)));
 }
