@@ -77,26 +77,26 @@ describe('coque', () => {
   it('propose exactement quatre entrées, dont une seule est la page courante', () => {
     monter();
     const boutons = Array.from(nav().querySelectorAll('button'));
-    expect(boutons.map((b) => b.textContent?.replace(/\d.*$/, ''))).toEqual(['À faire', 'Dossiers', 'Clients', 'Outils']);
+    expect(boutons.map((b) => b.textContent?.replace(/\d.*$/, ''))).toEqual(['Priorités', 'Dossiers', 'Clients', 'Outils']);
     expect(boutons.filter((b) => b.getAttribute('aria-current') === 'page')).toHaveLength(1);
-    expect(entree('À faire').getAttribute('aria-current')).toBe('page');
+    expect(entree('Priorités').getAttribute('aria-current')).toBe('page');
   });
 
-  it('affiche la pastille d’urgences sur « À faire », et la masque à zéro', () => {
+  it('affiche la pastille d’urgences sur « Priorités », et la masque à zéro', () => {
     monter();
-    expect(entree('À faire').textContent).toContain('3');
-    expect(entree('À faire').textContent).toContain('urgents');
+    expect(entree('Priorités').textContent).toContain('3');
+    expect(entree('Priorités').textContent).toContain('urgents');
     cleanup();
     etat.nbUrgents = 0;
     monter();
-    expect(entree('À faire').querySelector('.bo-nav-pastille')).toBeNull();
+    expect(entree('Priorités').querySelector('.bo-nav-pastille')).toBeNull();
   });
 
   it('un dossier se lit comme « 1 urgent » au singulier', () => {
     etat.nbUrgents = 1;
     monter();
-    expect(entree('À faire').textContent).toContain('1 urgent');
-    expect(entree('À faire').textContent).not.toContain('urgents');
+    expect(entree('Priorités').textContent).toContain('1 urgent');
+    expect(entree('Priorités').textContent).not.toContain('urgents');
   });
 
   it('navigue entre les quatre entrées', () => {
@@ -152,11 +152,11 @@ describe('coque', () => {
     expect((screen.getByLabelText('Saisie locale') as HTMLInputElement).value).toBe('');
   });
 
-  it('affiche une page « introuvable » avec un retour vers « À faire »', () => {
+  it('affiche une page « introuvable » avec un retour vers « Priorités »', () => {
     const routeur = monter('/nimporte-quoi');
     expect(screen.getByText("Cette page n'existe pas")).toBeTruthy();
     expect(Array.from(nav().querySelectorAll('[aria-current]'))).toHaveLength(0);
-    fireEvent.click(screen.getByRole('button', { name: 'Retour à « À faire »' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Retour à « Priorités »' }));
     expect(routeur.chemin()).toBe('/afaire');
     expect(screen.getByText('Vue À faire')).toBeTruthy();
   });

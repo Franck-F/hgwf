@@ -5,8 +5,10 @@
  * partir de 900 px, barre d'onglets collante en bas de `.bo-racine` en dessous
  * (la mise en page est dans la feuille de style, ce composant ne change pas).
  *
- * La pastille de « À faire » est le nombre d'éléments urgents ; elle est lue
- * « N urgents » par les lecteurs d'écran.
+ * La pastille de « Priorités » (ancien « À faire », renommé le 16/11/2026 à la
+ * demande de l'équipe) est le nombre d'éléments urgents ; elle est lue
+ * « N urgents » par les lecteurs d'écran. L'identifiant de route reste `afaire`
+ * pour ne casser aucun lien enregistré.
  */
 import type { ReactElement } from 'react';
 import { Icone } from '../ui';
@@ -22,7 +24,7 @@ export interface NavigationProps {
 }
 
 export const ENTREES: readonly { id: EntreeNavigation; libelle: string; icone: IconeNom }[] = [
-  { id: 'afaire', libelle: 'À faire', icone: 'afaire' },
+  { id: 'afaire', libelle: 'Priorités', icone: 'afaire' },
   { id: 'dossiers', libelle: 'Dossiers', icone: 'dossiers' },
   { id: 'clients', libelle: 'Clients', icone: 'clients' },
   { id: 'outils', libelle: 'Outils', icone: 'outils' },

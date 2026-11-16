@@ -499,9 +499,11 @@ export function horodatageParis(date = new Date()) {
 
 // ── API Resend ────────────────────────────────────────────────────────────────
 class ErreurResend extends Error {
-  constructor(statut) {
-    super(`Resend ${statut}`);
+  /** `nom` : le code d'erreur de Resend (« restricted_api_key », « invalid_api_key »…), s'il est lisible. */
+  constructor(statut, nom = null) {
+    super(`Resend ${statut}${nom ? ' ' + nom : ''}`);
     this.statut = statut;
+    this.nom = nom;
   }
 }
 
@@ -510,7 +512,17 @@ async function appelResend(chemin, cle, fetchImpl) {
     headers: { Authorization: `Bearer ${cle}` },
     signal: AbortSignal.timeout(15_000),
   });
-  if (!rep.ok) throw new ErreurResend(rep.status);
+  if (!rep.ok) {
+    // Le corps d'erreur dit pourquoi (clé limitée à l'envoi, clé invalide…) :
+    // on le garde pour le diagnostic, sans jamais journaliser la clé.
+    let nom = null;
+    try {
+      nom = (await rep.json())?.name ?? null;
+    } catch {
+      // corps illisible : le statut suffira
+    }
+    throw new ErreurResend(rep.status, typeof nom === 'string' ? nom.slice(0, 60) : null);
+  }
   return rep.json();
 }
 
@@ -830,8 +842,16 @@ export async function relireEchange({ echangeId, sanity, env = process.env, fetc
     mail = await lireEmailRecu(emailId, env.RESEND_API_KEY, fetchImpl);
   } catch (err) {
     const statut = err instanceof ErreurResend ? err.statut : null;
-    if (statut === 401 || statut === 403) {
-      return { status: 503, corps: { ok: false, erreur: 'Resend refuse la lecture : la clé RESEND_API_KEY ne permet que l’envoi. Il faut la remplacer par une clé « Full access ».' } };
+    const nom = err instanceof ErreurResend ? err.nom : null;
+    if (statut === 401 || statut === 403 || nom === 'invalid_api_key') {
+      console.error(`[reception] relecture refusée par Resend (${statut} ${nom ?? '?'})`);
+      // Le code d'erreur de Resend distingue une clé limitée à l'envoi d'une clé
+      // absente ou invalide : le message dit laquelle des deux corriger.
+      const erreur =
+        nom === 'restricted_api_key' || !nom
+          ? 'Resend refuse la lecture : la clé RESEND_API_KEY du projet Vercel « hgwf-cargo-api » ne permet que l’envoi. Il faut y mettre une clé « Full access », puis redéployer.'
+          : `Resend refuse la clé RESEND_API_KEY du projet Vercel « hgwf-cargo-api » (${nom}). Vérifiez qu’elle est complète et toujours active, puis redéployez.`;
+      return { status: 503, corps: { ok: false, erreur } };
     }
     if (statut === 404) return { status: 404, corps: { ok: false, erreur: 'Resend ne trouve plus ce message' } };
     console.error(`[reception] relecture impossible (${statut ?? err?.name ?? 'erreur'})`);

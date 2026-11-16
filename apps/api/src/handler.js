@@ -18,6 +18,7 @@ import { aUnMontant, calculerChiffrage, lignesMontant, montantAnnonce } from './
 import { CHAMPS_SUGGESTION, MODELE_PAR_DEFAUT, construireRequete, demanderSuggestion, validerSuggestion } from './suggestion.js';
 import { facturationDepuisFormulaire } from './facturation.js';
 import { TAILLE_MAX_WEBHOOK, adresseReponse, relireEchange, traiterReception } from './reception.js';
+import { cleValide, prenomAffichable, sansLien } from './securite.js';
 
 // ── Chargement .env (sans dépendance) : dev local uniquement ─────────────────
 try {
@@ -245,7 +246,7 @@ async function creerDemande(req, res, cors) {
 async function envoyerDevis(req, res, cors) {
   const cle = process.env.BACKOFFICE_API_CLE;
   if (!cle) return json(res, 503, { ok: false, erreur: 'envoi non configuré' }, cors);
-  if (req.headers['x-hgwf-cle'] !== cle) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
+  if (!cleValide(req.headers['x-hgwf-cle'], cle)) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
 
   let corps;
   try {
@@ -404,8 +405,8 @@ async function relancerDevis(req, res, cors) {
   // Vercel signe ses appels planifiés ; on accepte aussi la clé du back-office
   // pour pouvoir déclencher une passe à la main.
   const secret = process.env.CRON_SECRET;
-  const parCron = secret && req.headers.authorization === `Bearer ${secret}`;
-  const parCle = process.env.BACKOFFICE_API_CLE && req.headers['x-hgwf-cle'] === process.env.BACKOFFICE_API_CLE;
+  const parCron = Boolean(secret) && cleValide(req.headers.authorization, `Bearer ${secret}`);
+  const parCle = Boolean(process.env.BACKOFFICE_API_CLE) && cleValide(req.headers['x-hgwf-cle'], process.env.BACKOFFICE_API_CLE);
   if (!parCron && !parCle) return json(res, 401, { ok: false, erreur: 'non autorisé' }, cors);
 
   const candidats = await sanity.fetch(
@@ -454,7 +455,7 @@ const ETAPES = ['Pris en charge', 'Au port du Havre', 'En mer', "Port d'arrivée
 async function notifierExpedition(req, res, cors) {
   const cle = process.env.BACKOFFICE_API_CLE;
   if (!cle) return json(res, 503, { ok: false, erreur: 'envoi non configuré' }, cors);
-  if (req.headers['x-hgwf-cle'] !== cle) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
+  if (!cleValide(req.headers['x-hgwf-cle'], cle)) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
 
   let corps;
   try {
@@ -544,13 +545,19 @@ async function notifierExpedition(req, res, cors) {
 // client, et l'alerte à l'équipe. Le second est le plus important : sans lui,
 // personne n'est prévenu qu'une demande est arrivée — c'est ce qui a laissé
 // deux demandes réelles sans réponse pendant treize jours.
-async function notifierDemande({ reference, nom, email, destination, typeEnvoi, volume }) {
+async function notifierDemande({ reference, nom, email, destination: destinationSaisie, typeEnvoi: typeSaisi, volume: volumeSaisi }) {
   if (!envoiConfigure()) {
     console.log(`[email] envoi non configuré, aucun message pour ${reference}`);
     return;
   }
   const envois = [];
 
+  // Ces valeurs viennent d'un formulaire public et partent dans un e-mail signé
+  // HGWF Cargo vers l'adresse saisie : aucun lien ni adresse n'y est recopié
+  // (voir securite.js). Le document Sanity, lui, garde la saisie complète.
+  const destination = sansLien(destinationSaisie);
+  const typeEnvoi = sansLien(typeSaisi);
+  const volume = sansLien(volumeSaisi);
   const lignes = [
     typeEnvoi ? ["Type d'envoi", typeEnvoi] : null,
     destination ? ['Destination', destination] : null,
@@ -559,7 +566,7 @@ async function notifierDemande({ reference, nom, email, destination, typeEnvoi, 
 
   // Client : accusé de réception. Rien à faire de sa part, on annonce le délai.
   if (email) {
-    const prenom = (nom || '').trim().split(/\s+/)[0] || '';
+    const prenom = prenomAffichable(nom);
     const texte = [
       `Bonjour${prenom ? ' ' + prenom : ''},`,
       '',
@@ -649,7 +656,7 @@ async function chercherSuivi(req, res, cors, url) {
 async function envoyerComplement(req, res, cors) {
   const cle = process.env.BACKOFFICE_API_CLE;
   if (!cle) return json(res, 503, { ok: false, erreur: 'envoi non configuré' }, cors);
-  if (req.headers['x-hgwf-cle'] !== cle) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
+  if (!cleValide(req.headers['x-hgwf-cle'], cle)) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
 
   let corps;
   try {
@@ -705,7 +712,7 @@ async function envoyerComplement(req, res, cors) {
 async function envoyerReponse(req, res, cors) {
   const cle = process.env.BACKOFFICE_API_CLE;
   if (!cle) return json(res, 503, { ok: false, erreur: 'envoi non configuré' }, cors);
-  if (req.headers['x-hgwf-cle'] !== cle) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
+  if (!cleValide(req.headers['x-hgwf-cle'], cle)) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
 
   let corps;
   try {
@@ -776,7 +783,7 @@ async function envoyerReponse(req, res, cors) {
 async function suggererDevis(req, res, cors) {
   const cle = process.env.BACKOFFICE_API_CLE;
   if (!cle) return json(res, 503, { ok: false, erreur: 'back-office non configuré' }, cors);
-  if (req.headers['x-hgwf-cle'] !== cle) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
+  if (!cleValide(req.headers['x-hgwf-cle'], cle)) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
   const cleGemini = process.env.GEMINI_API_KEY;
   if (!cleGemini) return json(res, 503, { ok: false, erreur: 'suggestions non configurées' }, cors);
 
@@ -835,7 +842,7 @@ async function suggererDevis(req, res, cors) {
 async function relireMessage(req, res, cors) {
   const cle = process.env.BACKOFFICE_API_CLE;
   if (!cle) return json(res, 503, { ok: false, erreur: 'back-office non configuré' }, cors);
-  if (req.headers['x-hgwf-cle'] !== cle) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
+  if (!cleValide(req.headers['x-hgwf-cle'], cle)) return json(res, 401, { ok: false, erreur: 'clé invalide' }, cors);
   let corps;
   try {
     corps = JSON.parse((await lireCorps(req)) || '{}');

@@ -17,8 +17,11 @@ const ETROIT = `@media (max-width:${POINTS_DE_RUPTURE.colonneLaterale - 1}px)`;
 const MOYEN = '@media (max-width:1199px)';
 
 /** Forme d'onglet de dossier de la maquette (cartes « accès rapide » de 218 × 170). */
+// Onglet de dossier des cartes « Par étape », pour une carte de 160 × 184 px
+// (le tracé est en pixels : la carte garde donc cette taille exacte). Six
+// cartes tiennent sur une ligne à 1440 px de large.
 const ONGLET =
-  "path('M0 14 Q0 0 14 0 L118 0 Q126 0 131 6 L137 13 Q142 19 150 19 L204 19 Q218 19 218 33 L218 156 Q218 170 204 170 L14 170 Q0 170 0 156 Z')";
+  "path('M0 14 Q0 0 14 0 L60 0 Q68 0 73 6 L79 13 Q84 19 92 19 L146 19 Q160 19 160 33 L160 170 Q160 184 146 184 L14 184 Q0 184 0 170 Z')";
 
 const grille = `
 .bo-coque{display:flex;flex-direction:column;width:calc(100% - 48px);max-width:1400px;min-height:calc(100% - 48px);margin:24px auto;background:var(--bo-papier);border-radius:44px 84px 44px 44px;box-shadow:var(--bo-ombre-coque)}
@@ -56,6 +59,11 @@ const grille = `
 .bo-titres{display:flex;flex-direction:column;gap:4px;min-width:0}
 .bo-titre-page{font-size:30px;line-height:1.2;font-weight:600;letter-spacing:-.01em}
 .bo-sous-titre{font-size:14px;color:var(--bo-ardoise);max-width:70ch}
+.bo-surtitre{font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--bo-ardoise)}
+.bo-resume{display:flex;flex-wrap:wrap;align-items:center;gap:var(--bo-e2) var(--bo-e3);padding:var(--bo-e3) var(--bo-e4);border:1.5px solid var(--bo-accent);border-radius:var(--bo-rayon-carte);background:var(--bo-accent-pale);color:var(--bo-accent-fonce)}
+.bo-resume--retard{border-color:var(--bo-corail);background:var(--bo-mise-en-avant);color:var(--bo-corail-texte)}
+.bo-resume-texte{flex:1 1 280px;margin:0;font-size:15px;font-weight:600;line-height:1.4}
+.bo-resume .bo-bouton{margin-left:auto}
 .bo-dossier-grille{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:var(--bo-e4);align-items:start}
 ${ETROIT}{.bo-dossier-grille{grid-template-columns:minmax(0,1fr)}}
 .bo-barre-collante{position:sticky;bottom:0;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:var(--bo-e3);padding:var(--bo-e3) var(--bo-e4);background:var(--bo-surface);border-top:1.5px solid var(--bo-bordure);box-shadow:0 -4px 12px rgba(13,39,102,.08);border-radius:0 0 44px 44px}
@@ -82,7 +90,8 @@ ${ETROIT}{.bo-dossier-grille{grid-template-columns:minmax(0,1fr)}}
 const accesRapide = `
 .bo-acces-titre{font-size:20px;line-height:24px;letter-spacing:.02em;text-transform:uppercase}
 .bo-acces-liste{display:flex;flex-wrap:wrap;gap:var(--bo-e3);margin-top:-6px}
-.bo-acces{position:relative;display:flex;flex-direction:column;width:218px;height:170px;padding:30px 18px 0;color:var(--bo-marine);text-align:left;isolation:isolate}
+.bo-acces{position:relative;display:flex;flex-direction:column;flex:none;width:160px;height:184px;padding:30px 14px 0;color:var(--bo-marine);text-align:left;isolation:isolate}
+.bo-acces--urgent:not(.bo-acces--plein) .bo-acces-etiquette,.bo-acces--urgent:not(.bo-acces--plein) .bo-acces-retard{color:var(--bo-corail-texte)}
 .bo-acces::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--bo-creme);clip-path:${ONGLET};transition:background var(--bo-mvt)}
 .bo-acces:hover::before{background:var(--bo-bordure)}
 .bo-acces--plein{color:#fff}
@@ -197,7 +206,7 @@ ${MOBILE}{
 .bo-page{padding:20px 16px 32px}
 .bo-titre-page{font-size:24px}
 .bo-barre-collante{border-radius:0}
-.bo-acces{width:100%;max-width:218px}
+.bo-resume .bo-bouton{margin-left:0}
 .bo-tableau,.bo-tableau--afaire{min-width:0;table-layout:auto}
 .bo-tableau thead{display:none}
 .bo-tableau,.bo-tableau tbody,.bo-tableau tr,.bo-tableau td{display:block;width:100%}

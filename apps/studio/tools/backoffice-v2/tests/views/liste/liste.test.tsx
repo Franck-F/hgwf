@@ -32,6 +32,8 @@ vi.mock('../../../data/useAFaire', () => ({
 }));
 
 import { AFaire } from '../../../views/AFaire/AFaire';
+import { etiquette } from '../../../views/AFaire/AccesRapide';
+import { dateDuJour, resumerPriorites } from '../../../views/AFaire/resume';
 import { fusionnerFantomes, useLignesFantomes } from '../../../views/AFaire/useLignesFantomes';
 import { Dossiers } from '../../../views/Dossiers/Dossiers';
 import { montantTTC } from '../../../views/Dossiers/LigneDossier';
@@ -157,6 +159,35 @@ describe('À faire', () => {
     render(<AFaire />);
     fireEvent.click(screen.getByRole('button', { name: 'Nouveau dossier' }));
     expect(naviguer).toHaveBeenCalledWith('/dossier/nouveau');
+  });
+  it('s’appelle « Priorités », résume la situation et ouvre le dossier le plus urgent', () => {
+    donnees.groupes = [
+      { id: 'aOuvrir', titre: 'Demandes à ouvrir', lignes: [ligne('a', 'Alice'), { ...ligne('b', 'Bruno'), enRetard: true }] },
+      { id: 'devis', titre: 'Devis à chiffrer', lignes: [{ ...ligne('c', 'Chloé'), nbNonLus: 2 }] },
+    ];
+    render(<AFaire />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Priorités' })).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toContain('3 dossiers attendent une action de votre part, dont 1 en retard. 2 réponses clients non lues.');
+    fireEvent.click(screen.getByRole('button', { name: /Commencer par Bruno/ }));
+    expect(naviguer).toHaveBeenCalledWith('/dossier/b');
+  });
+});
+
+describe('résumé des priorités et cartes par étape', () => {
+  it('singulier, sans retard, sans réponse : commence par le premier dossier', () => {
+    const r = resumerPriorites([{ id: 'aOuvrir', titre: 'T', lignes: [ligne('a', 'Alice')] }]);
+    expect(r.phrase).toBe('1 dossier attend une action de votre part.');
+    expect(r.plusUrgent?.dossierId).toBe('a');
+  });
+  it('rien à faire, et les lignes grisées ne comptent pas', () => {
+    const g: GroupeAFaire[] = [{ id: 'aOuvrir', titre: 'T', lignes: [ligne('a', 'Alice')] }];
+    expect(resumerPriorites(g, new Set(['a']))).toMatchObject({ nombre: 0, plusUrgent: null });
+  });
+  it('le surtitre d’une carte dit « Urgent » ou « Dans les délais »', () => {
+    expect(etiquette({ id: 'devis', titre: 'D', nombre: 3, enRetard: 1 })).toBe('Urgent');
+    expect(etiquette({ id: 'devis', titre: 'D', nombre: 3, enRetard: 0 })).toBe('Dans les délais');
+    expect(etiquette({ id: 'tout', titre: 'T', nombre: 3, enRetard: 1 })).toBe('Vue d’ensemble');
+    expect(dateDuJour(new Date('2026-11-16T10:00:00'))).toBe('Lundi 16 novembre');
   });
 });
 

@@ -31,7 +31,7 @@ export function cartesAcces(
   });
   const tout: CarteAcces = {
     id: ID_TOUT,
-    titre: 'Tout ce qui est à faire',
+    titre: 'Tous les dossiers à traiter',
     nombre: cartes.reduce((n, c) => n + c.nombre, 0),
     enRetard: cartes.reduce((n, c) => n + c.enRetard, 0),
   };
@@ -43,10 +43,15 @@ function pluriel(n: number): string {
   return `${n} dossier${n > 1 ? 's' : ''}`;
 }
 
-function etiquette(id: string): string {
-  if (id === ID_ATTENTE) return 'Rien à faire';
-  if (id === ID_TOUT) return 'Vue d’ensemble';
-  return 'À traiter';
+/**
+ * Le surtitre dit l'état de l'étape d'un coup d'œil : « Urgent » s'il y a du
+ * retard, « Dans les délais » sinon (au lieu d'un « À traiter » répété sur
+ * chaque carte, qui n'apprenait rien).
+ */
+export function etiquette(carte: CarteAcces): string {
+  if (carte.id === ID_ATTENTE) return 'Rien à faire';
+  if (carte.id === ID_TOUT) return 'Vue d’ensemble';
+  return carte.enRetard > 0 ? 'Urgent' : 'Dans les délais';
 }
 
 export interface AccesRapideProps {
@@ -60,21 +65,22 @@ export function AccesRapide({ cartes, choisi, onChoisir }: AccesRapideProps): Re
   return (
     <section className="bo-pile" aria-labelledby="bo-acces-titre">
       <h2 className="bo-acces-titre" id="bo-acces-titre">
-        Accès rapide
+        Par étape
       </h2>
       <div className="bo-acces-liste">
         {cartes.map((c) => {
           const actif = c.id === choisi;
+          const urgent = c.id !== ID_TOUT && c.id !== ID_ATTENTE && c.enRetard > 0;
           return (
             <button
               key={c.id}
               type="button"
-              className={`bo-acces${actif ? ' bo-acces--plein' : ''}`}
+              className={`bo-acces${actif ? ' bo-acces--plein' : ''}${urgent ? ' bo-acces--urgent' : ''}`}
               aria-pressed={actif}
               aria-label={`${c.titre} : ${pluriel(c.nombre)}`}
               onClick={() => onChoisir(actif ? ID_TOUT : c.id)}
             >
-              <span className="bo-acces-etiquette">{etiquette(c.id)}</span>
+              <span className="bo-acces-etiquette">{etiquette(c)}</span>
               <span className="bo-acces-nombre">{c.nombre}</span>
               <span className="bo-acces-nom">{c.titre}</span>
               <span className="bo-acces-retard">

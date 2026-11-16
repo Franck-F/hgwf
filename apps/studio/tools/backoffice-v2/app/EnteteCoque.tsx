@@ -1,6 +1,6 @@
 /** @jsxRuntime automatic @jsxImportSource react */
 /**
- * Barre haute de la coque : logo (retour à « À faire ») et recherche globale.
+ * Barre haute de la coque : logo (retour à « Priorités ») et recherche globale.
  * Ni nom d'utilisateur ni boutons sans effet (alertes, aide, réglages de la
  * maquette) : l'équipe a demandé qu'on les retire.
  */
@@ -15,7 +15,7 @@ export function EnteteCoque(): ReactElement {
   const { naviguer } = useRoute();
   return (
     <header className="bo-haut">
-      <button type="button" className="bo-logo-bouton" aria-label="HGWF Cargo, retour à la page « À faire »" onClick={() => naviguer('/afaire')}>
+      <button type="button" className="bo-logo-bouton" aria-label="HGWF Cargo, retour à la page « Priorités »" onClick={() => naviguer('/afaire')}>
         <img className="bo-logo" src={URL_LOGO} alt="" />
       </button>
       <RechercheGlobale />

@@ -68,7 +68,7 @@ function Page({ route, retour }: { route: Route; retour: () => void }): ReactEle
           <EtatVide
             titre="Cette page n'existe pas"
             phrase="L'adresse est peut-être ancienne."
-            action={{ libelle: 'Retour à « À faire »', onClick: retour }}
+            action={{ libelle: 'Retour à « Priorités »', onClick: retour }}
           />
         </div>
       );

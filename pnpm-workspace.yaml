@@ -1,3 +1,9 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Correctifs de sécurité imposés aux dépendances transitives (audit du 16/11/2026).
+# dompurify : tiré par jspdf dans le Studio (GHSA-c6gr-qvv4-5v3f et suivantes).
+overrides:
+  dompurify: '>=3.4.17'
+
