@@ -37,6 +37,28 @@ const OPTIONS: sanitizeHtml.IOptions = {
   },
 };
 
-export function nettoyerHtmlArticle(html: string | null | undefined): string {
-  return sanitizeHtml(String(html ?? ''), OPTIONS);
+/**
+ * BabyLoveGrowth répète en tête du contenu le titre (<h1>) et l'image
+ * principale, que la page affiche déjà dans son en-tête. On retire ce premier
+ * <h1> et l'image dont l'adresse est celle de l'image principale reçue
+ * (`source.imageUrl`). Fait sur le HTML brut, AVANT le nettoyage, qui reste la
+ * seule barrière de sécurité.
+ */
+export function retirerEnTeteDoublon(html: string, imagePrincipaleSource: string | null): string {
+  let sortie = html.replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, '');
+  if (imagePrincipaleSource) {
+    // L'image principale reçue est réutilisée telle quelle dans le contenu
+    // (souvent dans un <p>) : on retire la balise qui pointe exactement dessus.
+    const echappee = imagePrincipaleSource.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    sortie = sortie.replace(new RegExp(`<img\\b[^>]*\\bsrc=["']${echappee}["'][^>]*>`, 'i'), '');
+  }
+  return sortie;
+}
+
+export function nettoyerHtmlArticle(html: string | null | undefined, imagePrincipaleSource: string | null = null): string {
+  return sanitizeHtml(retirerEnTeteDoublon(String(html ?? ''), imagePrincipaleSource), {
+    ...OPTIONS,
+    // Un paragraphe vidé (l'image retirée) laisserait un trou.
+    exclusiveFilter: (frame) => frame.tag === 'p' && !frame.text.trim() && frame.mediaChildren.length === 0,
+  });
 }

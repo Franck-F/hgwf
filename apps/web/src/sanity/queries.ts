@@ -41,6 +41,8 @@ export type ArticleResume = {
 
 export type Article = ArticleResume & {
   contenuHtml: string;
+  /** Adresse d'origine de l'image principale (chez BabyLoveGrowth), répétée dans le contenu. */
+  imageSource: string | null;
   jsonLd: string | null;
   faqJsonLd: string | null;
   motsCles: string[] | null;
@@ -50,7 +52,7 @@ const FILTRE_ARTICLE = `_type == "article" && langue == $locale && defined(slug.
 const CHAMPS_RESUME = `"slug": slug.current, titre, description, publieLe, "imageUrl": imagePrincipale.asset->url, "imageAlt": imagePrincipale.alt`;
 
 const ARTICLES = groq`*[${FILTRE_ARTICLE}] | order(publieLe desc){${CHAMPS_RESUME}}`;
-const ARTICLE = groq`*[${FILTRE_ARTICLE} && slug.current == $slug][0]{${CHAMPS_RESUME}, contenuHtml, jsonLd, faqJsonLd, motsCles}`;
+const ARTICLE = groq`*[${FILTRE_ARTICLE} && slug.current == $slug][0]{${CHAMPS_RESUME}, contenuHtml, "imageSource": source.imageUrl, jsonLd, faqJsonLd, motsCles}`;
 
 export async function getArticles(locale: Locale): Promise<ArticleResume[]> {
   if (!sanityClient) return [];

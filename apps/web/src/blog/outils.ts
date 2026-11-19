@@ -49,6 +49,36 @@ export function dateLisible(locale: Locale, iso: string | null | undefined): str
 }
 
 /**
+ * Données structurées « BlogPosting » construites depuis l'article, quand
+ * BabyLoveGrowth n'en envoie pas. Rattachées à la fiche entreprise du site
+ * (`#organisation`, voir components/DonneesStructurees.tsx).
+ */
+export function jsonLdArticle(a: {
+  locale: Locale;
+  slug: string;
+  titre: string;
+  description: string | null;
+  publieLe: string;
+  imageUrl: string | null;
+}): string {
+  const site = 'https://hgwf-cargo.fr';
+  const url = `${site}/${a.locale}/blog/${a.slug}/`;
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: a.titre,
+    ...(a.description ? { description: a.description } : {}),
+    datePublished: a.publieLe,
+    inLanguage: a.locale === 'en' ? 'en' : 'fr',
+    ...(a.imageUrl ? { image: a.imageUrl } : {}),
+    url,
+    mainEntityOfPage: url,
+    author: { '@id': `${site}/#organisation` },
+    publisher: { '@id': `${site}/#organisation` },
+  }).replace(/</g, '\\u003c');
+}
+
+/**
  * JSON-LD prêt à injecter dans une balise <script> : relu, réécrit, et sans
  * « < » (un « </script> » dans une valeur fermerait la balise). Null si le
  * texte n'est pas un objet JSON.

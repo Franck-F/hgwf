@@ -7,7 +7,7 @@ import { Link } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
 import { getArticle, getArticles } from '@/sanity/queries';
 import { metadonneesPage } from '@/seo/metadonnees';
-import { TEXTES_BLOG, dateLisible, jsonLdInjectable } from '@/blog/outils';
+import { TEXTES_BLOG, dateLisible, jsonLdArticle, jsonLdInjectable } from '@/blog/outils';
 import { nettoyerHtmlArticle } from '@/blog/nettoyage';
 
 type PageParams = { locale: string; slug: string };
@@ -50,7 +50,8 @@ export default async function ArticlePage({ params }: { params: Promise<PagePara
   const article = await getArticle(locale, slug);
   if (!article) notFound();
   const t = TEXTES_BLOG[locale];
-  const donnees = [jsonLdInjectable(article.jsonLd), jsonLdInjectable(article.faqJsonLd)].filter((d): d is string => d !== null);
+  const principal = jsonLdInjectable(article.jsonLd) ?? jsonLdArticle({ locale, ...article });
+  const donnees = [principal, jsonLdInjectable(article.faqJsonLd)].filter((d): d is string => d !== null);
 
   return (
     <main>
@@ -88,7 +89,7 @@ export default async function ArticlePage({ params }: { params: Promise<PagePara
         ) : null}
         {/* HTML nettoyé deux fois : à la réception (apps/api/src/blog.js) et ici,
             à la construction, au cas où il aurait été modifié dans le Studio. */}
-        <div className="contenu-article" dangerouslySetInnerHTML={{ __html: nettoyerHtmlArticle(article.contenuHtml) }} />
+        <div className="contenu-article" dangerouslySetInnerHTML={{ __html: nettoyerHtmlArticle(article.contenuHtml, article.imageUrl ? article.imageSource : null) }} />
       </article>
 
       <section className="revele mx-auto max-w-[820px] px-5 pt-16 pb-22 sm:px-8">
