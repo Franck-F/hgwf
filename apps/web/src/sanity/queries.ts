@@ -28,6 +28,40 @@ export async function getServices(locale: Locale): Promise<ServiceSummary[]> {
   return sanityClient.fetch<ServiceSummary[]>(SERVICES_LISTE, { locale });
 }
 
+// ── Blog (articles reçus de BabyLoveGrowth, voir apps/api/src/blog.js) ──────
+
+export type ArticleResume = {
+  slug: string;
+  titre: string;
+  description: string | null;
+  publieLe: string;
+  imageUrl: string | null;
+  imageAlt: string | null;
+};
+
+export type Article = ArticleResume & {
+  contenuHtml: string;
+  jsonLd: string | null;
+  faqJsonLd: string | null;
+  motsCles: string[] | null;
+};
+
+const FILTRE_ARTICLE = `_type == "article" && langue == $locale && defined(slug.current) && defined(contenuHtml)`;
+const CHAMPS_RESUME = `"slug": slug.current, titre, description, publieLe, "imageUrl": imagePrincipale.asset->url, "imageAlt": imagePrincipale.alt`;
+
+const ARTICLES = groq`*[${FILTRE_ARTICLE}] | order(publieLe desc){${CHAMPS_RESUME}}`;
+const ARTICLE = groq`*[${FILTRE_ARTICLE} && slug.current == $slug][0]{${CHAMPS_RESUME}, contenuHtml, jsonLd, faqJsonLd, motsCles}`;
+
+export async function getArticles(locale: Locale): Promise<ArticleResume[]> {
+  if (!sanityClient) return [];
+  return sanityClient.fetch<ArticleResume[]>(ARTICLES, { locale });
+}
+
+export async function getArticle(locale: Locale, slug: string): Promise<Article | null> {
+  if (!sanityClient) return null;
+  return sanityClient.fetch<Article | null>(ARTICLE, { locale, slug });
+}
+
 // ── Navigation / footer / paramètres du site ────────────────────────────────
 
 export type LienNav = { libelleFr?: string | null; libelleEn?: string | null; href?: string | null };

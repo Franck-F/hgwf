@@ -6,6 +6,11 @@ on:
   repository_dispatch:
     types: [sanity-publish]
   workflow_dispatch:
+  # Reconstruction quotidienne : publie les articles de blog reçus de
+  # BabyLoveGrowth (et toute modification faite dans le Studio) sans attendre
+  # un push. 04h30 UTC, soit 5h30 à Paris l'hiver et 6h30 l'été.
+  schedule:
+    - cron: '30 4 * * *'
 
 jobs:
   deploy:

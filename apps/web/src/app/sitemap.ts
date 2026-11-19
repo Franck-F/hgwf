@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { locales } from '@hgwf/shared';
-import { getServiceSlugs } from '@/sanity/queries';
+import { getArticles, getServiceSlugs } from '@/sanity/queries';
 import { SITE_URL } from '@/seo/metadonnees';
 
 export const dynamic = 'force-static';
@@ -42,6 +42,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         url: `${SITE_URL}/${locale}/services/${slug}/`,
         lastModified: new Date(),
       });
+    }
+  }
+
+  // Blog : la liste dans chaque langue, puis chaque article dans sa seule langue.
+  for (const locale of locales) {
+    entrees.push({ url: `${SITE_URL}/${locale}/blog/`, lastModified: new Date() });
+    const articles = await getArticles(locale).catch(() => []);
+    for (const a of articles) {
+      entrees.push({ url: `${SITE_URL}/${locale}/blog/${a.slug}/`, lastModified: new Date(a.publieLe) });
     }
   }
 

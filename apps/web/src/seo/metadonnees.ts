@@ -12,11 +12,18 @@ export function metadonneesPage({
   chemin,
   titre,
   description,
+  seulementCetteLangue = false,
+  image,
+  type = 'website',
 }: {
   locale: Locale;
   chemin: string;
   titre: string;
   description: string;
+  /** Page qui n'existe que dans `locale` (article de blog) : pas d'hreflang vers une traduction absente. */
+  seulementCetteLangue?: boolean;
+  image?: { url: string; alt: string } | null;
+  type?: 'website' | 'article';
 }): Metadata {
   const url = (l: string) => `${SITE_URL}/${l}${chemin}/`;
 
@@ -24,21 +31,23 @@ export function metadonneesPage({
     metadataBase: new URL(SITE_URL),
     title: titre,
     description,
-    alternates: {
-      canonical: url(locale),
-      languages: {
-        ...Object.fromEntries(locales.map((l) => [l, url(l)])),
-        'x-default': url('fr'),
-      },
-    },
+    alternates: seulementCetteLangue
+      ? { canonical: url(locale) }
+      : {
+          canonical: url(locale),
+          languages: {
+            ...Object.fromEntries(locales.map((l) => [l, url(l)])),
+            'x-default': url('fr'),
+          },
+        },
     openGraph: {
-      type: 'website',
+      type,
       siteName: 'HGWF Cargo',
       locale: locale === 'en' ? 'en_US' : 'fr_FR',
       url: url(locale),
       title: titre,
       description,
-      images: [{ url: `${SITE_URL}/photos/conteneurs.jpg`, alt: 'HGWF Cargo' }],
+      images: [image ?? { url: `${SITE_URL}/photos/conteneurs.jpg`, alt: 'HGWF Cargo' }],
     },
     twitter: {
       card: 'summary_large_image',

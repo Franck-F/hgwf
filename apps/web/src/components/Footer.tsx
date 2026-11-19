@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { Link } from '@/i18n/navigation';
-import { getFooter, getSiteSettings } from '@/sanity/queries';
+import { getArticles, getFooter, getSiteSettings } from '@/sanity/queries';
+import { TEXTES_BLOG } from '@/blog/outils';
 import { nettoyerInvisibles } from './nettoyerInvisibles';
 
 const COLONNES_DEFAUT = [
@@ -59,8 +60,12 @@ function IconeTikTok() {
 }
 
 export async function Footer({ locale }: { locale: string }) {
-  const [footer, settings] = await Promise.all([getFooter(), getSiteSettings()]);
   const en = locale === 'en';
+  const [footer, settings, articles] = await Promise.all([
+    getFooter(),
+    getSiteSettings(),
+    getArticles(en ? 'en' : 'fr').catch(() => []),
+  ]);
 
   const baseline =
     (en ? footer?.texteEn : footer?.texteFr) ??
@@ -68,7 +73,7 @@ export async function Footer({ locale }: { locale: string }) {
     settings?.baseline ??
     (en ? 'Freight transport all over the world.' : 'Transport de marchandises dans le monde entier.');
 
-  const colonnes = footer?.colonnes?.length
+  const colonnesBrutes = footer?.colonnes?.length
     ? footer.colonnes.map((c) => ({
         titre: (en ? c.titreEn : c.titreFr) ?? c.titreFr ?? '',
         liens: (c.liens ?? []).map((l) => ({
@@ -80,6 +85,16 @@ export async function Footer({ locale }: { locale: string }) {
         titre: en ? c.en : c.fr,
         liens: c.liens.map((l) => ({ libelle: en ? l.en : l.fr, href: l.href })),
       }));
+
+  // Lien vers le blog, ajouté à la dernière colonne dès qu'un article existe
+  // dans cette langue (pas de lien vers une page vide), sauf si l'équipe l'a
+  // déjà mis dans le pied de page depuis le Studio.
+  const lienBlog = { libelle: TEXTES_BLOG[en ? 'en' : 'fr'].lienPied, href: '/blog' };
+  const dejaPresent = colonnesBrutes.some((c) => c.liens.some((l) => l.href.replace(/\/$/, '') === '/blog'));
+  const colonnes =
+    articles.length > 0 && !dejaPresent && colonnesBrutes.length > 0
+      ? colonnesBrutes.map((c, i) => (i === colonnesBrutes.length - 1 ? { ...c, liens: [...c.liens, lienBlog] } : c))
+      : colonnesBrutes;
 
   const ligneLegale = nettoyerInvisibles(footer?.ligneLegale ?? LIGNE_LEGALE_DEFAUT);
   const copyright =

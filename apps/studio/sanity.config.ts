@@ -187,6 +187,15 @@ function structureContenu(S: StructureBuilder) {
               ),
             ),
         ),
+      S.listItem()
+        .title('Blog')
+        .id('blog')
+        .icon(BlockContentIcon)
+        .child(
+          S.documentTypeList('article')
+            .title('Articles de blog')
+            .defaultOrdering([{ field: 'publieLe', direction: 'desc' }]),
+        ),
       S.divider(),
       S.listItem()
         .title('Contenus')

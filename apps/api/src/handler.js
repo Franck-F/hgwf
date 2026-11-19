@@ -6,6 +6,7 @@
  *   GET  /api/sante          → vérification de vie
  *   POST /api/suggestion-devis → proposition Gemini pour un champ du chiffrage (back-office, clé)
  *   POST /api/reception-email → réponses des clients (webhook Resend signé), rangées dans le dossier
+ *   POST /api/blog-article   → article de blog BabyLoveGrowth (secret partagé), rangé dans « production »
  *
  * Ce module exporte le gestionnaire HTTP pur (req, res) : `src/server.js`
  * l'enveloppe dans un serveur Node pour le dev local, `api/index.js` l'expose
@@ -19,6 +20,7 @@ import { CHAMPS_SUGGESTION, MODELE_PAR_DEFAUT, construireRequete, demanderSugges
 import { facturationDepuisFormulaire } from './facturation.js';
 import { TAILLE_MAX_WEBHOOK, adresseReponse, relireEchange, traiterReception } from './reception.js';
 import { cleValide, prenomAffichable, sansLien } from './securite.js';
+import { traiterArticle } from './blog.js';
 
 // ── Chargement .env (sans dépendance) : dev local uniquement ─────────────────
 try {
@@ -46,6 +48,15 @@ if (!PROJECT_ID || !TOKEN) {
 const sanity = createClient({
   projectId: PROJECT_ID,
   dataset: DATASET,
+  apiVersion: '2024-10-01',
+  token: TOKEN,
+  useCdn: false,
+});
+
+// Contenu public du site (articles de blog reçus de BabyLoveGrowth).
+const sanityContenu = createClient({
+  projectId: PROJECT_ID,
+  dataset: process.env.SANITY_DATASET_CONTENU || 'production',
   apiVersion: '2024-10-01',
   token: TOKEN,
   useCdn: false,
@@ -867,6 +878,20 @@ async function recevoirEmail(req, res) {
   return json(res, status, corps);
 }
 
+// ── Articles de blog (webhook BabyLoveGrowth, secret partagé) ────────────────
+// Toujours une réponse JSON : BabyLoveGrowth compte un corps vide comme un échec.
+async function recevoirArticle(req, res) {
+  let corps;
+  try {
+    // Un article complet (HTML + markdown + données structurées) dépasse 50 ko.
+    corps = JSON.parse((await lireCorps(req, 3_000_000)) || '{}');
+  } catch {
+    return json(res, 400, { success: false, error: 'JSON invalide ou trop volumineux' });
+  }
+  const { status, corps: reponse } = await traiterArticle({ corps, entetes: req.headers, sanity: sanityContenu });
+  return json(res, status, reponse);
+}
+
 export async function handler(req, res) {
   const cors = corsHeaders(req);
   const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
@@ -906,6 +931,9 @@ export async function handler(req, res) {
     }
     if (req.method === 'POST' && url.pathname === '/api/relire-echange') {
       return await relireMessage(req, res, cors);
+    }
+    if (req.method === 'POST' && url.pathname === '/api/blog-article') {
+      return await recevoirArticle(req, res);
     }
     if (req.method === 'GET' && url.pathname === '/api/suivi') {
       return await chercherSuivi(req, res, cors, url);

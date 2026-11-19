@@ -34,6 +34,7 @@ import { destination } from './documents/destination';
 import { profil } from './documents/profil';
 import { faqItem } from './documents/faqItem';
 import { temoignage } from './documents/temoignage';
+import { article } from './documents/article';
 
 export const schemaTypes: SchemaTypeDefinition[] = [
   // singletons
@@ -62,6 +63,7 @@ export const schemaTypes: SchemaTypeDefinition[] = [
   profil,
   faqItem,
   temoignage,
+  article,
 ];
 
 // Types du back-office — dataset privé « operations » (workspace dédié)

@@ -10,6 +10,7 @@
     "test": "node --test \"test/*.test.js\""
   },
   "dependencies": {
-    "@sanity/client": "^7.4.0"
+    "@sanity/client": "^7.4.0",
+    "sanitize-html": "^2.18.2"
   }
 }
