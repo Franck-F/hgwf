@@ -11,51 +11,21 @@
  * erreurs 429/5xx sont rejouées trois fois : le traitement est idempotent
  * (même article = même document `article-blg-<id>`).
  *
- * Sécurité : le HTML vient d'un service extérieur et sera publié tel quel sur
- * hgwf-cargo.fr. Il est nettoyé ici, avec une liste blanche de balises et
- * d'attributs : pas de script, pas de style, pas d'iframe, pas d'attribut
- * d'événement, liens en http(s) ou mailto uniquement.
+ * Sécurité : le HTML vient d'un service extérieur. Il est rangé tel que reçu
+ * et n'est **jamais affiché sans nettoyage** : le site le passe dans
+ * sanitize-html (liste blanche) à chaque construction, dans
+ * apps/web/src/blog/nettoyage.ts. Ce nettoyage n'est volontairement pas fait
+ * ici : sanitize-html ≥ 2.17.6 dépend de htmlparser2 12, publié en module ES
+ * seulement, que la fonction Vercel ne sait pas charger (l'API entière
+ * plantait au démarrage le 19/11/2026). Un seul nettoyage, au seul endroit où
+ * le HTML est rendu, avec la version corrigée de la bibliothèque.
  */
-import sanitizeHtml from 'sanitize-html';
 import { cleValide } from './securite.js';
 
 export const SITE_URL = 'https://hgwf-cargo.fr';
 export const LANGUES = ['fr', 'en'];
 const IMAGE_MAX = 8 * 1024 * 1024;
-
-const OPTIONS_HTML = {
-  allowedTags: [
-    'h2', 'h3', 'h4', 'p', 'br', 'hr', 'strong', 'b', 'em', 'i', 'u', 's', 'sup', 'sub', 'mark', 'small',
-    'ul', 'ol', 'li', 'blockquote', 'a', 'img', 'figure', 'figcaption',
-    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'code', 'pre', 'span', 'div',
-  ],
-  allowedAttributes: {
-    a: ['href', 'title', 'target', 'rel'],
-    img: ['src', 'alt', 'title', 'width', 'height', 'loading', 'decoding'],
-    th: ['colspan', 'rowspan', 'scope'],
-    td: ['colspan', 'rowspan'],
-    ol: ['start'],
-  },
-  allowedSchemes: ['http', 'https', 'mailto'],
-  allowedSchemesByTag: { img: ['https'] },
-  allowProtocolRelative: false,
-  // La page porte déjà son <h1> (le titre) : un h1 du contenu devient h2.
-  transformTags: {
-    h1: 'h2',
-    a: (tagName, attribs) => {
-      const externe = attribs.target === '_blank';
-      return {
-        tagName,
-        attribs: { ...attribs, ...(externe ? { rel: 'noopener noreferrer' } : {}) },
-      };
-    },
-    img: (tagName, attribs) => ({ tagName, attribs: { ...attribs, loading: 'lazy', decoding: 'async' } }),
-  },
-};
-
-export function nettoyerHtml(html) {
-  return sanitizeHtml(String(html ?? ''), OPTIONS_HTML).trim();
-}
+const HTML_MAX = 600_000;
 
 /** « Fret maritime : 5 conseils ! » → « fret-maritime-5-conseils ». */
 export function nettoyerSlug(brut) {
@@ -102,12 +72,13 @@ export function lireArticle(corps) {
   const titre = texte(corps.title, 200);
   const slug = nettoyerSlug(corps.slug || corps.title);
   const langue = langueDe(corps);
-  const contenu = nettoyerHtml(corps.content_html);
+  const contenu = String(corps.content_html ?? '').trim();
   if (!id) return { ok: false, erreur: 'champ id manquant' };
   if (!titre) return { ok: false, erreur: 'champ title manquant' };
   if (!slug) return { ok: false, erreur: 'champ slug manquant' };
   if (!langue) return { ok: false, erreur: `langue non publiée sur le site (${texte(corps.lang || corps.languageCode, 20)}) : seulement fr et en` };
   if (!contenu) return { ok: false, erreur: 'champ content_html vide' };
+  if (contenu.length > HTML_MAX) return { ok: false, erreur: 'champ content_html trop volumineux' };
 
   const motsCles = (Array.isArray(corps.keywords) ? corps.keywords : String(corps.keywords ?? '').split(','))
     .map((m) => texte(m, 80))

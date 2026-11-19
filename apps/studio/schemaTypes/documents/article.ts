@@ -4,7 +4,8 @@ import { DocumentTextIcon } from '@sanity/icons';
 /**
  * Article de blog. Les articles arrivent de BabyLoveGrowth par le webhook de
  * l'API (`/api/blog-article`) et sont publiés sur /<langue>/blog/<slug>/ à la
- * construction suivante du site. Le contenu est du HTML déjà nettoyé par l'API.
+ * construction suivante du site. Le HTML est rangé tel que reçu et nettoyé à
+ * la construction (apps/web/src/blog/nettoyage.ts).
  *
  * Retoucher un article ici : cocher « Ne plus mettre à jour depuis
  * BabyLoveGrowth », sinon une nouvelle version envoyée par le service écrase
@@ -55,7 +56,7 @@ export const article = defineType({
       type: 'text',
       group: 'contenu',
       rows: 24,
-      description: 'HTML de l’article. Les balises script, style, iframe et les attributs d’événement sont retirés à la réception.',
+      description: 'HTML de l’article, tel que reçu. Il est nettoyé à chaque construction du site : les scripts, styles, iframes et attributs d’événement ne sont jamais publiés.',
       validation: (r) => r.required(),
     }),
     defineField({

@@ -20,6 +20,11 @@ describe('blog', () => {
     const sortie = nettoyerHtmlArticle('<h1>T</h1><p onmouseover="x()">a</p><script>alert(1)</script><a href="javascript:alert(1)">j</a><img src="https://x/i.png" onerror="x()"><iframe src="https://x"></iframe>');
     expect(sortie).not.toMatch(/script|onmouseover|onerror|iframe|javascript:/i);
     expect(sortie).toContain('<h2>T</h2>');
-    expect(sortie).toContain('<img src="https://x/i.png" />');
+    expect(sortie).toContain('<img src="https://x/i.png" loading="lazy" decoding="async" />');
+    expect(nettoyerHtmlArticle('<img src="http://x/i.png"><a href="https://a.fr" target="_blank">e</a>')).toBe(
+      '<img loading="lazy" decoding="async" /><a href="https://a.fr" target="_blank" rel="noopener noreferrer">e</a>',
+    );
+    // GHSA-jxwj-j7wr-gfrw (corrigé en 2.17.6) : pas de balise interdite qui ressurgit.
+    expect(nettoyerHtmlArticle('<p></textarea/><img src=x onerror=alert(1)></p>')).not.toMatch(/onerror/);
   });
 });

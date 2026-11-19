@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { jsonLdPropre, langueDe, lireArticle, nettoyerHtml, nettoyerSlug, secretValide, traiterArticle } from '../src/blog.js';
+import { jsonLdPropre, langueDe, lireArticle, nettoyerSlug, secretValide, traiterArticle } from '../src/blog.js';
 
 const SECRET = 'secret-de-test-assez-long';
 const entetes = { authorization: `Bearer ${SECRET}` };
@@ -50,15 +50,6 @@ const fauxFetch = (type = 'image/jpeg') => async () => ({
   arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer,
 });
 
-test('nettoyerHtml : retire script et événements, h1 devient h2, liens externes en noopener', () => {
-  const sortie = nettoyerHtml('<h1>T</h1><p onclick="x()">a</p><script>alert(1)</script><a href="javascript:alert(1)">j</a><a href="https://a.fr" target="_blank">e</a><iframe src="https://x"></iframe><img src="http://x/i.png"><img src="https://x/i.png" onerror="x()">');
-  assert.doesNotMatch(sortie, /script|onclick|onerror|iframe|javascript:/i);
-  assert.match(sortie, /<h2>T<\/h2>/);
-  assert.match(sortie, /rel="noopener noreferrer"/);
-  assert.match(sortie, /<img src="https:\/\/x\/i.png" loading="lazy" decoding="async" \/>/);
-  assert.doesNotMatch(sortie, /http:\/\/x/);
-});
-
 test('nettoyerSlug, langueDe, jsonLdPropre', () => {
   assert.equal(nettoyerSlug('Fret maritime : 5 conseils à Pointe-à-Pitre !'), 'fret-maritime-5-conseils-a-pointe-a-pitre');
   assert.equal(langueDe({ languageCode: 'fr-FR' }), 'fr');
@@ -72,7 +63,8 @@ test('nettoyerSlug, langueDe, jsonLdPropre', () => {
 
 test('lireArticle : refuse un corps incomplet ou une langue non publiée', () => {
   assert.equal(lireArticle(corpsValide({ id: '' })).ok, false);
-  assert.equal(lireArticle(corpsValide({ content_html: '<script>x</script>' })).ok, false);
+  assert.equal(lireArticle(corpsValide({ content_html: '   ' })).ok, false);
+  assert.match(lireArticle(corpsValide({ content_html: 'x'.repeat(700_000) })).erreur, /volumineux/);
   assert.match(lireArticle(corpsValide({ languageCode: 'de' })).erreur, /langue/);
   const lu = lireArticle(corpsValide());
   assert.equal(lu.ok, true);
@@ -95,7 +87,7 @@ test('traiterArticle : 503 sans secret configuré, 401 avec un mauvais secret', 
   assert.equal(s.ecrits.length, 0);
 });
 
-test('traiterArticle : range l’article (HTML nettoyé, image importée) et renvoie le lien', async () => {
+test('traiterArticle : range l’article (HTML tel que reçu, image importée) et renvoie le lien', async () => {
   const s = fauxSanity();
   const r = await traiterArticle({ corps: corpsValide(), entetes, sanity: s, env: { BABYLOVEGROWTH_WEBHOOK_SECRET: SECRET }, fetchImpl: fauxFetch() });
   assert.equal(r.status, 200);
@@ -103,7 +95,8 @@ test('traiterArticle : range l’article (HTML nettoyé, image importée) et ren
   const doc = s.ecrits[0];
   assert.equal(doc._id, 'article-blg-abc-123');
   assert.equal(doc._type, 'article');
-  assert.doesNotMatch(doc.contenuHtml, /script/);
+  // Rangé brut : le nettoyage a lieu à la construction du site (apps/web/src/blog/nettoyage.ts).
+  assert.equal(doc.contenuHtml, corpsValide().content_html);
   assert.equal(doc.imagePrincipale.asset._ref, 'image-abc-1200x800-jpg');
   assert.equal(doc.langue, 'fr');
   assert.equal(s.televerses.length, 1);

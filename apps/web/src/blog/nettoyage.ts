@@ -2,10 +2,11 @@
  * Nettoyage du HTML d'un article au moment de la construction du site (code
  * serveur uniquement : rien de ceci n'est envoyé au navigateur).
  *
- * L'API nettoie déjà le HTML reçu de BabyLoveGrowth. On recommence ici parce
- * que le contenu peut ensuite être modifié dans le Studio : un compte Sanity
- * compromis ne doit pas pouvoir injecter de script sur hgwf-cargo.fr. Même
- * liste blanche que apps/api/src/blog.js.
+ * C'est le SEUL nettoyage : l'API range le HTML de BabyLoveGrowth tel que reçu
+ * (voir apps/api/src/blog.js pour la raison), et l'équipe peut aussi le
+ * modifier dans le Studio. Tout ce qui s'affiche sur hgwf-cargo.fr passe donc
+ * par ici. Garder sanitize-html à jour (failles corrigées en 2.17.6, 2.17.7,
+ * 2.18.0 et 2.18.1).
  */
 import sanitizeHtml from 'sanitize-html';
 
@@ -25,12 +26,14 @@ const OPTIONS: sanitizeHtml.IOptions = {
   allowedSchemes: ['http', 'https', 'mailto'],
   allowedSchemesByTag: { img: ['https'] },
   allowProtocolRelative: false,
+  // La page porte déjà son <h1> (le titre) : un h1 du contenu devient h2.
   transformTags: {
     h1: 'h2',
     a: (tagName, attribs) => ({
       tagName,
       attribs: attribs.target === '_blank' ? { ...attribs, rel: 'noopener noreferrer' } : attribs,
     }),
+    img: (tagName, attribs) => ({ tagName, attribs: { ...attribs, loading: 'lazy', decoding: 'async' } }),
   },
 };
 
