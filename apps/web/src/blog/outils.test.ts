@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dateLisible, jsonLdArticle, jsonLdInjectable } from './outils';
+import { avecBlog, dateLisible, jsonLdArticle, jsonLdInjectable } from './outils';
 import { nettoyerHtmlArticle } from './nettoyage';
 
 describe('blog', () => {
@@ -25,6 +25,25 @@ describe('blog', () => {
     expect(dateLisible('fr', '2026-11-19T08:00:00Z')).toBe('19 novembre 2026');
     expect(dateLisible('en', '2026-11-19T08:00:00Z')).toBe('November 19, 2026');
     expect(dateLisible('fr', 'n’importe quoi')).toBe('');
+  });
+
+  it('retire la mention BabyLoveGrowth et garde les liens internes dans le même onglet', () => {
+    const sortie = nettoyerHtmlArticle(
+      '<p>Texte <a href="https://hgwf-cargo.fr/fr/devis" target="_blank" rel="noopener">devis</a></p><p><a href="https://www.babylovegrowth.ai" target="_blank" rel="noopener">Made with BabyLoveGrowth’s AI tools</a></p>',
+    );
+    expect(sortie).not.toMatch(/babylovegrowth|Made with/i);
+    expect(sortie).toBe('<p>Texte <a href="https://hgwf-cargo.fr/fr/devis">devis</a></p>');
+  });
+
+  it('avecBlog : « Blog » avant « Nous contacter », seulement s’il y a des articles, sans doublon', () => {
+    const menu = [
+      { libelle: 'Suivi', href: '/suivi' },
+      { libelle: 'Nous contacter', href: '/contact' },
+    ];
+    expect(avecBlog(menu, true).map((l) => l.libelle)).toEqual(['Suivi', 'Blog', 'Nous contacter']);
+    expect(avecBlog(menu, false)).toBe(menu);
+    expect(avecBlog([{ libelle: 'Blog', href: '/blog/' }], true)).toHaveLength(1);
+    expect(avecBlog([{ libelle: 'Suivi', href: '/suivi' }], true).at(-1)?.href).toBe('/blog');
   });
 
   it('retire le titre et l’image principale répétés en tête du contenu', () => {

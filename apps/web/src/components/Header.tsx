@@ -1,7 +1,8 @@
 import Image from 'next/image';
 import { Link } from '@/i18n/navigation';
-import { getNavigation, getSiteSettings } from '@/sanity/queries';
+import { getArticles, getNavigation, getSiteSettings } from '@/sanity/queries';
 import { MobileNav } from './MobileNav';
+import { avecBlog } from '@/blog/outils';
 
 const LIENS_DEFAUT = [
   { fr: 'Destinations', en: 'Destinations', href: '/#zones' },
@@ -14,16 +15,25 @@ const LIENS_DEFAUT = [
 const CTA_DEFAUT = { fr: 'Demander un devis', en: 'Request a quote', href: '/devis' };
 
 export async function Header({ locale }: { locale: string }) {
-  const [nav, settings] = await Promise.all([getNavigation(), getSiteSettings()]);
   const en = locale === 'en';
+  const [nav, settings, articles] = await Promise.all([
+    getNavigation(),
+    getSiteSettings(),
+    getArticles(en ? 'en' : 'fr').catch(() => []),
+  ]);
 
-  const liens =
+  const liensBruts =
     nav?.liens?.length
       ? nav.liens.map((l) => ({
           libelle: (en ? l.libelleEn : l.libelleFr) ?? l.libelleFr ?? '',
           href: l.href ?? '/',
         }))
       : LIENS_DEFAUT.map((l) => ({ libelle: en ? l.en : l.fr, href: l.href }));
+
+  // Entrée « Blog » (demandée par Franck le 19/11/2026), placée avant
+  // « Nous contacter », dès qu'un article existe dans cette langue et sauf si
+  // l'équipe l'a déjà ajoutée depuis le Studio (Réglages > Navigation).
+  const liens = avecBlog(liensBruts, articles.length > 0);
 
   const cta = {
     libelle:

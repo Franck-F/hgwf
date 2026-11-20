@@ -29,10 +29,14 @@ const OPTIONS: sanitizeHtml.IOptions = {
   // La page porte déjà son <h1> (le titre) : un h1 du contenu devient h2.
   transformTags: {
     h1: 'h2',
-    a: (tagName, attribs) => ({
-      tagName,
-      attribs: attribs.target === '_blank' ? { ...attribs, rel: 'noopener noreferrer' } : attribs,
-    }),
+    a: (tagName, attribs) => {
+      // Les liens vers hgwf-cargo.fr restent dans le même onglet.
+      if (/^https:\/\/(www\.)?hgwf-cargo\.fr(\/|$)/i.test(attribs.href ?? '')) {
+        const { target: _target, rel: _rel, ...reste } = attribs;
+        return { tagName, attribs: reste };
+      }
+      return { tagName, attribs: attribs.target === '_blank' ? { ...attribs, rel: 'noopener noreferrer' } : attribs };
+    },
     img: (tagName, attribs) => ({ tagName, attribs: { ...attribs, loading: 'lazy', decoding: 'async' } }),
   },
 };
@@ -55,10 +59,19 @@ export function retirerEnTeteDoublon(html: string, imagePrincipaleSource: string
   return sortie;
 }
 
+/**
+ * Mention « Made with BabyLoveGrowth’s AI tools » ajoutée en fin d'article :
+ * retirée à la demande de Franck (19/11/2026). On enlève tout lien vers
+ * babylovegrowth.ai ; le paragraphe qui le contenait, vidé, disparaît ensuite.
+ */
+export function retirerCredit(html: string): string {
+  return html.replace(/<a\b[^>]*\bhref=["']https?:\/\/(?:[\w-]+\.)*babylovegrowth\.ai[^"']*["'][^>]*>[\s\S]*?<\/a>/gi, '');
+}
+
 export function nettoyerHtmlArticle(html: string | null | undefined, imagePrincipaleSource: string | null = null): string {
-  return sanitizeHtml(retirerEnTeteDoublon(String(html ?? ''), imagePrincipaleSource), {
+  return sanitizeHtml(retirerCredit(retirerEnTeteDoublon(String(html ?? ''), imagePrincipaleSource)), {
     ...OPTIONS,
-    // Un paragraphe vidé (l'image retirée) laisserait un trou.
+    // Un paragraphe vidé (image principale ou mention retirée) laisserait un trou.
     exclusiveFilter: (frame) => frame.tag === 'p' && !frame.text.trim() && frame.mediaChildren.length === 0,
   });
 }

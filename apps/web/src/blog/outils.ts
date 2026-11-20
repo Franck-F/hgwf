@@ -41,6 +41,17 @@ export const TEXTES_BLOG = {
   },
 } as const satisfies Record<Locale, Record<string, string>>;
 
+type LienMenu = { libelle: string; href: string };
+
+/** Menu du haut : ajoute « Blog » avant « Nous contacter » (sinon en dernier), sans doublon. */
+export function avecBlog(liens: LienMenu[], ilYADesArticles: boolean): LienMenu[] {
+  const chemin = (h: string) => h.replace(/\/$/, '');
+  if (!ilYADesArticles || liens.some((l) => chemin(l.href) === '/blog')) return liens;
+  const blog = { libelle: 'Blog', href: '/blog' };
+  const contact = liens.findIndex((l) => chemin(l.href) === '/contact');
+  return contact === -1 ? [...liens, blog] : [...liens.slice(0, contact), blog, ...liens.slice(contact)];
+}
+
 /** « 19 novembre 2026 » / « November 19, 2026 » ; chaîne vide si la date est illisible. */
 export function dateLisible(locale: Locale, iso: string | null | undefined): string {
   const d = new Date(iso ?? '');
